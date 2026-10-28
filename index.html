@@ -169,10 +169,21 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 .pace{min-height:46px;display:flex;align-items:center;justify-content:center;gap:3px;font:600 14px var(--font-body);color:var(--muted);border:1px dashed var(--line);border-radius:10px;font-variant-numeric:tabular-nums}
 .pace b{font:700 21px var(--font-display);color:var(--ink)}
 .ex-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.def-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.def{display:flex;align-items:baseline;gap:6px;min-width:0}
+.def-num{font:700 38px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.def-unit{font:600 15px var(--font-display);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.def-none{font-size:14.5px;color:var(--muted)}
+.def-change{font-size:13.5px;color:var(--muted);margin-top:-4px;font-variant-numeric:tabular-nums}
+.def-change b{color:var(--gold);font-weight:700}
+.stepper{display:grid;grid-template-columns:52px minmax(0,1fr) 52px;gap:8px;align-items:center}
+.stepper .btn{height:48px;padding:0;font:700 24px/1 var(--font-display)}
+.stepper .num{height:48px}
 .block{border-top:1px dashed var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}
 .pe{padding:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
 .pe:first-child{border-top:0}
 .pe-grid{display:grid;grid-template-columns:minmax(0,1fr) 4.5rem;gap:8px}
+.pe-grid3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
 
 /* Records */
 .pr-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
@@ -258,7 +269,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.0';
+var APP_VERSION='1.1';
 var APP_ID='casian-fitness-log';
 
 /* ---------- helpers ---------- */
@@ -299,7 +310,7 @@ var S={storeState:'loading',persisted:false,ready:{settings:false,plan:false,prs
 var UI={tab:'train',prevTab:'train',weekOffset:0,selDay:dayKeyOf(new Date()),editDay:false,blockForm:null,
   prForm:null,prDel:null,newPr:null,prAll:{},
   foodView:'log',foodDate:todayY(),targetsForm:null,newMeal:false,mealName:'',addTo:null,pick:null,grams:'',ingSearch:'',delMeal:null,ingForm:null,ingFilter:'',
-  importPending:null,updateReady:false,installDismissed:false};
+  importPending:null,updateReady:false,installDismissed:false,defForm:null};
 try{var savedTab=localStorage.getItem('cfl-tab');if(savedTab&&['train','prs','food'].indexOf(savedTab)>-1)UI.tab=UI.prevTab=savedTab;}catch(e){}
 try{UI.installDismissed=localStorage.getItem('cfl-install-dismissed')==='1';}catch(e){}
 
@@ -377,6 +388,15 @@ function loadDocs(all){
     if(col==='prs'||col==='ingredients'||col==='logs'||col==='meals')S[col][id]=all[p];
   });
   Object.keys(S.ready).forEach(function(k){S.ready[k]=true;});
+}
+/* Version 1.1: fill a starting default where the plan already states one (HIIT "4 rounds") */
+function migrate(){
+  if(!S.plan||!S.plan.days)return;
+  var changed=false;
+  Object.keys(S.plan.days).forEach(function(k){(S.plan.days[k].items||[]).forEach(function(ex){
+    if(ex.reps==null&&ex.type==='rounds'){var m=/^(\d+)\s*rounds?$/i.exec(ex.target||'');if(m){ex.reps=+m[1];changed=true;}}
+  });});
+  if(changed)save('app/plan',S.plan,0);
 }
 function allDocs(){
   var d={};
@@ -624,7 +644,7 @@ function noticesHtml(globalOnly){
   if(S.storeState==='memory')h+='<div class="notice"><p class="hint">This browser is not letting the app save, so entries disappear when you close it. Open the app from your home screen or a normal (not private) browser tab.</p></div>';
   if(globalOnly)return h;
   if(UI.tab==='train'&&!isStandalone()&&!UI.installDismissed)h+='<div class="notice">'+installHtml()+'<div class="row"><button class="btn ghost small" data-act="install-dismiss">Not now</button></div></div>';
-  if(UI.tab==='train'&&S.storeState==='ok'&&hasUserLogs()){
+  if(UI.tab==='train'&&S.storeState==='ok'&&!isEmpty()){
     var lb=S.meta&&S.meta.lastBackup,n=lb?daysSince(lb):null;
     if(!lb||n>=14)h+='<div class="notice"><p class="hint">'+(lb?'Last backup was '+n+' days ago.':'No backup yet.')+' Your log lives only on this phone, so save a copy now and then.</p><div class="row"><button class="btn small" data-act="export">Save backup</button></div></div>';
   }
@@ -673,8 +693,8 @@ function renderTrain(){
   if(!ready('plan','settings','logs'))return loadingHtml('training plan');
   var vMon=viewMonday(),tY=todayY(),h='<div class="days" id="days">';
   DAYS.forEach(function(k,i){
-    var d=addDays(vMon,i),y=ymd(d),sel=k===UI.selDay,on=hasData(S.logs[y]),rest=!dayItems(k).length;
-    h+='<button class="day'+(sel?' sel':'')+(y===tY?' today':'')+(rest?' rest':'')+'" data-act="day" data-day="'+k+'" aria-pressed="'+sel+'" aria-label="'+DAY_LONG[k]+' '+fmtDM(d)+(on?', logged':'')+'"><span class="d-name">'+DAY_SHORT[k]+'</span><span class="d-num">'+d.getDate()+'</span><span class="d-dot'+(on?' on':'')+'"></span></button>';
+    var d=addDays(vMon,i),y=ymd(d),sel=k===UI.selDay,rest=!dayItems(k).length;
+    h+='<button class="day'+(sel?' sel':'')+(y===tY?' today':'')+(rest?' rest':'')+'" data-act="day" data-day="'+k+'" aria-pressed="'+sel+'" aria-label="'+DAY_LONG[k]+' '+fmtDM(d)+(rest?', rest day':'')+'"><span class="d-name">'+DAY_SHORT[k]+'</span><span class="d-num">'+d.getDate()+'</span></button>';
   });
   h+='</div>';
   h+=UI.editDay?renderDayEdit():renderDay();
@@ -686,10 +706,10 @@ function renderDay(){
   if(!S.plan)return '<div class="card"><div class="empty"><strong>No plan yet</strong>Add the exercises for each day, then log your reps here.</div><div class="row"><button class="btn primary" data-act="edit-day">Add exercises</button></div></div>';
   var label=[(dp&&dp.title)||(!items.length?'Rest day':''),fmtDate(d)].filter(Boolean).join(', ');
   var h='<div class="dayhead"><div class="min0"><h2>'+DAY_LONG[k]+'</h2><div class="sub">'+esc(label)+'</div></div><button class="btn ghost small" data-act="edit-day">Edit day</button></div>';
-  if(!items.length)return h+'<div class="card"><div class="empty"><strong>Rest day</strong>Nothing planned. Add a note if you did something anyway.</div>'+notesHtml(y)+'</div>';
+  if(!items.length)return h+'<div class="card"><div class="empty"><strong>Rest day</strong>Nothing planned. Recovery counts too.</div></div>';
   if(items.some(function(x){return x.main;})&&S.plan.restNote)h+='<p class="restnote"><span class="tag">Main</span><span>'+esc(S.plan.restNote)+'</span></p>';
-  h+='<div class="sheet">'+items.map(function(ex){return renderEx(ex,y);}).join('')+'</div>';
-  h+='<div class="card">'+notesHtml(y)+'</div>';
+  h+='<div class="sheet">'+items.map(function(ex){return renderEx(ex);}).join('')+'</div>';
+  h+='<p class="hint">Change a default when you progress. Garmin keeps the exact session.</p>';
   return h;
 }
 function notesHtml(y){
@@ -714,38 +734,54 @@ function prPromptHtml(ex,y,e){
   if(!b||v>(b.value||0))return '<button class="btn gold small" data-act="pr-from-log" data-ex="'+esc(ex.id)+'">New PR: save '+v+'</button>';
   return '';
 }
-function renderEx(ex,y){
-  var e=entryOf(y,ex.id),last=lastFor(ex.id,y),le=last?last.e:{};
-  function ph(v){return (v==null||v==='')?' ':String(v);}
-  function vv(v){return v==null?'':String(v);}
-  var base='data-ex="'+esc(ex.id)+'"',inputs='';
-  if(ex.type==='run'){
-    inputs='<div class="run-grid">'+fld('km','km-'+y+'-'+ex.id,'km',vv(e.km),ph(le.km),'decimal',base)+fld('min','min-'+y+'-'+ex.id,'min',vv(e.min),ph(le.min),'numeric',base)+fld('sec','s-'+y+'-'+ex.id,'s',vv(e.s),ph(le.s),'numeric',base)+'<div class="fld pace-fld"><span>Pace</span><div class="pace">'+paceHtml(e)+'</div></div></div>';
-  }else if(ex.type==='rounds'){
-    inputs='<div class="sets" style="--n:3">'+fld('Rounds','rounds-'+y+'-'+ex.id,'rounds',vv(e.rounds),ph(le.rounds),'numeric',base)+'</div>';
+/* Defaults: one number per exercise (reps, seconds, km or rounds), changed only when you progress */
+function defUnit(ex){return ex.type==='secs'?'s':ex.type==='run'?'km':ex.type==='rounds'?'rounds':'reps';}
+function defStep(ex){return ex.type==='secs'?5:ex.type==='run'?0.5:1;}
+function fmtDef(ex,v){return ex.type==='run'?fmtKm(v):String(v);}
+function defChangeHtml(ex){
+  var h=ex.defHist||[],last=h[h.length-1];
+  if(!last||!last.date)return '';
+  var when=fmtDM(parseYmd(last.date));
+  if(last.from==null||last.value==null)return '<div class="def-change">Set on '+when+'</div>';
+  var diff=Math.round((last.value-last.from)*100)/100;
+  return '<div class="def-change">'+(diff>0?'<b>+'+fmtDef(ex,diff)+'</b> since '+when+', was '+fmtDef(ex,last.from):'Changed on '+when+', was '+fmtDef(ex,last.from))+'</div>';
+}
+function renderEx(ex){
+  var editing=UI.defForm&&UI.defForm.id===ex.id,has=ex.reps!=null&&ex.reps!=='',body;
+  if(editing){
+    body='<div class="stepper"><button class="btn" data-act="def-step" data-d="-1" aria-label="Lower">-</button>'+
+      '<input class="num" id="def-input" type="text" inputmode="decimal" autocomplete="off" data-k="def" value="'+esc(UI.defForm.value)+'" placeholder=" " aria-label="Default '+esc(defUnit(ex))+'">'+
+      '<button class="btn" data-act="def-step" data-d="1" aria-label="Raise">+</button></div>'+
+      '<div class="row"><button class="btn primary small" data-act="def-save">Save '+esc(defUnit(ex))+'</button><button class="btn ghost small" data-act="def-cancel">Cancel</button></div>';
   }else{
-    var n=setCount(ex),s='';
-    for(var i=0;i<n;i++)s+=fld('Set '+(i+1),'set-'+y+'-'+ex.id+'-'+i,'set',vv(e.sets&&e.sets[i]),ph(le.sets&&le.sets[i]),'numeric',base+' data-i="'+i+'"');
-    inputs='<div class="sets" style="--n:'+n+'">'+s+'</div>';
+    body='<div class="def-row">'+(has?'<div class="def"><span class="def-num">'+esc(fmtDef(ex,ex.reps))+'</span><span class="def-unit">'+esc(defUnit(ex))+'</span></div>':'<span class="def-none">No default yet</span>')+
+      '<button class="btn small" data-act="def-edit" data-ex="'+esc(ex.id)+'">'+(has?'Change':'Set default')+'</button></div>'+defChangeHtml(ex);
   }
-  var lastTxt=last?('Last time, '+fmtDM(parseYmd(last.date))+': '+summary(ex,le)):'';
-  var pr=prPromptHtml(ex,y,e);
-  var foot='<div class="ex-foot"'+((lastTxt||pr)?'':' hidden')+'><span class="last-txt">'+esc(lastTxt)+'</span><span class="pr-slot">'+pr+'</span></div>';
   var meta=[(ex.type==='run'||ex.type==='rounds')?'':setCount(ex)+' sets',ex.target||''].filter(Boolean).join(', ');
-  return '<div class="ex" data-row="'+esc(ex.id)+'"><div class="ex-head"><div class="ex-name">'+esc(ex.name||'Untitled exercise')+(ex.main?' <span class="tag">Main</span>':'')+'</div>'+(meta?'<div class="ex-meta">'+esc(meta)+'</div>':'')+'</div>'+(ex.note?'<div class="ex-note">'+esc(ex.note)+'</div>':'')+inputs+foot+'</div>';
+  return '<div class="ex" data-row="'+esc(ex.id)+'"><div class="ex-head"><div class="ex-name">'+esc(ex.name||'Untitled exercise')+(ex.main?' <span class="tag">Main</span>':'')+'</div>'+(meta?'<div class="ex-meta">'+esc(meta)+'</div>':'')+'</div>'+(ex.note?'<div class="ex-note">'+esc(ex.note)+'</div>':'')+body+'</div>';
+}
+function setDefault(ex,value){
+  var old=(ex.reps==null||ex.reps==='')?null:ex.reps;
+  if(value===old)return false;
+  ex.reps=value;
+  ex.defHist=(ex.defHist||[]).concat([{date:todayY(),from:old,value:value}]);
+  if(ex.defHist.length>60)ex.defHist=ex.defHist.slice(-60);
+  return true;
 }
 function renderDayEdit(){
   ensurePlan();
   var k=UI.selDay,dp=S.plan.days[k];
-  var h='<div class="dayhead"><div class="min0"><h2>Edit '+DAY_LONG[k]+'</h2><div class="sub">Changes apply to every '+DAY_LONG[k]+'. Past logs stay as they are.</div></div><button class="btn primary small" data-act="edit-done">Done</button></div>';
+  var h='<div class="dayhead"><div class="min0"><h2>Edit '+DAY_LONG[k]+'</h2><div class="sub">Changes apply to every '+DAY_LONG[k]+'.</div></div><button class="btn primary small" data-act="edit-done">Done</button></div>';
   h+='<div class="card"><label class="fld" for="pe-title"><span>Day name</span><input class="txt" id="pe-title" data-k="pe-title" value="'+esc(dp.title||'')+'" placeholder="Push and legs"></label></div>';
   h+='<div class="sheet">';
   if(!dp.items.length)h+='<div class="empty">No exercises. Leave it empty for a rest day.</div>';
   dp.items.forEach(function(ex,i){
     var types=[['reps','Reps'],['secs','Seconds'],['run','Run'],['rounds','Rounds']].map(function(t){return '<option value="'+t[0]+'"'+(ex.type===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('');
     h+='<div class="pe">'+
-      '<div class="pe-grid"><label class="fld" for="pe-name-'+ex.id+'"><span>Exercise</span><input class="txt" id="pe-name-'+ex.id+'" data-k="pe" data-f="name" data-i="'+i+'" value="'+esc(ex.name||'')+'" placeholder="Exercise name"></label>'+
-      '<label class="fld" for="pe-sets-'+ex.id+'"><span>Sets</span><input class="txt" id="pe-sets-'+ex.id+'" data-k="pe" data-f="sets" data-i="'+i+'" inputmode="numeric" value="'+esc(ex.sets==null?3:ex.sets)+'"></label></div>'+
+      '<label class="fld" for="pe-name-'+ex.id+'"><span>Exercise</span><input class="txt" id="pe-name-'+ex.id+'" data-k="pe" data-f="name" data-i="'+i+'" value="'+esc(ex.name||'')+'" placeholder="Exercise name"></label>'+
+      '<div class="pe-grid3"><label class="fld" for="pe-def-'+ex.id+'"><span>Default ('+esc(defUnit(ex))+')</span><input class="txt" id="pe-def-'+ex.id+'" data-k="pe-def" data-i="'+i+'" inputmode="decimal" value="'+esc(ex.reps==null?'':ex.reps)+'" placeholder="None"></label>'+
+      '<label class="fld" for="pe-sets-'+ex.id+'"><span>Sets</span><input class="txt" id="pe-sets-'+ex.id+'" data-k="pe" data-f="sets" data-i="'+i+'" inputmode="numeric" value="'+esc(ex.sets==null?3:ex.sets)+'"></label>'+
+      '<div></div></div>'+
       '<div class="grid2"><label class="fld" for="pe-type-'+ex.id+'"><span>Log as</span><select class="txt" id="pe-type-'+ex.id+'" data-k="pe" data-f="type" data-i="'+i+'">'+types+'</select></label>'+
       '<label class="fld" for="pe-target-'+ex.id+'"><span>Target</span><input class="txt" id="pe-target-'+ex.id+'" data-k="pe" data-f="target" data-i="'+i+'" value="'+esc(ex.target||'')+'" placeholder="5 or 6 reps"></label></div>'+
       '<label class="fld" for="pe-note-'+ex.id+'"><span>Note</span><input class="txt" id="pe-note-'+ex.id+'" data-k="pe" data-f="note" data-i="'+i+'" value="'+esc(ex.note||'')+'" placeholder="Optional"></label>'+
@@ -937,7 +973,7 @@ ACT['import-yes']=function(){
   Object.keys(timers).forEach(function(p){clearTimeout(timers[p]);});queue={};
   var meta={lastBackup:new Date().toISOString()},all=clone(docs);all['app/meta']=meta;
   KV.replaceAll(all).then(function(){
-    loadDocs(all);UI.importPending=null;UI.editDay=false;UI.weekOffset=0;
+    loadDocs(all);migrate();UI.importPending=null;UI.editDay=false;UI.weekOffset=0;
     toast('Backup loaded');render();requestPersist();
   },function(){toast('Could not load the backup on this phone.',4000);});
 };
@@ -951,6 +987,22 @@ ACT['wk-today']=function(){UI.weekOffset=0;UI.selDay=dayKeyOf(new Date());UI.edi
 ACT.day=function(b){UI.selDay=b.getAttribute('data-day');UI.editDay=false;render();};
 ACT['edit-day']=function(){ensurePlan();UI.editDay=true;render();};
 ACT['edit-done']=function(){UI.editDay=false;if(queue['app/plan']){clearTimeout(timers['app/plan']);flush('app/plan');}render();};
+ACT['def-edit']=function(b){var ex=findEx(b.getAttribute('data-ex'));if(!ex)return;UI.defForm={id:ex.id,value:ex.reps==null?'':String(ex.reps)};render();focusLater('def-input');};
+ACT['def-cancel']=function(){UI.defForm=null;render();};
+ACT['def-step']=function(b){
+  var f=UI.defForm,ex=f&&findEx(f.id);if(!ex)return;
+  var v=num(f.value);if(v==null)v=0;
+  v=Math.max(0,Math.round((v+(+b.getAttribute('data-d'))*defStep(ex))*100)/100);
+  f.value=String(v);var el=document.getElementById('def-input');if(el)el.value=f.value;
+};
+ACT['def-save']=function(){
+  var f=UI.defForm,ex=f&&findEx(f.id);if(!ex)return;
+  var v=num(f.value);if(v!=null&&v<0)v=0;
+  if(v!=null&&ex.type!=='run')v=Math.round(v);
+  var changed=setDefault(ex,v);UI.defForm=null;
+  if(changed){savePlan();toast(v==null?'Default cleared':'Default saved: '+fmtDef(ex,v)+' '+defUnit(ex));}
+  render();
+};
 ACT['pe-add']=function(){ensurePlan();var id='x-'+uid();S.plan.days[UI.selDay].items.push({id:id,name:'',type:'reps',sets:3,target:'',note:'',main:false});savePlan();render();focusLater('pe-name-'+id);};
 ACT['pe-del']=function(b){ensurePlan();S.plan.days[UI.selDay].items.splice(+b.getAttribute('data-i'),1);savePlan();render();};
 function movePe(i,d){ensurePlan();var it=S.plan.days[UI.selDay].items,j=i+d;if(j<0||j>=it.length)return;var t=it[i];it[i]=it[j];it[j]=t;savePlan();render();}
@@ -1088,6 +1140,13 @@ function onLogInput(t){
 function updDot(){var dot=document.querySelector('.day.sel .d-dot');if(dot)dot.classList.toggle('on',hasData(S.logs[selY()]));}
 var INPUT={};
 INPUT.set=INPUT.km=INPUT.min=INPUT.s=INPUT.rounds=onLogInput;
+INPUT.def=function(t){if(UI.defForm)UI.defForm.value=t.value;};
+/* Default typed in Edit day: saved when the field loses focus, so the change history gets one entry */
+function onPeDef(t){
+  ensurePlan();var ex=S.plan.days[UI.selDay].items[+t.getAttribute('data-i')];if(!ex)return;
+  var v=num(t.value);if(v!=null&&v<0)v=0;if(v!=null&&ex.type!=='run')v=Math.round(v);
+  if(setDefault(ex,v))savePlan();
+}
 INPUT.notes=function(t){var y=selY(),log=getLog(y,true);log.notes=t.value;log.week=weekNum(parseYmd(y));save('logs/'+y,log,600);updDot();};
 INPUT['pe-title']=function(t){ensurePlan();S.plan.days[UI.selDay].title=t.value;savePlan();};
 INPUT.pe=function(t){
@@ -1110,7 +1169,7 @@ INPUT.grams=function(t){UI.grams=t.value;var el=document.getElementById('preview
 
 function handleInput(t){var k=t.getAttribute&&t.getAttribute('data-k');if(k&&INPUT[k])INPUT[k](t);}
 document.addEventListener('input',function(e){var t=e.target;if(t.type==='checkbox'||t.tagName==='SELECT'||t.type==='file')return;handleInput(t);});
-document.addEventListener('change',function(e){var t=e.target;if(t.type==='checkbox'||t.tagName==='SELECT')handleInput(t);});
+document.addEventListener('change',function(e){var t=e.target;if(t.getAttribute&&t.getAttribute('data-k')==='pe-def'){onPeDef(t);return;}if(t.type==='checkbox'||t.tagName==='SELECT')handleInput(t);});
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b||b.disabled)return;
   var a=b.getAttribute('data-act');if(ACT[a]){e.preventDefault();ACT[a](b,e);}
@@ -1118,6 +1177,7 @@ document.addEventListener('click',function(e){
 document.addEventListener('keydown',function(e){
   if(e.key!=='Enter')return;var id=e.target&&e.target.id;
   if(id==='grams'){e.preventDefault();ACT['pick-add']();}
+  else if(id==='def-input'){e.preventDefault();ACT['def-save']();}
   else if(id==='meal-name'){e.preventDefault();ACT['meal-add-custom']();}
   else if(id==='ingsearch'){e.preventDefault();var l=ingSorted(UI.ingSearch,false);if(l.length===1){UI.pick=l[0][0];UI.grams='';render();focusLater('grams');}}
 });
@@ -1134,7 +1194,7 @@ openIdb().then(function(h){
   KV=h?idbKV(h):(lsWorks()?lsKV():memKV());
   return KV.all();
 }).then(function(all){
-  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);render();requestPersist();
+  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();render();requestPersist();
 }).catch(function(){
   KV=memKV();S.storeState='memory';loadDocs({});render();
 });

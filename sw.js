@@ -1,6 +1,6 @@
 /* Casian Fitness Log service worker: keeps the app working offline.
    Bump CACHE when releasing a new version so phones pick it up. */
-var CACHE = 'cfl-app-v1.0';
+var CACHE = 'cfl-app-v1.1';
 var FONT_CACHE = 'cfl-fonts';
 var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
