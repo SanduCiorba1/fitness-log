@@ -294,7 +294,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.2';
+var APP_VERSION='1.2.1';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -761,6 +761,7 @@ function cleanLine(raw){
   s=s.replace(/(\d)\s*(µg|μg|ug|mcg|pg)(?![a-z])/g,'$1 ug');
   s=s.replace(/(\d)\s*q(?![a-z])/g,'$1 g');
   s=s.replace(/kca[l1i]/g,'kcal').replace(/\bk\s?j\b/g,'kj');
+  s=s.replace(/\b(\d{1,3}) (\d{3})\s*(kj|kcal)\b/g,'$1$2 $3');
   return s;
 }
 /* A gram value with no unit usually means OCR read the "g" as a "9" glued to the number (12,5 g becomes 12,59) */
@@ -786,25 +787,34 @@ function thousands(tok,big){
   return tok.val;
 }
 var MACRO_RE=[
-  {k:'f',re:/gr[a-z]?simi|lipide|\bfat\b|\bfett\b|\bzsir\b/},
-  {k:'sat',re:/saturat|gesattigt|telitett/},
-  {k:'c',re:/glucide|carbohidrat|carbohydrate|kohlenhydrat|szenhidrat/},
-  {k:'sugar',re:/zaharuri|\bzahar\b|\bsugars?\b|zucker|cukr/},
-  {k:'fibre',re:/\bfibr|ballaststoff|\brost\b/},
-  {k:'p',re:/protein|eiwei|feherje/},
-  {k:'salt',re:/\bsare\b|\bsalt\b|\bsalz\b|sodiu|sodium|natrium/}
+  {k:'f',re:/gr[a-z]?simi|\bgrassi\b|\bgrasas\b|\bgrasses\b|lipid|\bfat\b|\bfett\b|\bzsir\b|\bmasti\b|mascob|\btuky\b|\btluszcz\b|riebal|\btauki\b|\brasvad?\b/},
+  {k:'sat',re:/saturat|\bsaturi\b|gesattigt|telitett|nasyc|zasicen|nasicen|kullastun/},
+  {k:'c',re:/glucide|carbohidrat|carbohydrate|kohlenhydrat|szenhidrat|ugljikohidrat|ogljikov|sacharid|weglowodan|carboidrat|hidratos|angliavanden|oglhidrat|susivesik/},
+  {k:'sugar',re:/zaharuri|\bzahar\b|\bsugars?\b|zucker|cukr|seceri|sladkor|sucres|zuccher|azucar|suhkr|cukur/},
+  {k:'fibre',re:/\bfibr|ballaststoff|\brost\b|vlakn|blonnik|skaidul|skiedrviel|kiudain/},
+  {k:'p',re:/protein|eiwei|feherje|bjelancevin|beljakovin|bilkovin|bielkovin|bialko|baltym|olbaltum|\bvalgud\b/},
+  {k:'salt',re:/\bsare\b|\bsalt\b|\bsalz\b|\bsol\b|\bsul\b|\bsel\b|\bsale\b|\bsal\b|druska|\bsals\b|\bsool\b|sodiu|sodium|natrium/}
 ];
-var ENERGY_RE=/energ|energy|calori|valoare/;
+var ENERGY_RE=/energ|energy|calori|kalori|valoare|brennwert/;
+function vitRe(letter,extra){return new RegExp('\\b[vw]itam(?:in|iin)(?:a|e|y|s|as)?\\.?\\s+'+letter+'\\s?[0-9]?\\b|\\b'+letter+'-vitamin'+(extra?'|'+extra:''));}
 var MICRO_RE=[
-  ['b12',/\bb\s?12\b|cobalamin/],['b6',/\bb\s?6\b|piridox|pyridox/],['b1',/\bb\s?1\b|tiamin|thiamin/],['b2',/\bb\s?2\b|riboflavin/],
-  ['b3',/\bb\s?3\b|niacin/],['b5',/\bb\s?5\b|pantoten|pantothen/],['folate',/\bb\s?9\b|folic|folat/],['biotin',/\bb\s?7\b|biotin/],
-  ['vitA',/\bvit(?:amin[ae]?)?\.?\s+a\b|retinol/],['vitD',/\bvit(?:amin[ae]?)?\.?\s+d\s?3?\b|colecalciferol|cholecalciferol/],
-  ['vitE',/\bvit(?:amin[ae]?)?\.?\s+e\b|tocoferol|tocopherol/],['vitK',/\bvit(?:amin[ae]?)?\.?\s+k\s?[12]?\b/],['vitC',/\bvit(?:amin[ae]?)?\.?\s+c\b|ascorbic/],
-  ['calcium',/calciu|calcium|kalzium|kalcium/],['iron',/\bfier\b|\biron\b|\beisen\b/],['magnesium',/magnezi|magnesi/],['zinc',/\bzinc\b|\bzink\b|\bcink\b/],
-  ['potassium',/potasiu|potassium|kalium/],['phosphorus',/fosfor|phosphor/],['iodine',/\biod(?:ura|ine|at)?\b|\bjod\b/],['selenium',/seleni|\bselen\b/],
-  ['copper',/cupru|copper|kupfer/],['manganese',/mangan/],['chloride',/clorur|chlorid/],['fluoride',/fluorur|fluorid/],['chromium',/\bcrom\b|chromium|\bchrom\b/],['molybdenum',/molibden|molybd/]
+  ['b12',/\bb\s?12\b|cobalamin|kobalamin/],['b6',/\bb\s?6\b|piridox|pyridox|pirydoks/],['b1',/\bb\s?1\b|tiamin|thiamin|tiamiin/],['b2',/\bb\s?2\b|riboflavin|ryboflawin/],
+  ['b3',/\bb\s?3\b|niacin|niacyn/],['b5',/\bb\s?5\b|pantoten|pantothen/],['folate',/\bb\s?9\b|folic|folat|folsav|folian/],['biotin',/\bb\s?7\b|biotin|biotyn/],
+  ['vitA',vitRe('a','retinol')],['vitD',vitRe('d','colecalciferol|cholecalciferol')],['vitE',vitRe('e','tocoferol|tocopherol')],['vitK',vitRe('k')],['vitC',vitRe('c','ascorbic')],
+  ['calcium',/calci|kalci|kalzium|kaltsium|\bwapn/],['iron',/\bfier\b|\biron\b|\beisen\b|zelj?ezo|zelazo|\bfer\b|\bferro\b|hierro/],['magnesium',/magnez|magnesi|magnij|magnees/],['zinc',/\bzinc\b|\bzink\b|\bcink\b|\bcynk\b|\bzinco\b|\btsink\b/],
+  ['potassium',/potasiu|potassium|kalium|\bkalij\b|\bpotas\b|\bkalis\b|\bkaalium\b|potasio|potassio/],['phosphorus',/fosf|phosph|foszf/],['iodine',/\biod(?:ura|ine|at|o)?\b|\bjod|\byodo\b/],['selenium',/seleni|\bselen\b|szelen|\bseleen\b/],
+  ['copper',/cupru|copper|kupfer|\bbakar\b|\brame\b|\bcobre\b|\bcuivre\b/],['manganese',/mangan/],['chloride',/clorur|chlorid|klorid|cloruro|chlorure/],['fluoride',/fluorur|fluorid|fluoruro/],['chromium',/\bcrom\b|chromium|\bchrom\b|\bkrom\b|\bcromo\b|\bchrome\b/],['molybdenum',/molibden|molybd/]
 ];
-function anyKeyword(line){return MACRO_RE.some(function(r){return r.re.test(line);})||ENERGY_RE.test(line)||MICRO_RE.some(function(r){return r[1].test(line);});}
+/* Footnotes about the adult reference intake (8400 kJ / 2000 kcal) are cut off before parsing */
+var FOOT_RE=/aport|referin|reference|adult|\bri\b|\bgda\b|8\.?400\s*kj|2\.?000\s*kcal/;
+function matchesIn(line){
+  var out=[];
+  MACRO_RE.forEach(function(r){var m=r.re.exec(line);if(m)out.push({key:r.k,idx:m.index,end:m.index+m[0].length,m:m[0]});});
+  var e=ENERGY_RE.exec(line);if(e)out.push({key:'kcal',idx:e.index,end:e.index+e[0].length,m:e[0]});
+  MICRO_RE.forEach(function(r){var m=r[1].exec(line);if(m)out.push({key:r[0],idx:m.index,end:m.index+m[0].length,m:m[0]});});
+  out.sort(function(a,b){return a.idx-b.idx;});
+  return out;
+}
 function pickTok(toks,portionFirst,units,strict){
   var list=units?toks.filter(function(t){return units.indexOf(t.unit)>-1;}):toks;
   if(!list.length&&!strict)list=toks.filter(function(t){return ['kcal','kj','ml'].indexOf(t.unit)<0;});
@@ -812,56 +822,78 @@ function pickTok(toks,portionFirst,units,strict){
   return (portionFirst&&list.length>1)?list[1]:list[0];
 }
 function parseLabel(text){
-  var lines=String(text||'').split(/\r?\n/).map(cleanLine).map(function(l){return l.trim();}).filter(Boolean);
-  var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,i,j;
+  var lines=String(text||'').split(/\r?\n/).map(cleanLine).map(function(l){var i=l.search(FOOT_RE);return (i>-1?l.slice(0,i):l).trim();}).filter(Boolean);
+  var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},i,j;
   var header=lines.filter(function(l){return /100\s*(g|ml)/.test(l);})[0];
   if(header){
     if(/100\s*ml/.test(header)&&!/100\s*g/.test(header))basis='ml';
     var pIdx=header.search(/porti|portion|serving|adag/),hIdx=header.search(/100\s*(g|ml)/);
     portionFirst=pIdx>-1&&pIdx<hIdx;
   }else if(lines.some(function(l){return /100\s*ml/.test(l);}))basis='ml';
-  function segmentAfter(line,pos){
-    var rest=line.slice(pos),cut=rest.length;
-    for(var q=0;q<MACRO_RE.length;q++){var m=MACRO_RE[q].re.exec(rest.slice(1));if(m&&m.index+1<cut)cut=m.index+1;}
-    for(q=0;q<MICRO_RE.length;q++){var m2=MICRO_RE[q][1].exec(rest.slice(1));if(m2&&m2.index+1<cut)cut=m2.index+1;}
-    return rest.slice(0,cut);
-  }
   function grams(tok){if(!tok)return null;if(tok.unit==='mg')return r3(tok.val/1000);if(tok.unit==='ug')return r3(tok.val/1e6);return ungluedGrams(tok);}
+  function want(key){return key==='kcal'?vals.kcal==null:(MICRO_BY[key]?micros[key]==null:vals[key]==null);}
+  function take(key,toks,m){
+    if(key==='kcal'){
+      var kc=pickTok(toks,portionFirst,['kcal'],true),kj=pickTok(toks,portionFirst,['kj'],true),v=null;
+      if(kc){v=thousands(kc,true);if(v>950)v=null;}
+      if(v==null&&kj){v=thousands(kj,true);v=v>4000?null:v/4.184;}
+      if(v==null)return false;
+      vals.kcal=Math.round(v);found.push('kcal');return true;
+    }
+    if(MICRO_BY[key]){
+      var def=MICRO_BY[key],t=pickTok(toks,portionFirst,['mg','ug','g'],false);if(!t)return false;
+      var val=thousands(t,def.nrv>=500),u=t.unit;
+      if(u==='g'){val=val*1000;u='mg';}
+      if(u==='mg'&&def.unit==='µg')val=val*1000;else if(u==='ug'&&def.unit==='mg')val=val/1000;
+      if(!(val>=0))return false;
+      micros[key]=r3(val);foundMicros.push(key);return true;
+    }
+    var tok=pickTok(toks,portionFirst,['g','mg',''],false);if(!tok)return false;
+    var g=grams(tok);
+    if(key==='salt'&&/sodiu|sodium|natrium/.test(m||''))g=r2(g*2.5);
+    if(!(g>=0&&g<=100))return false;
+    vals[key]=g;found.push(key);return true;
+  }
+  function forward(i,key){
+    for(var q=i+1;q<lines.length&&q<i+4;q++){
+      if(consumed[q])return [];
+      var ms=matchesIn(lines[q]);
+      if(ms.some(function(x){return x.key!==key;}))return [];
+      var tk=tokens(lines[q]);if(tk.length)return tk;
+    }
+    return [];
+  }
+  /* Layout where the reader split the columns: a run of names, then a run of values in the same order */
   for(i=0;i<lines.length;i++){
-    var line=lines[i],next=lines[i+1]||'';
-    if(vals.kcal==null&&ENERGY_RE.test(line)){
-      var seg=line+' '+(anyKeyword(next)&&!/kcal|kj/.test(next)?'':next),tk=tokens(seg),kc=pickTok(tk,portionFirst,['kcal'],true),kj=pickTok(tk,portionFirst,['kj'],true);
-      if(kc){vals.kcal=Math.round(thousands(kc,true));found.push('kcal');}
-      else if(kj){vals.kcal=Math.round(thousands(kj,true)/4.184);found.push('kcal');}
+    var ms0=matchesIn(lines[i]);
+    if(ms0.length!==1||tokens(lines[i]).length)continue;
+    var names=[],seen={},ok=true;j=i;
+    while(j<lines.length){var mj=matchesIn(lines[j]);if(mj.length!==1||tokens(lines[j]).length)break;if(seen[mj[0].key]){ok=false;break;}seen[mj[0].key]=1;names.push({i:j,key:mj[0].key,m:mj[0].m});j++;}
+    if(ok&&names.length>=3){
+      var valsL=[],q=j;
+      while(q<lines.length&&!matchesIn(lines[q]).length&&tokens(lines[q]).length){valsL.push(q);q++;}
+      if(valsL.length>=names.length){
+        names.forEach(function(n,idx){if(want(n.key)&&take(n.key,tokens(lines[valsL[idx]]),n.m)){consumed[n.i]=1;consumed[valsL[idx]]=1;}});
+        i=q-1;continue;
+      }
     }
-    for(j=0;j<MACRO_RE.length;j++){
-      var r=MACRO_RE[j];if(vals[r.k]!=null)continue;
-      var m=r.re.exec(line);if(!m)continue;
-      var tk2=tokens(segmentAfter(line,m.index+m[0].length));
-      if(!tk2.length&&!anyKeyword(next))tk2=tokens(next);
-      var tok=pickTok(tk2,portionFirst,['g','mg','']);
-      if(!tok)continue;
-      var v=grams(tok);
-      if(r.k==='salt'&&/sodiu|sodium|natrium/.test(m[0]))v=r2(v*2.5);
-      if(v!=null&&v>=0&&v<=100){vals[r.k]=v;found.push(r.k);}
-    }
-    for(j=0;j<MICRO_RE.length;j++){
-      var id=MICRO_RE[j][0];if(micros[id]!=null)continue;
-      var mm=MICRO_RE[j][1].exec(line);if(!mm)continue;
-      var def=MICRO_BY[id],tk3=tokens(segmentAfter(line,mm.index+mm[0].length));
-      if(!tk3.length&&!anyKeyword(next))tk3=tokens(next);
-      var t3=pickTok(tk3,portionFirst,['mg','ug','g']);
-      if(!t3)continue;
-      var big=def.nrv>=500,val=thousands(t3,big),u=t3.unit;
-      if(u==='g')val=val*1000,u='mg';
-      if(u==='mg'&&def.unit==='µg')val=val*1000;
-      else if(u==='ug'&&def.unit==='mg')val=val/1000;
-      if(val>=0){micros[id]=r3(val);foundMicros.push(id);}
+    i=j-1;
+  }
+  for(i=0;i<lines.length;i++){
+    if(consumed[i])continue;
+    var line=lines[i],ms=matchesIn(line);
+    for(j=0;j<ms.length;j++){
+      var M=ms[j];if(!want(M.key))continue;
+      var cutAt=line.length;
+      for(var k=0;k<ms.length;k++){if(ms[k].key!==M.key&&ms[k].idx>=M.end&&ms[k].idx<cutAt)cutAt=ms[k].idx;}
+      var toks=tokens(line.slice(M.end,cutAt));
+      if(!toks.length&&cutAt===line.length)toks=forward(i,M.key);
+      if(toks.length)take(M.key,toks,M.m);
     }
   }
   if(vals.kcal==null){
-    var all=tokens(lines.join(' ')),kc2=pickTok(all,portionFirst,['kcal'],true),kj2=pickTok(all,portionFirst,['kj'],true);
-    if(kc2){vals.kcal=Math.round(thousands(kc2,true));found.push('kcal');}else if(kj2){vals.kcal=Math.round(thousands(kj2,true)/4.184);found.push('kcal');}
+    var rest=lines.filter(function(l,idx){return !consumed[idx];}).join(' ');
+    take('kcal',tokens(rest),'');
   }
   return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines};
 }
@@ -886,6 +918,10 @@ function getWorker(){
   var p=(window.Tesseract?Promise.resolve():loadScript(TESS_URLS)).then(function(){
     if(!window.Tesseract)throw new Error('load');
     return window.Tesseract.createWorker('ron',1,{logger:function(m){if(OCR.onProgress)OCR.onProgress(m);}});
+  }).then(function(w){
+    /* Read the table as one block, line by line, so each name stays on the same line as its value */
+    var p=w.setParameters?w.setParameters({tessedit_pageseg_mode:'6'}):null;
+    return Promise.resolve(p).catch(function(){}).then(function(){return w;});
   }).then(function(w){OCR.worker=w;OCR.loading=null;return w;},function(e){OCR.loading=null;throw e;});
   OCR.loading=p;return p;
 }
@@ -894,7 +930,7 @@ function fileToCanvas(file){
     var url=URL.createObjectURL(file),img=new Image();
     img.onload=function(){
       try{
-        var max=2000,w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,s=Math.min(1,max/Math.max(w,h,1));
+        var max=2400,w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,s=Math.min(1,max/Math.max(w,h,1));
         var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*s));c.height=Math.max(1,Math.round(h*s));
         var ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);
         var im=ctx.getImageData(0,0,c.width,c.height),d=im.data,hist=new Uint32Array(256),i,g;
@@ -1331,8 +1367,8 @@ function scanHtml(f){
     if(s.done){
       var n=(s.found||[]).length+(s.foundMicros||[]).length;
       h+='<p class="hint">'+(n?'<b>'+n+(n===1?' value':' values')+' filled in from the scan</b>, marked in gold. Check each one against the label and correct anything that looks wrong; the rest stay for you to type.':'<b>Nothing recognised.</b> Retake the photo closer, with the table flat and filling the frame, or type the values.')+'</p>';
-      h+='<div class="row"><button class="link" data-act="scan-text">'+(s.showText?'Hide scanned text':'Show scanned text')+'</button></div>';
-      if(s.showText)h+='<pre class="scan-text">'+esc(s.text||'(empty)')+'</pre>';
+      h+='<div class="row"><button class="link" data-act="scan-text">'+(s.showText?'Hide scanned text':'Show scanned text')+'</button><button class="link" data-act="scan-copy">Copy scanned text</button></div>';
+      if(s.showText)h+='<pre class="scan-text" id="scan-text">'+esc(s.text||'(empty)')+'</pre>';
     }
   }
   return h+'</div>';
@@ -1519,6 +1555,18 @@ ACT['ing-del-yes']=function(){var id=UI.ingForm.id;delete S.ingredients[id];remo
 ACT['micros-toggle']=function(){if(UI.ingForm){UI.ingForm.showMicros=!UI.ingForm.showMicros;render();}};
 ACT.scan=function(){if(!UI.ingForm||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;$scan.click();};
 ACT['scan-text']=function(){if(UI.ingForm&&UI.ingForm.scan){UI.ingForm.scan.showText=!UI.ingForm.scan.showText;render();}};
+ACT['scan-copy']=function(){
+  var s=UI.ingForm&&UI.ingForm.scan;if(!s)return;
+  var text='Scanned label text (Casian Fitness Log '+APP_VERSION+')\n'+(s.text||'');
+  function fallback(){
+    s.showText=true;render();
+    var el=document.getElementById('scan-text');if(!el)return;
+    var r=document.createRange();r.selectNodeContents(el);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);
+    toast('Text selected. Long-press it to copy.',3500);
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(function(){toast('Scanned text copied. Paste it into the chat.',3000);},fallback);
+  else fallback();
+};
 
 /* ---------- inputs ---------- */
 var INPUT={};
