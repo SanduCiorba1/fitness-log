@@ -34,6 +34,7 @@ Then open the app from its new icon and tap Load backup file to bring in the pla
 
 ## Version history
 
+- 1.4.1 (Nov-26): polyols and starch lines recognised (so they are never mistaken for fibre, and polyols count 2.4 kcal per g in the calorie check), a look-alike letter in front of a number also tried as a digit (Z3,0 is 23,0), stray digits from table borders ignored, 09 read as 0 g
 - 1.4 (Nov-26): two image treatments per scan (contrast stretch, then local threshold for dark or uneven photos), light blur against screen moire, nameless values placed by the EU table order, per-portion column used as a fallback reading, joint check of fat, saturates, carbs, sugars and protein against the calories
 - 1.3.1 (Nov-26): lost decimal points fixed by checking each value against the per-portion column and the % RI column; fields the label's % RI disagrees with are marked Check
 - 1.3 (Nov-26): crop box before reading, multilingual Lidl-style labels (15 languages, stacked or slash-separated names), reference-intake footnotes ignored, lost decimal commas repaired by plausibility, vitamins checked against the % NRV column, calorie consistency warning, Copy scanned text

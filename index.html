@@ -303,7 +303,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.4';
+var APP_VERSION='1.4.1';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -784,11 +784,11 @@ var TOK_RE=/(^|[^a-z0-9.])<?\s*(\d+(?:\.\d+)?)\s*(kcal|kj|mg|ug|ml|g|%)?(?![0-9]
 var TOK_GLUED_RE=/[a-z](\d+\.\d+)\s*(kcal|kj|g|mg|ug)(?![0-9])(?![a-z]{3})|[a-z](\d+)\s*(kcal|kj)(?![0-9])(?![a-z]{3})/g;
 function tokens(seg){
   var out=[],m;TOK_RE.lastIndex=0;
-  function push(raw,unit,idx){
-    var val=parseFloat(raw),dec=raw.indexOf('.')>-1;
+  function push(raw,unit,idx,lead){
+    var val=parseFloat(raw),dec=raw.indexOf('.')>-1,orig=raw;
     if(!dec&&/^0\d+$/.test(raw)){raw='0.'+raw.slice(1);val=parseFloat(raw);dec=true;}
     if(val===100&&(unit==='g'||unit==='ml'))return;
-    out.push({raw:raw,val:val,unit:unit,dec:dec,idx:idx});
+    out.push({raw:raw,orig:orig,val:val,unit:unit,dec:dec,idx:idx,lead:lead||''});
   }
   while((m=TOK_RE.exec(seg))){
     push(m[2],m[3]||'',m.index+m[1].length);
@@ -797,7 +797,7 @@ function tokens(seg){
   TOK_GLUED_RE.lastIndex=0;
   while((m=TOK_GLUED_RE.exec(seg))){
     var idx=m.index+1;
-    if(!out.some(function(t){return t.idx===idx;}))push(m[1]||m[3],m[2]||m[4],idx);
+    if(!out.some(function(t){return t.idx===idx;}))push(m[1]||m[3],m[2]||m[4],idx,seg.charAt(m.index));
     if(m.index===TOK_GLUED_RE.lastIndex)TOK_GLUED_RE.lastIndex++;
   }
   out.sort(function(x,y){return x.idx-y.idx;});
@@ -812,6 +812,7 @@ function thousands(tok,big){
 function gramCandidates(tok){
   if(tok.unit==='mg')return [r3(tok.val/1000)];
   if(tok.unit==='ug')return [r3(tok.val/1e6)];
+  if(tok.orig==='09'&&!tok.unit)return [0,0.9];
   var raw=tok.raw,list=[],decs=raw.indexOf('.')>-1?raw.split('.')[1].length:0,ends9=/9$/.test(raw)&&!tok.unit&&raw.length>1;
   var unglued=ends9?parseFloat(raw.slice(0,-1).replace(/\.$/,'')):null;
   function add(v){if(v!=null&&isFinite(v)&&v>=0&&list.indexOf(v)<0)list.push(r2(v));}
@@ -820,6 +821,7 @@ function gramCandidates(tok){
   else if(tok.val>=100){add(unglued);add(unglued!=null?unglued/10:null);add(tok.val/10);add(tok.val/100);}
   else if(raw.length===2&&ends9){add(tok.val);add(unglued);add(tok.val/10);}
   else{add(tok.val);add(unglued);add(tok.val/10);}
+  if(tok.lead&&LOOKALIKE[tok.lead]&&tok.dec)add(parseFloat(LOOKALIKE[tok.lead]+raw));
   return list.filter(function(v){return v<=100;});
 }
 var MACRO_RE=[
@@ -829,7 +831,10 @@ var MACRO_RE=[
   {k:'sugar',re:/zaharuri|\bzahar\b|\bsugars?\b|zucker|cukr|seceri|sladkor|sucres|zuccher|azucar|suhkr|cukur/},
   {k:'fibre',re:/\bfibr|ballaststoff|\brost\b|vlakn|blonnik|skaidul|skiedrviel|kiudain/},
   {k:'p',re:/protein|eiwei|feherje|bjelancevin|beljakovin|bilkovin|bielkovin|bialko|baltym|olbaltum|\bvalgud\b/},
-  {k:'salt',re:/\bsare\b|\bsalt\b|\bsalz\b|\bsol\b|\bsul\b|\bsel\b|\bsale\b|\bsal\b|druska|\bsals\b|\bsool\b|sodiu|sodium|natrium/}
+  {k:'salt',re:/\bsare\b|\bsalt\b|\bsalz\b|\bsol\b|\bsul\b|\bsel\b|\bsale\b|\bsal\b|druska|\bsals\b|\bsool\b|sodiu|sodium|natrium/},
+  /* read so that these lines are never mistaken for fibre or protein; polyols also count 2.4 kcal per g in the calorie check */
+  {k:'polyol',re:/polyol|poliol|polyalkohol|cukoralkohol|zuckeralkohol|sugar alcohol|polialcohol/},
+  {k:'starch',re:/\bamidon|\bstarch|\bstarke|\bskrob|\bkemenyit|\bamido\b|almidon|\bamidon/}
 ];
 var ENERGY_RE=/energ|energy|calori|kalori|valoare|brennwert/;
 function vitRe(letter,extra){return new RegExp('\\b[vw]itam(?:in|iin)(?:a|e|y|s|as)?\\.?\\s+'+letter+'\\s?[0-9]?\\b|\\b'+letter+'-vitamin'+(extra?'|'+extra:''));}
@@ -860,7 +865,10 @@ function pickTok(toks,portionFirst,units,strict){
   return (portionFirst&&list.length>1)?list[1]:list[0];
 }
 function sig(v){return v>=100?Math.round(v):v>=10?r1(v):r2(v);}
-var ORDER={kcal:0,f:1,sat:2,c:3,sugar:4,fibre:5,p:6,salt:7};
+var ORDER={kcal:0,f:1,sat:2,c:3,sugar:4,polyol:4.3,starch:4.6,fibre:5,p:6,salt:7};
+var UNSTORED={polyol:1,starch:1};
+/* OCR often reads a leading digit as a look-alike letter (23,0 as Z3,0), so a glued letter also yields the digit reading */
+var LOOKALIKE={z:'2',s:'5',o:'0',l:'1',i:'1',b:'8',g:'9',q:'9',t:'7',a:'4',e:'3'};
 function parseLabel(text){
   var lines=String(text||'').split(/\r?\n/).map(cleanLine).map(function(l){var i=l.search(FOOT_RE);return (i>-1?l.slice(0,i):l).trim();}).filter(function(l){return l&&!PROSE_RE.test(l)&&(l.match(/,/g)||[]).length<5;});
   var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},alts={},lineOf={},direct={},derived={},i,j;
@@ -914,6 +922,7 @@ function parseLabel(text){
     var vt=toks.filter(function(t){return t.unit!=='%'&&['kcal','kj','ml'].indexOf(t.unit)<0;}),pcts2=toks.filter(function(t){return t.unit==='%';});
     if(!vt.length)return false;
     var tok=(portionFirst&&vt.length>1)?vt[1]:vt[0],tP=vt.length>1?(portionFirst?vt[0]:vt[1]):null;
+    if(!hasPortionCol&&vt.length>1){var clean=vt.filter(function(t){return t.unit||t.dec;});if(clean.length){tok=clean[0];tP=null;}}
     var sodium=key==='salt'&&/sodiu|sodium|natrium/.test(m||''),mul=sodium?2.5:1;
     var cands=gramCandidates(tok).map(function(g){return r2(g*mul);}).filter(function(g){return g>=0&&g<=100;});
     if(!cands.length)return false;
@@ -935,8 +944,8 @@ function parseLabel(text){
       /* A clean portion reading, scaled up, is a fallback the calorie check may prefer over a per-100 g reading that lost a digit */
       if(colC.length&&tP&&(tP.dec||tP.unit)){colC.slice(0,2).forEach(function(v){if(alts[key].indexOf(v)<0)alts[key].push(v);});derived[key]={vals:colC.slice(0,2),portion:tP.val,size:portionSize};}
     }
-    if(pctV!=null&&Math.abs(vals[key]-pctV)/Math.max(pctV,0.3)>0.4)flags.push({key:key,text:'the % RI column suggests c.'+sig(pctV)+' g'});
-    found.push(key);if(line!=null)lineOf[key]=line;return true;
+    if(pctV!=null&&!UNSTORED[key]&&Math.abs(vals[key]-pctV)/Math.max(pctV,0.3)>0.4)flags.push({key:key,text:'the % RI column suggests c.'+sig(pctV)+' g'});
+    if(!UNSTORED[key])found.push(key);if(line!=null)lineOf[key]=line;return true;
   }
   function forward(i,key){
     for(var q=i+1;q<lines.length&&q<i+4;q++){
@@ -983,7 +992,8 @@ function parseLabel(text){
   var labeled=Object.keys(lineOf).filter(function(k){return ORDER[k]!=null;}).map(function(k){return {key:k,line:lineOf[k]};}).sort(function(x,y){return x.line-y.line;});
   for(i=0;i<lines.length;i++){
     if(consumed[i]||matchesIn(lines[i]).length)continue;
-    var vt0=tokens(lines[i]).filter(function(t){return t.unit!=='%'&&['kcal','kj','ml'].indexOf(t.unit)<0;});
+    /* only a value that looks like one (a unit or a decimal), never a stray digit from a table border */
+    var vt0=tokens(lines[i]).filter(function(t){return t.unit!=='%'&&['kcal','kj','ml'].indexOf(t.unit)<0&&(t.unit||t.dec);});
     if(!vt0.length)continue;
     var above=null,below=null;
     labeled.forEach(function(x){if(x.line<i&&(!above||x.line>above.line))above=x;if(x.line>i&&(!below||x.line<below.line))below=x;});
@@ -1001,12 +1011,13 @@ function parseLabel(text){
   var warn='',keys=['f','c','p','sat','sugar'].filter(function(k){return vals[k]!=null;});
   if(keys.length){
     var best=null;
-    function energyOf(v){return 4*(v.p||0)+4*(v.c||0)+9*(v.f||0)+2*(vals.fibre||0);}
+    function energyOf(v){var poly=Math.min(vals.polyol||0,v.c||0);return 4*(v.p||0)+4*((v.c||0)-poly)+2.4*poly+9*(v.f||0)+2*(vals.fibre||0);}
     function score(v,rank){
       var sc=rank*5;
       if(vals.kcal!=null){var missing=['p','c','f'].some(function(k){return v[k]==null;}),r=vals.kcal-energyOf(v);sc+=missing?Math.max(0,-r-5):Math.abs(r);}
       if(v.sat!=null&&v.f!=null&&v.sat>v.f+0.05)sc+=30;
       if(v.sugar!=null&&v.c!=null&&v.sugar>v.c+0.05)sc+=30;
+      if(v.c!=null&&(v.sugar||0)+(vals.polyol||0)+(vals.starch||0)>v.c+0.05)sc+=30;
       return sc;
     }
     function combo(idx,cur,rank){
@@ -1020,11 +1031,12 @@ function parseLabel(text){
     });
     if(vals.kcal!=null&&vals.p!=null&&vals.c!=null&&vals.f!=null){
       var e=Math.abs(energyOf(vals)-vals.kcal);
-      if(e>Math.max(40,vals.kcal*0.15))warn='The calories do not match protein, carbs and fat ('+Math.round(energyOf(vals))+' kcal from the macros against '+vals.kcal+' on the label). Check those four against the label.';
+      if(e>Math.max(40,vals.kcal*0.15))warn='The calories do not match protein, carbs and fat ('+Math.round(energyOf(vals))+' kcal from the macros against '+vals.kcal+' on the label). Check those four against the label, or scan again from a sharper, closer photo.';
     }
   }
   var seenFlag={};
   flags.forEach(function(fl){if(vals[fl.key]==null||seenFlag[fl.key])return;seenFlag[fl.key]=1;var nm=LABEL.filter(function(l){return l.k===fl.key;})[0];warn+=(warn?' ':'')+(nm?nm.name:fl.key)+' ('+vals[fl.key]+' g): '+fl.text+'. Check it.';});
+  Object.keys(UNSTORED).forEach(function(k){delete vals[k];});
   return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:Object.keys(seenFlag)};
 }
 
