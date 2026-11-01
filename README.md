@@ -19,7 +19,7 @@ Then open the app from its new icon and tap Load backup file to bring in the pla
 
 ## Label scanning
 
-- In an ingredient, tap Scan label and take a photo of the nutrition table, flat and filling the frame
+- In an ingredient, tap Scan label, take a photo of the label, then drag the corners of the box around the nutrition table and tap Read this area. A tight box reads the small numbers far better
 - The first scan downloads the text reader (c.10 MB) and needs an internet connection; after that scanning works offline
 - Values found on the label are filled in and marked; check them and correct anything wrong before saving
 - Romanian and English labels are supported, with the app staying in English
@@ -32,6 +32,8 @@ Then open the app from its new icon and tap Load backup file to bring in the pla
 - To update the app, upload the new files over the old ones; the app shows "A new version is ready" on its next launch
 
 ## Version history
+
+- 1.3 (Nov-26): crop box before reading, multilingual Lidl-style labels (15 languages, stacked or slash-separated names), reference-intake footnotes ignored, lost decimal commas repaired by plausibility, vitamins checked against the % NRV column, calorie consistency warning, Copy scanned text
 
 - 1.2 (Nov-26): exercises arranged as alternating pairs with no rep numbers (Garmin keeps the sets), automatic easy or 60/30/10 long run, full label values, vitamins and minerals, label scanner
 - 1.1 (Oct-26): default reps per exercise

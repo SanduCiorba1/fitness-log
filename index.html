@@ -264,6 +264,13 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 @media (prefers-reduced-motion:no-preference){.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}}
 .scan-bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
 .scan-bar>span{display:block;height:100%;background:var(--accent)}
+.crop-stage{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:10px;overflow:hidden;background:#111;line-height:0;scroll-margin-top:calc(140px + env(safe-area-inset-top,0px))}
+.crop-stage img{display:block;width:100%;height:auto;max-width:100%}
+.crop-box{position:absolute;border:2px solid var(--gold);box-shadow:0 0 0 4000px rgba(0,0,0,.5);box-sizing:border-box;cursor:move}
+.crop-h{position:absolute;width:48px;height:48px;margin:-24px;display:grid;place-items:center;cursor:pointer}
+.crop-h::after{content:"";width:20px;height:20px;border-radius:50%;background:var(--gold);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.crop-h[data-h="nw"]{left:0;top:0}.crop-h[data-h="ne"]{right:0;top:0}.crop-h[data-h="sw"]{left:0;bottom:0}.crop-h[data-h="se"]{right:0;bottom:0}
+.warn{margin:0;padding:10px 12px;border-radius:10px;background:var(--gold-soft);border:1px solid var(--gold);font-size:14px}
 .scan-text{margin:0;max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px}
 
 @media (max-width:370px){
@@ -294,7 +301,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.2.1';
+var APP_VERSION='1.3';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -627,10 +634,10 @@ function installHtml(){
 }
 
 /* ---------- render scheduling ---------- */
-var pendingRender=false;
+var pendingRender=false,drag=null;
 function isEditing(){var a=document.activeElement;return !!(a&&$app.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));}
 function requestRender(){if(isEditing()){pendingRender=true;updStatus();return;}render();}
-$app.addEventListener('focusout',function(){setTimeout(function(){if(pendingRender&&!isEditing()){render();}},0);});
+$app.addEventListener('focusout',function(){setTimeout(function(){if(pendingRender&&!isEditing()&&!drag){render();}},0);});
 function focusLater(id){setTimeout(function(){var el=document.getElementById(id);if(el)el.focus();},40);}
 var toastT;
 function toast(msg,ms){$toast.textContent=msg;$toast.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){$toast.hidden=true;},ms||2200);}
@@ -758,9 +765,9 @@ function cleanLine(raw){
   s=s.replace(/\d[li]|[li]\d/g,function(m){return m.replace(/[li]/,'1');});
   s=s.replace(/(\d[.,])[lio]/g,function(m,p){return p+(m.slice(-1)==='o'?'0':'1');});
   s=s.replace(/(\d)\s*[.,]\s*(\d)/g,'$1.$2');
-  s=s.replace(/(\d)\s*(µg|μg|ug|mcg|pg)(?![a-z])/g,'$1 ug');
+  s=s.replace(/(\d)\s*(µg|μg|ug|mcg|pg|yg)(?![a-z])/g,'$1 ug');
   s=s.replace(/(\d)\s*q(?![a-z])/g,'$1 g');
-  s=s.replace(/kca[l1i]/g,'kcal').replace(/\bk\s?j\b/g,'kj');
+  s=s.replace(/k[ce]a[l1i]/g,'kcal').replace(/\bk\s?j\b/g,'kj').replace(/(\d)\s*k[3\]l1i]\b/g,'$1 kj');
   s=s.replace(/\b(\d{1,3}) (\d{3})\s*(kj|kcal)\b/g,'$1$2 $3');
   return s;
 }
@@ -770,21 +777,48 @@ function ungluedGrams(tok){
   var alt=tok.raw.slice(0,-1).replace(/\.$/,'');
   return alt?parseFloat(alt):tok.val;
 }
-var TOK_RE=/(^|[^a-z0-9.])<?\s*(\d+(?:\.\d+)?)\s*(kcal|kj|mg|ug|ml|g|%)?(?![a-z0-9])/g;
+var TOK_RE=/(^|[^a-z0-9.])<?\s*(\d+(?:\.\d+)?)\s*(kcal|kj|mg|ug|ml|g|%)?(?![0-9])(?![a-z]{3})/g;
+/* A letter glued in front of a number is accepted for energy (A453 kcal) and for decimal gram values (s13.3g), never for bare integers */
+var TOK_GLUED_RE=/[a-z](\d+\.\d+)\s*(kcal|kj|g|mg|ug)(?![0-9])(?![a-z]{3})|[a-z](\d+)\s*(kcal|kj)(?![0-9])(?![a-z]{3})/g;
 function tokens(seg){
   var out=[],m;TOK_RE.lastIndex=0;
+  function push(raw,unit,idx){
+    var val=parseFloat(raw),dec=raw.indexOf('.')>-1;
+    if(!dec&&/^0\d+$/.test(raw)){raw='0.'+raw.slice(1);val=parseFloat(raw);dec=true;}
+    if(val===100&&(unit==='g'||unit==='ml'))return;
+    out.push({raw:raw,val:val,unit:unit,dec:dec,idx:idx});
+  }
   while((m=TOK_RE.exec(seg))){
-    var raw=m[2],unit=m[3]||'',val=parseFloat(raw);
-    if(unit==='%')continue;
-    if(val===100&&(unit==='g'||unit==='ml'))continue;
-    out.push({raw:raw,val:val,unit:unit,idx:m.index+m[1].length});
+    push(m[2],m[3]||'',m.index+m[1].length);
     if(m.index===TOK_RE.lastIndex)TOK_RE.lastIndex++;
   }
+  TOK_GLUED_RE.lastIndex=0;
+  while((m=TOK_GLUED_RE.exec(seg))){
+    var idx=m.index+1;
+    if(!out.some(function(t){return t.idx===idx;}))push(m[1]||m[3],m[2]||m[4],idx);
+    if(m.index===TOK_GLUED_RE.lastIndex)TOK_GLUED_RE.lastIndex++;
+  }
+  out.sort(function(x,y){return x.idx-y.idx;});
   return out;
 }
 function thousands(tok,big){
   if(/^\d{1,3}\.\d{3}$/.test(tok.raw)&&big)return parseInt(tok.raw.replace('.',''),10);
   return tok.val;
+}
+/* Plausible readings of a gram value, most likely first. The small print loses commas and glues the "g" on as a "9",
+   so 12,5 g can arrive as 12,59, 2,5 g as 259 and 13,3 g as 1339. */
+function gramCandidates(tok){
+  if(tok.unit==='mg')return [r3(tok.val/1000)];
+  if(tok.unit==='ug')return [r3(tok.val/1e6)];
+  var raw=tok.raw,list=[],decs=raw.indexOf('.')>-1?raw.split('.')[1].length:0,ends9=/9$/.test(raw)&&!tok.unit&&raw.length>1;
+  var unglued=ends9?parseFloat(raw.slice(0,-1).replace(/\.$/,'')):null;
+  function add(v){if(v!=null&&isFinite(v)&&v>=0&&list.indexOf(v)<0)list.push(r2(v));}
+  if(decs>=2){add(unglued);add(tok.val);}
+  else if(decs===1){add(tok.val);add(unglued);}
+  else if(tok.val>=100){add(unglued);add(unglued!=null?unglued/10:null);add(tok.val/10);add(tok.val/100);}
+  else if(raw.length===2&&ends9){add(tok.val);add(unglued);add(tok.val/10);}
+  else{add(tok.val);add(unglued);add(tok.val/10);}
+  return list.filter(function(v){return v<=100;});
 }
 var MACRO_RE=[
   {k:'f',re:/gr[a-z]?simi|\bgrassi\b|\bgrasas\b|\bgrasses\b|lipid|\bfat\b|\bfett\b|\bzsir\b|\bmasti\b|mascob|\btuky\b|\btluszcz\b|riebal|\btauki\b|\brasvad?\b/},
@@ -798,7 +832,7 @@ var MACRO_RE=[
 var ENERGY_RE=/energ|energy|calori|kalori|valoare|brennwert/;
 function vitRe(letter,extra){return new RegExp('\\b[vw]itam(?:in|iin)(?:a|e|y|s|as)?\\.?\\s+'+letter+'\\s?[0-9]?\\b|\\b'+letter+'-vitamin'+(extra?'|'+extra:''));}
 var MICRO_RE=[
-  ['b12',/\bb\s?12\b|cobalamin|kobalamin/],['b6',/\bb\s?6\b|piridox|pyridox|pirydoks/],['b1',/\bb\s?1\b|tiamin|thiamin|tiamiin/],['b2',/\bb\s?2\b|riboflavin|ryboflawin/],
+  ['b12',/\bb\s?12\b|cobalamin|kobalamin/],['b6',/\bb\s?6\b|piridox|pyridox|pirydoks/],['b1',/\bb\s?1\b|tiamin|thia[a-z]{1,2}in|tiamiin/],['b2',/\bb\s?2\b|ribo[a-z]{0,2}avin|ryboflawin/],
   ['b3',/\bb\s?3\b|niacin|niacyn/],['b5',/\bb\s?5\b|pantoten|pantothen/],['folate',/\bb\s?9\b|folic|folat|folsav|folian/],['biotin',/\bb\s?7\b|biotin|biotyn/],
   ['vitA',vitRe('a','retinol')],['vitD',vitRe('d','colecalciferol|cholecalciferol')],['vitE',vitRe('e','tocoferol|tocopherol')],['vitK',vitRe('k')],['vitC',vitRe('c','ascorbic')],
   ['calcium',/calci|kalci|kalzium|kaltsium|\bwapn/],['iron',/\bfier\b|\biron\b|\beisen\b|zelj?ezo|zelazo|\bfer\b|\bferro\b|hierro/],['magnesium',/magnez|magnesi|magnij|magnees/],['zinc',/\bzinc\b|\bzink\b|\bcink\b|\bcynk\b|\bzinco\b|\btsink\b/],
@@ -807,6 +841,8 @@ var MICRO_RE=[
 ];
 /* Footnotes about the adult reference intake (8400 kJ / 2000 kcal) are cut off before parsing */
 var FOOT_RE=/aport|referin|reference|adult|\bri\b|\bgda\b|8\.?400\s*kj|2\.?000\s*kcal/;
+/* Ingredient lists and allergen advice are prose, never nutrition values */
+var PROSE_RE=/ingredient|zutaten|osszetev|sastojci|sestavine|slozeni|sklad\b|may contain|poate contine|allerg|alerg/;
 function matchesIn(line){
   var out=[];
   MACRO_RE.forEach(function(r){var m=r.re.exec(line);if(m)out.push({key:r.k,idx:m.index,end:m.index+m[0].length,m:m[0]});});
@@ -816,22 +852,28 @@ function matchesIn(line){
   return out;
 }
 function pickTok(toks,portionFirst,units,strict){
-  var list=units?toks.filter(function(t){return units.indexOf(t.unit)>-1;}):toks;
-  if(!list.length&&!strict)list=toks.filter(function(t){return ['kcal','kj','ml'].indexOf(t.unit)<0;});
+  var list=units?toks.filter(function(t){return units.indexOf(t.unit)>-1;}):toks.filter(function(t){return t.unit!=='%';});
+  if(!list.length&&!strict)list=toks.filter(function(t){return ['kcal','kj','ml','%'].indexOf(t.unit)<0;});
   if(!list.length)return null;
   return (portionFirst&&list.length>1)?list[1]:list[0];
 }
+function sig(v){return v>=100?Math.round(v):v>=10?r1(v):r2(v);}
 function parseLabel(text){
-  var lines=String(text||'').split(/\r?\n/).map(cleanLine).map(function(l){var i=l.search(FOOT_RE);return (i>-1?l.slice(0,i):l).trim();}).filter(Boolean);
-  var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},i,j;
+  var lines=String(text||'').split(/\r?\n/).map(cleanLine).map(function(l){var i=l.search(FOOT_RE);return (i>-1?l.slice(0,i):l).trim();}).filter(function(l){return l&&!PROSE_RE.test(l)&&(l.match(/,/g)||[]).length<5;});
+  var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},alts={},i,j;
   var header=lines.filter(function(l){return /100\s*(g|ml)/.test(l);})[0];
   if(header){
     if(/100\s*ml/.test(header)&&!/100\s*g/.test(header))basis='ml';
     var pIdx=header.search(/porti|portion|serving|adag/),hIdx=header.search(/100\s*(g|ml)/);
     portionFirst=pIdx>-1&&pIdx<hIdx;
   }else if(lines.some(function(l){return /100\s*ml/.test(l);}))basis='ml';
-  function grams(tok){if(!tok)return null;if(tok.unit==='mg')return r3(tok.val/1000);if(tok.unit==='ug')return r3(tok.val/1e6);return ungluedGrams(tok);}
   function want(key){return key==='kcal'?vals.kcal==null:(MICRO_BY[key]?micros[key]==null:vals[key]==null);}
+  function okMacro(key,g){
+    if(!(g>=0&&g<=100))return false;
+    if(key==='sat'&&vals.f!=null&&g>vals.f+0.05)return false;
+    if(key==='sugar'&&vals.c!=null&&g>vals.c+0.05)return false;
+    return true;
+  }
   function take(key,toks,m){
     if(key==='kcal'){
       var kc=pickTok(toks,portionFirst,['kcal'],true),kj=pickTok(toks,portionFirst,['kj'],true),v=null;
@@ -841,18 +883,26 @@ function parseLabel(text){
       vals.kcal=Math.round(v);found.push('kcal');return true;
     }
     if(MICRO_BY[key]){
-      var def=MICRO_BY[key],t=pickTok(toks,portionFirst,['mg','ug','g'],false);if(!t)return false;
-      var val=thousands(t,def.nrv>=500),u=t.unit;
-      if(u==='g'){val=val*1000;u='mg';}
-      if(u==='mg'&&def.unit==='µg')val=val*1000;else if(u==='ug'&&def.unit==='mg')val=val/1000;
-      if(!(val>=0))return false;
+      var def=MICRO_BY[key],t=pickTok(toks,portionFirst,['mg','ug','g'],true),val=null;
+      if(t){
+        val=thousands(t,def.nrv>=500);var u=t.unit;
+        if(u==='g'){val=val*1000;u='mg';}
+        if(u==='mg'&&def.unit==='µg')val=val*1000;else if(u==='ug'&&def.unit==='mg')val=val/1000;
+      }
+      /* The % NRV column survives small print better than the value itself, so it checks or replaces the value */
+      var pcts=toks.filter(function(x){return x.unit==='%'&&x.val>0&&x.val<=1000;}),pt=(portionFirst&&pcts.length>1)?pcts[1]:pcts[0];
+      if(pt){
+        var derived=def.nrv*pt.val/100;
+        if(val==null||!(val>0)||val/derived>1.6||derived/val>1.6)val=sig(derived);
+      }
+      if(val==null||!(val>=0))return false;
       micros[key]=r3(val);foundMicros.push(key);return true;
     }
     var tok=pickTok(toks,portionFirst,['g','mg',''],false);if(!tok)return false;
-    var g=grams(tok);
-    if(key==='salt'&&/sodiu|sodium|natrium/.test(m||''))g=r2(g*2.5);
-    if(!(g>=0&&g<=100))return false;
-    vals[key]=g;found.push(key);return true;
+    var sodium=key==='salt'&&/sodiu|sodium|natrium/.test(m||'');
+    var cands=gramCandidates(tok).map(function(g){return sodium?r2(g*2.5):g;}).filter(function(g){return okMacro(key,g);});
+    if(!cands.length)return false;
+    vals[key]=cands[0];alts[key]=cands;found.push(key);return true;
   }
   function forward(i,key){
     for(var q=i+1;q<lines.length&&q<i+4;q++){
@@ -888,6 +938,9 @@ function parseLabel(text){
       for(var k=0;k<ms.length;k++){if(ms[k].key!==M.key&&ms[k].idx>=M.end&&ms[k].idx<cutAt)cutAt=ms[k].idx;}
       var toks=tokens(line.slice(M.end,cutAt));
       if(!toks.length&&cutAt===line.length)toks=forward(i,M.key);
+      if(M.key==='kcal'&&toks.length&&!toks.some(function(t){return t.unit==='kcal';})&&lines[i+1]&&!consumed[i+1]){
+        var nt=tokens(lines[i+1]);if(nt.some(function(t){return t.unit==='kcal';})&&!matchesIn(lines[i+1]).some(function(x){return x.key!=='kcal';}))toks=toks.concat(nt);
+      }
       if(toks.length)take(M.key,toks,M.m);
     }
   }
@@ -895,7 +948,24 @@ function parseLabel(text){
     var rest=lines.filter(function(l,idx){return !consumed[idx];}).join(' ');
     take('kcal',tokens(rest),'');
   }
-  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines};
+  /* With the calories known, choose between readings of protein, carbs and fat by energy (4, 4 and 9 kcal per g, fibre 2) */
+  var warn='';
+  if(vals.kcal!=null){
+    var keys=['p','c','f'].filter(function(k){return vals[k]!=null;}),best=null;
+    function energy(p,c,f){return 4*(p||0)+4*(c||0)+9*(f||0)+2*(vals.fibre||0);}
+    function tryCombo(idx,cur,rank){
+      if(idx===keys.length){var e=Math.abs(energy(cur.p,cur.c,cur.f)-vals.kcal),sc=e+rank*12;if(!best||sc<best.sc-0.01)best={e:e,sc:sc,v:clone(cur)};return;}
+      (alts[keys[idx]]||[vals[keys[idx]]]).forEach(function(v,r){cur[keys[idx]]=v;tryCombo(idx+1,cur,rank+r);});
+    }
+    if(keys.length){
+      tryCombo(0,{},0);
+      keys.forEach(function(k){vals[k]=best.v[k];});
+      if(vals.sat!=null&&vals.f!=null&&vals.sat>vals.f+0.05){var s2=(alts.sat||[]).filter(function(v){return v<=vals.f+0.05;})[0];if(s2!=null)vals.sat=s2;}
+      if(vals.sugar!=null&&vals.c!=null&&vals.sugar>vals.c+0.05){var g2=(alts.sugar||[]).filter(function(v){return v<=vals.c+0.05;})[0];if(g2!=null)vals.sugar=g2;}
+      if(keys.length===3&&best.e>Math.max(40,vals.kcal*0.15))warn='The calories do not match protein, carbs and fat ('+Math.round(energy(vals.p,vals.c,vals.f))+' kcal from the macros against '+vals.kcal+' on the label). Check those four against the label.';
+    }
+  }
+  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn};
 }
 
 /* ---------- label scanning: camera photo to text (OCR runs on the phone) ---------- */
@@ -925,29 +995,6 @@ function getWorker(){
   }).then(function(w){OCR.worker=w;OCR.loading=null;return w;},function(e){OCR.loading=null;throw e;});
   OCR.loading=p;return p;
 }
-function fileToCanvas(file){
-  return new Promise(function(res,rej){
-    var url=URL.createObjectURL(file),img=new Image();
-    img.onload=function(){
-      try{
-        var max=2400,w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,s=Math.min(1,max/Math.max(w,h,1));
-        var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*s));c.height=Math.max(1,Math.round(h*s));
-        var ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);
-        var im=ctx.getImageData(0,0,c.width,c.height),d=im.data,hist=new Uint32Array(256),i,g;
-        for(i=0;i<d.length;i+=4){g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000|0;d[i]=g;hist[g]++;}
-        var total=d.length/4,lo=0,hi=255,acc=0;
-        for(i=0;i<256;i++){acc+=hist[i];if(acc>total*0.02){lo=i;break;}}
-        acc=0;for(i=255;i>=0;i--){acc+=hist[i];if(acc>total*0.02){hi=i;break;}}
-        var rg=Math.max(1,hi-lo);
-        for(i=0;i<d.length;i+=4){g=Math.max(0,Math.min(255,Math.round((d[i]-lo)*255/rg)));d[i]=d[i+1]=d[i+2]=g;}
-        ctx.putImageData(im,0,0);
-        URL.revokeObjectURL(url);res(c);
-      }catch(e){URL.revokeObjectURL(url);rej(e);}
-    };
-    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('image'));};
-    img.src=url;
-  });
-}
 function statusText(st){
   var map={'loading tesseract core':'Downloading the reader (first time only)','initializing tesseract':'Starting the reader','loading language traineddata':'Downloading the Romanian reader (first time only)','initializing api':'Starting the reader','recognizing text':'Reading the label'};
   return map[st]||'Working';
@@ -958,11 +1005,11 @@ function updScanUI(){
   el.innerHTML='<span class="spin"></span><span>'+esc(f.scan.status||'Working')+(pct!=null&&pct>0?' '+pct+'%':'')+'</span>';
   var bar=document.getElementById('scan-bar');if(bar)bar.style.width=(pct||0)+'%';
 }
-function runScan(file){
+function runScan(canvas){
   var f=UI.ingForm;if(!f)return;
-  f.scan={busy:true,status:'Preparing the photo',progress:0,err:'',text:'',found:[],foundMicros:[],showText:false};render();
+  f.scan={busy:true,status:'Starting the reader',progress:0,err:'',text:'',found:[],foundMicros:[],showText:false};render();
   OCR.onProgress=function(m){var g=UI.ingForm;if(!g||!g.scan||!g.scan.busy)return;g.scan.status=statusText(m.status);g.scan.progress=m.status==='recognizing text'?m.progress:null;updScanUI();};
-  fileToCanvas(file).then(function(canvas){
+  Promise.resolve(canvas).then(function(canvas){
     return getWorker().then(function(w){var g=UI.ingForm;if(g&&g.scan){g.scan.status='Reading the label';updScanUI();}return w.recognize(canvas);});
   }).then(function(res){
     var g=UI.ingForm;if(!g||!g.scan)return;
@@ -982,7 +1029,7 @@ function applyScan(text){
   p.foundMicros.forEach(function(id){f.micros[id]=String(p.micros[id]);f.scanKeys['m:'+id]=true;});
   if(p.foundMicros.length)f.showMicros=true;
   if(p.basis)f.basis=p.basis;
-  f.scan={busy:false,done:true,status:'',progress:null,err:'',text:text,found:p.found,foundMicros:p.foundMicros,showText:false};
+  f.scan={busy:false,done:true,status:'',progress:null,err:'',text:text,found:p.found,foundMicros:p.foundMicros,showText:false,warn:p.warn||''};
   var n=p.found.length+p.foundMicros.length;
   render();
   toast(n?'Found '+n+(n===1?' value':' values')+'. Check them against the label.':'No values recognised. Try a closer, sharper photo.',3500);
@@ -990,8 +1037,77 @@ function applyScan(text){
 $scan.addEventListener('change',function(){
   var f=$scan.files&&$scan.files[0];$scan.value='';
   if(!f||!UI.ingForm)return;
-  runScan(f);
+  showCrop(f);
 });
+/* Crop step: the reader works on the nutrition table only, at full resolution */
+function showCrop(file){
+  var form=UI.ingForm,url=URL.createObjectURL(file),img=new Image();
+  img.onload=function(){
+    if(UI.ingForm!==form){URL.revokeObjectURL(url);return;}
+    form.crop={url:url,img:img,rect:{x:0.03,y:0.03,w:0.94,h:0.94}};form.scan=null;render();
+    setTimeout(function(){var el=document.getElementById('crop-stage');if(el)el.scrollIntoView({block:'start',behavior:'smooth'});},50);
+  };
+  img.onerror=function(){URL.revokeObjectURL(url);toast('Could not open that photo.',3500);};
+  img.src=url;
+}
+function cropHtml(c){
+  var r=c.rect,st='left:'+(r.x*100).toFixed(2)+'%;top:'+(r.y*100).toFixed(2)+'%;width:'+(r.w*100).toFixed(2)+'%;height:'+(r.h*100).toFixed(2)+'%';
+  return '<div class="scan"><p class="hint"><b>Drag the corners</b> so the box covers only the nutrition table, then tap Read. A tight box reads the small numbers much better.</p>'+
+    '<div class="crop-stage" id="crop-stage"><img src="'+esc(c.url)+'" alt="Label photo"><div class="crop-box" id="crop-box" style="'+st+'"><span class="crop-h" data-h="nw"></span><span class="crop-h" data-h="ne"></span><span class="crop-h" data-h="sw"></span><span class="crop-h" data-h="se"></span></div></div>'+
+    '<div class="row"><button class="btn primary" data-act="crop-read">Read this area</button><button class="btn" data-act="crop-all">Use whole photo</button><button class="btn ghost" data-act="crop-cancel">Cancel</button></div></div>';
+}
+document.addEventListener('pointerdown',function(e){
+  var h=e.target.closest('.crop-h'),box=e.target.closest('.crop-box'),stage=document.getElementById('crop-stage');
+  if(!stage||!(h||box)||!UI.ingForm||!UI.ingForm.crop)return;
+  e.preventDefault();pendingRender=false;
+  var sr=stage.getBoundingClientRect(),r=UI.ingForm.crop.rect;
+  drag={mode:h?h.getAttribute('data-h'):'move',sx:e.clientX,sy:e.clientY,sw:sr.width,sh:sr.height,r0:{x:r.x,y:r.y,w:r.w,h:r.h},id:e.pointerId};
+  try{(h||box).setPointerCapture(e.pointerId);}catch(x){}
+});
+document.addEventListener('pointermove',function(e){
+  if(!drag||e.pointerId!==drag.id||!UI.ingForm||!UI.ingForm.crop)return;
+  var dx=(e.clientX-drag.sx)/drag.sw,dy=(e.clientY-drag.sy)/drag.sh,r0=drag.r0,min=0.08,r={x:r0.x,y:r0.y,w:r0.w,h:r0.h};
+  if(drag.mode==='move'){r.x=Math.max(0,Math.min(1-r.w,r0.x+dx));r.y=Math.max(0,Math.min(1-r.h,r0.y+dy));}
+  else{
+    var x1=r0.x,y1=r0.y,x2=r0.x+r0.w,y2=r0.y+r0.h;
+    if(drag.mode.indexOf('w')>-1)x1=Math.max(0,Math.min(x2-min,r0.x+dx));
+    if(drag.mode.indexOf('e')>-1)x2=Math.min(1,Math.max(x1+min,r0.x+r0.w+dx));
+    if(drag.mode.indexOf('n')>-1)y1=Math.max(0,Math.min(y2-min,r0.y+dy));
+    if(drag.mode.indexOf('s')>-1)y2=Math.min(1,Math.max(y1+min,r0.y+r0.h+dy));
+    r={x:x1,y:y1,w:x2-x1,h:y2-y1};
+  }
+  UI.ingForm.crop.rect=r;
+  var box=document.getElementById('crop-box');
+  if(box){box.style.left=(r.x*100)+'%';box.style.top=(r.y*100)+'%';box.style.width=(r.w*100)+'%';box.style.height=(r.h*100)+'%';}
+});
+document.addEventListener('pointerup',function(e){if(drag&&e.pointerId===drag.id)drag=null;});
+document.addEventListener('pointercancel',function(e){if(drag&&e.pointerId===drag.id)drag=null;});
+function cropToCanvas(img,rect){
+  var W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
+  var sx=Math.round(rect.x*W),sy=Math.round(rect.y*H),sw=Math.max(1,Math.round(rect.w*W)),sh=Math.max(1,Math.round(rect.h*H));
+  var target=2400,scale=Math.min(3,Math.max(0.2,target/Math.max(sw,sh)));
+  var c=document.createElement('canvas');c.width=Math.max(1,Math.round(sw*scale));c.height=Math.max(1,Math.round(sh*scale));
+  var ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(img,sx,sy,sw,sh,0,0,c.width,c.height);
+  var im=ctx.getImageData(0,0,c.width,c.height),d=im.data,hist=new Uint32Array(256),i,g;
+  for(i=0;i<d.length;i+=4){g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000|0;d[i]=g;hist[g]++;}
+  var total=d.length/4,lo=0,hi=255,acc=0;
+  for(i=0;i<256;i++){acc+=hist[i];if(acc>total*0.02){lo=i;break;}}
+  acc=0;for(i=255;i>=0;i--){acc+=hist[i];if(acc>total*0.02){hi=i;break;}}
+  var rg=Math.max(1,hi-lo);
+  for(i=0;i<d.length;i+=4){g=Math.max(0,Math.min(255,Math.round((d[i]-lo)*255/rg)));d[i]=d[i+1]=d[i+2]=g;}
+  ctx.putImageData(im,0,0);
+  return c;
+}
+function finishCrop(whole){
+  var f=UI.ingForm;if(!f||!f.crop)return;
+  var c=f.crop,rect=whole?{x:0,y:0,w:1,h:1}:c.rect;
+  f.crop=null;
+  var canvas;
+  try{canvas=cropToCanvas(c.img,rect);}catch(e){URL.revokeObjectURL(c.url);toast('Could not prepare that photo.',3500);render();return;}
+  URL.revokeObjectURL(c.url);
+  runScan(canvas);
+}
 
 /* ---------- header and tabs ---------- */
 function renderTop(){
@@ -1358,15 +1474,17 @@ function mfld(m,f){
   return '<label class="fld" for="'+id+'"><span>'+esc(m.name)+' <span class="u">('+m.unit+')</span>'+(scanned?' <span class="chip gold">Scan</span>':'')+'</span><input class="txt'+(scanned?' from-scan':'')+'" id="'+id+'" inputmode="decimal" autocomplete="off" data-k="im" data-f="'+m.id+'" value="'+esc(v==null?'':v)+'"></label>';
 }
 function scanHtml(f){
+  if(f.crop)return cropHtml(f.crop);
   var s=f.scan||{},h='<div class="scan">';
   if(s.busy){
     h+='<div class="scan-status" id="scan-status"><span class="spin"></span><span>'+esc(s.status||'Working')+'</span></div><div class="scan-bar"><span id="scan-bar" style="width:0%"></span></div>';
   }else{
-    h+='<div class="row between"><button class="btn" data-act="scan">'+(s.done?'Scan again':'Scan label')+'</button><span class="hint">Photo of the nutrition table, Romanian or English</span></div>';
+    h+='<div class="row between"><button class="btn" data-act="scan">'+(s.done?'Scan again':'Scan label')+'</button><span class="hint">Photo of the label, then crop to the table</span></div>';
     if(s.err)h+='<p class="err">'+esc(s.err)+'</p>';
     if(s.done){
       var n=(s.found||[]).length+(s.foundMicros||[]).length;
-      h+='<p class="hint">'+(n?'<b>'+n+(n===1?' value':' values')+' filled in from the scan</b>, marked in gold. Check each one against the label and correct anything that looks wrong; the rest stay for you to type.':'<b>Nothing recognised.</b> Retake the photo closer, with the table flat and filling the frame, or type the values.')+'</p>';
+      h+='<p class="hint">'+(n?'<b>'+n+(n===1?' value':' values')+' filled in from the scan</b>, marked in gold. Check each one against the label and correct anything that looks wrong; the rest stay for you to type.':'<b>Nothing recognised.</b> Scan again with a tighter box around the table, in good light, or type the values.')+'</p>';
+      if(s.warn)h+='<p class="warn">'+esc(s.warn)+'</p>';
       h+='<div class="row"><button class="link" data-act="scan-text">'+(s.showText?'Hide scanned text':'Show scanned text')+'</button><button class="link" data-act="scan-copy">Copy scanned text</button></div>';
       if(s.showText)h+='<pre class="scan-text" id="scan-text">'+esc(s.text||'(empty)')+'</pre>';
     }
@@ -1531,6 +1649,7 @@ ACT['ing-new']=function(){UI.ingForm=blankIngForm();render();window.scrollTo(0,0
 ACT['ing-new-from-pick']=function(){var f=blankIngForm();f.name=UI.ingSearch||'';f.returnTo={meal:UI.addTo,date:UI.foodDate};UI.ingForm=f;UI.foodView='ingredients';render();window.scrollTo(0,0);focusLater(UI.ingSearch?'if-kcal':'if-name');};
 ACT['ing-edit']=function(b){var id=b.getAttribute('data-id');if(!S.ingredients[id])return;UI.ingForm=ingFormFrom(id);render();window.scrollTo(0,0);};
 ACT['ing-cancel']=function(){
+  if(UI.ingForm&&UI.ingForm.crop)URL.revokeObjectURL(UI.ingForm.crop.url);
   var r=UI.ingForm&&UI.ingForm.returnTo;UI.ingForm=null;
   if(r){UI.foodView='log';UI.foodDate=r.date;UI.addTo=r.meal;UI.pick=null;}
   render();
@@ -1553,7 +1672,10 @@ ACT['ing-del']=function(){UI.ingForm.confirmDel=true;render();};
 ACT['ing-del-no']=function(){UI.ingForm.confirmDel=false;render();};
 ACT['ing-del-yes']=function(){var id=UI.ingForm.id;delete S.ingredients[id];removeDoc('ingredients/'+id);UI.ingForm=null;toast('Ingredient deleted');render();};
 ACT['micros-toggle']=function(){if(UI.ingForm){UI.ingForm.showMicros=!UI.ingForm.showMicros;render();}};
-ACT.scan=function(){if(!UI.ingForm||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;$scan.click();};
+ACT.scan=function(){if(!UI.ingForm||UI.ingForm.crop||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;$scan.click();};
+ACT['crop-read']=function(){finishCrop(false);};
+ACT['crop-all']=function(){finishCrop(true);};
+ACT['crop-cancel']=function(){var f=UI.ingForm;if(f&&f.crop){URL.revokeObjectURL(f.crop.url);f.crop=null;render();}};
 ACT['scan-text']=function(){if(UI.ingForm&&UI.ingForm.scan){UI.ingForm.scan.showText=!UI.ingForm.scan.showText;render();}};
 ACT['scan-copy']=function(){
   var s=UI.ingForm&&UI.ingForm.scan;if(!s)return;
