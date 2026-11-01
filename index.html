@@ -118,6 +118,8 @@ main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
 .txt{width:100%;min-width:0;border:1px solid var(--line);background:var(--sunk);border-radius:10px;padding:10px 12px;font:500 16px var(--font-body);color:var(--ink)}
 textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 .txt.from-scan{background:var(--gold-soft);border-color:var(--gold)}
+.txt.from-check{border-color:var(--danger);border-width:2px}
+.chip.danger{background:var(--danger);color:#fff}
 .num{width:100%;min-width:0;border:1px solid var(--line);background:var(--sunk);border-radius:10px;padding:9px 4px;text-align:center;font:700 22px/1.1 var(--font-display);font-variant-numeric:tabular-nums;color:var(--ink)}
 .num::placeholder{color:var(--muted);opacity:.6;font-weight:500}
 .check{display:flex;align-items:center;gap:8px;font-size:15px}
@@ -301,7 +303,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.3';
+var APP_VERSION='1.3.1';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -767,7 +769,7 @@ function cleanLine(raw){
   s=s.replace(/(\d)\s*[.,]\s*(\d)/g,'$1.$2');
   s=s.replace(/(\d)\s*(µg|μg|ug|mcg|pg|yg)(?![a-z])/g,'$1 ug');
   s=s.replace(/(\d)\s*q(?![a-z])/g,'$1 g');
-  s=s.replace(/k[ce]a[l1i]/g,'kcal').replace(/\bk\s?j\b/g,'kj').replace(/(\d)\s*k[3\]l1i]\b/g,'$1 kj');
+  s=s.replace(/(\d)\s*%\s*ca[l1i]/g,'$1 kcal').replace(/k[ce]a[l1i]/g,'kcal').replace(/\bk\s?j\b/g,'kj').replace(/(\d)\s*k[3\]l1i]\b/g,'$1 kj');
   s=s.replace(/\b(\d{1,3}) (\d{3})\s*(kj|kcal)\b/g,'$1$2 $3');
   return s;
 }
@@ -861,12 +863,19 @@ function sig(v){return v>=100?Math.round(v):v>=10?r1(v):r2(v);}
 function parseLabel(text){
   var lines=String(text||'').split(/\r?\n/).map(cleanLine).map(function(l){var i=l.search(FOOT_RE);return (i>-1?l.slice(0,i):l).trim();}).filter(function(l){return l&&!PROSE_RE.test(l)&&(l.match(/,/g)||[]).length<5;});
   var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},alts={},i,j;
-  var header=lines.filter(function(l){return /100\s*(g|ml)/.test(l);})[0];
-  if(header){
-    if(/100\s*ml/.test(header)&&!/100\s*g/.test(header))basis='ml';
-    var pIdx=header.search(/porti|portion|serving|adag/),hIdx=header.search(/100\s*(g|ml)/);
-    portionFirst=pIdx>-1&&pIdx<hIdx;
-  }else if(lines.some(function(l){return /100\s*ml/.test(l);}))basis='ml';
+  /* Header: which column is per 100 g, whether there is a per-portion column and how big the portion is */
+  var hl=lines.slice(0,14).filter(function(l){return /100\s*(g|ml)/.test(l)||/porti|portion|serving|adag|quarter|slice/.test(l);}),ht=hl.join(' '),portionSize=null,hm,hn=[],HN=/(\d+(?:\.\d+)?)\s*(g|ml)(?![a-z])/g;
+  while((hm=HN.exec(ht))){hn.push({val:parseFloat(hm[1]),idx:hm.index});if(hm.index===HN.lastIndex)HN.lastIndex++;}
+  var h100=hn.filter(function(n){return n.val===100;}),hOther=hn.filter(function(n){return n.val!==100&&n.val>0&&n.val<=500;});
+  if(hOther.length){portionSize=hOther[0].val;if(h100.length)portionFirst=hOther[0].idx<h100[0].idx;}
+  else if(h100.length>=2)portionSize=100;
+  if(!hOther.length&&h100.length){var pIdx=ht.search(/porti|portion|serving|adag/);portionFirst=pIdx>-1&&pIdx<h100[0].idx;}
+  if(/100\s*ml/.test(ht)&&!/100\s*g/.test(ht))basis='ml';else if(!ht&&lines.some(function(l){return /100\s*ml/.test(l);}))basis='ml';
+  /* A per-portion column exists when most nutrient lines carry two values */
+  var twoCol=0,oneCol=0;
+  lines.forEach(function(l){var ms=matchesIn(l);if(!ms.length||ms[0].key==='kcal'||MICRO_BY[ms[0].key])return;var n=tokens(l).filter(function(t){return t.unit!=='%'&&['kcal','kj','ml'].indexOf(t.unit)<0;}).length;if(n>=2)twoCol++;else if(n===1)oneCol++;});
+  var hasPortionCol=twoCol>=2&&twoCol>=oneCol;
+  var RI_BY={f:70,sat:20,c:260,sugar:90,p:50,salt:6},flags=[];
   function want(key){return key==='kcal'?vals.kcal==null:(MICRO_BY[key]?micros[key]==null:vals[key]==null);}
   function okMacro(key,g){
     if(!(g>=0&&g<=100))return false;
@@ -898,11 +907,26 @@ function parseLabel(text){
       if(val==null||!(val>=0))return false;
       micros[key]=r3(val);foundMicros.push(key);return true;
     }
-    var tok=pickTok(toks,portionFirst,['g','mg',''],false);if(!tok)return false;
-    var sodium=key==='salt'&&/sodiu|sodium|natrium/.test(m||'');
-    var cands=gramCandidates(tok).map(function(g){return sodium?r2(g*2.5):g;}).filter(function(g){return okMacro(key,g);});
+    var vt=toks.filter(function(t){return t.unit!=='%'&&['kcal','kj','ml'].indexOf(t.unit)<0;}),pcts=toks.filter(function(t){return t.unit==='%';});
+    if(!vt.length)return false;
+    var tok=(portionFirst&&vt.length>1)?vt[1]:vt[0],tP=vt.length>1?(portionFirst?vt[0]:vt[1]):null;
+    var sodium=key==='salt'&&/sodiu|sodium|natrium/.test(m||''),mul=sodium?2.5:1;
+    var cands=gramCandidates(tok).map(function(g){return r2(g*mul);}).filter(function(g){return okMacro(key,g);});
     if(!cands.length)return false;
-    vals[key]=cands[0];alts[key]=cands;found.push(key);return true;
+    /* Evidence for the per-100 g value: the portion column scaled up, and the % RI column (it refers to the portion when one exists) */
+    var ev=[];
+    if(tP&&portionSize)gramCandidates(tP).forEach(function(v){ev.push({v:r2(v*mul*100/portionSize),kind:'col'});});
+    var pct=pcts[0],ri=RI_BY[key],pctV=null;
+    if(pct&&ri&&pct.val>0&&pct.val<=200&&(portionSize||!hasPortionCol)){pctV=ri*pct.val/100*(portionSize?100/portionSize:1);ev.push({v:pctV,kind:'pct'});}
+    /* The first (most likely) reading that any evidence supports wins; the % RI is coarse, so it confirms rather than ranks */
+    var chosen=null;
+    for(var ci=0;ci<cands.length&&chosen==null;ci++){
+      for(var ei=0;ei<ev.length;ei++){var rel=Math.abs(cands[ci]-ev[ei].v)/Math.max(ev[ei].v,0.3);if(rel<=(ev[ei].kind==='pct'?0.3:0.15)){chosen=cands[ci];break;}}
+    }
+    if(chosen!=null){vals[key]=chosen;alts[key]=[chosen];}
+    else{vals[key]=cands[0];alts[key]=cands;}
+    if(pctV!=null&&Math.abs(vals[key]-pctV)/Math.max(pctV,0.3)>0.4)flags.push({key:key,read:vals[key],pct:pctV});
+    found.push(key);return true;
   }
   function forward(i,key){
     for(var q=i+1;q<lines.length&&q<i+4;q++){
@@ -965,7 +989,8 @@ function parseLabel(text){
       if(keys.length===3&&best.e>Math.max(40,vals.kcal*0.15))warn='The calories do not match protein, carbs and fat ('+Math.round(energy(vals.p,vals.c,vals.f))+' kcal from the macros against '+vals.kcal+' on the label). Check those four against the label.';
     }
   }
-  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn};
+  flags.forEach(function(fl){if(vals[fl.key]!==fl.read)return;var nm=LABEL.filter(function(l){return l.k===fl.key;})[0];warn+=(warn?' ':'')+(nm?nm.name:fl.key)+' reads '+fl.read+' g, but the % RI column suggests c.'+sig(fl.pct)+' g. Check it.';});
+  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:flags.map(function(x){return x.key;})};
 }
 
 /* ---------- label scanning: camera photo to text (OCR runs on the phone) ---------- */
@@ -990,7 +1015,7 @@ function getWorker(){
     return window.Tesseract.createWorker('ron',1,{logger:function(m){if(OCR.onProgress)OCR.onProgress(m);}});
   }).then(function(w){
     /* Read the table as one block, line by line, so each name stays on the same line as its value */
-    var p=w.setParameters?w.setParameters({tessedit_pageseg_mode:'6'}):null;
+    var p=w.setParameters?w.setParameters({tessedit_pageseg_mode:'6',user_defined_dpi:'300'}):null;
     return Promise.resolve(p).catch(function(){}).then(function(){return w;});
   }).then(function(w){OCR.worker=w;OCR.loading=null;return w;},function(e){OCR.loading=null;throw e;});
   OCR.loading=p;return p;
@@ -1023,8 +1048,9 @@ function runScan(canvas){
 }
 function applyScan(text){
   var f=UI.ingForm,p=parseLabel(text);
-  f.scanKeys=f.scanKeys||{};
+  f.scanKeys=f.scanKeys||{};f.checkKeys={};
   p.found.forEach(function(k){f[k]=String(p.vals[k]);f.scanKeys[k]=true;});
+  (p.flags||[]).forEach(function(k){f.checkKeys[k]=true;});
   f.micros=f.micros||{};
   p.foundMicros.forEach(function(id){f.micros[id]=String(p.micros[id]);f.scanKeys['m:'+id]=true;});
   if(p.foundMicros.length)f.showMicros=true;
@@ -1466,8 +1492,8 @@ function ingRows(){
   if(!list.length)return '<div class="empty">No ingredient matches that search.</div>';
   return list.map(function(p){var x=p[1],ex=extrasText(x);return '<button class="ing-row'+(UI.ingForm&&UI.ingForm.id===p[0]?' sel':'')+'" data-act="ing-edit" data-id="'+esc(p[0])+'"><span class="n">'+esc(x.name)+(x.example?' <span class="chip">Example</span>':'')+(x.source==='scan'?' <span class="chip gold">Scanned</span>':'')+'</span><span class="m">Per 100 '+(x.basis==='ml'?'ml':'g')+': '+per100(x)+(ex?'. Plus '+ex:'')+'</span></button>';}).join('');
 }
-function ifld(label,id,f,v,scanned){
-  return '<label class="fld" for="'+id+'"><span>'+esc(label)+(scanned?' <span class="chip gold">Scan</span>':'')+'</span><input class="txt'+(scanned?' from-scan':'')+'" id="'+id+'" inputmode="decimal" autocomplete="off" data-k="if" data-f="'+f+'" value="'+esc(v==null?'':v)+'"></label>';
+function ifld(label,id,f,v,scanned,check){
+  return '<label class="fld" for="'+id+'"><span>'+esc(label)+(check?' <span class="chip danger">Check</span>':(scanned?' <span class="chip gold">Scan</span>':''))+'</span><input class="txt'+(check?' from-check':(scanned?' from-scan':''))+'" id="'+id+'" inputmode="decimal" autocomplete="off" data-k="if" data-f="'+f+'" value="'+esc(v==null?'':v)+'"></label>';
 }
 function mfld(m,f){
   var id='if-m-'+m.id,scanned=!!(f.scanKeys&&f.scanKeys['m:'+m.id]),v=(f.micros||{})[m.id];
@@ -1492,7 +1518,7 @@ function scanHtml(f){
   return h+'</div>';
 }
 function ingFormHtml(){
-  var f=UI.ingForm,isEx=f.id&&S.ingredients[f.id]&&S.ingredients[f.id].example,sk=f.scanKeys||{};
+  var f=UI.ingForm,isEx=f.id&&S.ingredients[f.id]&&S.ingredients[f.id].example,sk=f.scanKeys||{},ck=f.checkKeys||{};
   var actions=f.confirmDel?
     '<div class="confirm"><span>Delete '+esc(f.name||'this ingredient')+'? Meals you already logged keep their values.</span><div class="row"><button class="btn danger" data-act="ing-del-yes">Delete</button><button class="btn ghost" data-act="ing-del-no">Cancel</button></div></div>':
     '<div class="row between"><div class="row"><button class="btn primary" data-act="ing-save">'+(f.returnTo?'Save and use':'Save')+'</button><button class="btn ghost" data-act="ing-cancel">Cancel</button></div>'+(f.id?'<button class="btn ghost danger small" data-act="ing-del">Delete</button>':'')+'</div>';
@@ -1502,8 +1528,8 @@ function ingFormHtml(){
   if(isEx)h+='<p class="hint">Example values from a standard food table. Replace them with the numbers on your packaging.</p>';
   h+='<label class="fld" for="if-name"><span>Name</span><input class="txt" id="if-name" data-k="if" data-f="name" value="'+esc(f.name)+'" placeholder="Greek yogurt 2%"></label>';
   h+='<label class="fld" for="if-basis"><span>Values per</span><select class="txt" id="if-basis" data-k="if" data-f="basis"><option value="g"'+(f.basis!=='ml'?' selected':'')+'>100 g</option><option value="ml"'+(f.basis==='ml'?' selected':'')+'>100 ml</option></select></label>';
-  h+='<div class="grid2">'+ifld('Calories (kcal)','if-kcal','kcal',f.kcal,sk.kcal)+ifld('Protein (g)','if-p','p',f.p,sk.p)+ifld('Carbs (g)','if-c','c',f.c,sk.c)+ifld('Fat (g)','if-f','f',f.f,sk.f)+'</div>';
-  h+='<h4>Also on the label</h4><div class="grid2">'+ifld('Of which saturates (g)','if-sat','sat',f.sat,sk.sat)+ifld('Of which sugars (g)','if-sugar','sugar',f.sugar,sk.sugar)+ifld('Fibre (g)','if-fibre','fibre',f.fibre,sk.fibre)+ifld('Salt (g)','if-salt','salt',f.salt,sk.salt)+'</div>';
+  h+='<div class="grid2">'+ifld('Calories (kcal)','if-kcal','kcal',f.kcal,sk.kcal,ck.kcal)+ifld('Protein (g)','if-p','p',f.p,sk.p,ck.p)+ifld('Carbs (g)','if-c','c',f.c,sk.c,ck.c)+ifld('Fat (g)','if-f','f',f.f,sk.f,ck.f)+'</div>';
+  h+='<h4>Also on the label</h4><div class="grid2">'+ifld('Of which saturates (g)','if-sat','sat',f.sat,sk.sat,ck.sat)+ifld('Of which sugars (g)','if-sugar','sugar',f.sugar,sk.sugar,ck.sugar)+ifld('Fibre (g)','if-fibre','fibre',f.fibre,sk.fibre,ck.fibre)+ifld('Salt (g)','if-salt','salt',f.salt,sk.salt,ck.salt)+'</div>';
   h+='<div class="row between"><h4>Vitamins and minerals'+(mcount?' ('+mcount+' filled)':'')+'</h4><button class="btn small" data-act="micros-toggle" aria-expanded="'+!!f.showMicros+'">'+(f.showMicros?'Hide':(mcount?'Show':'Add'))+'</button></div>';
   if(f.showMicros){
     h+='<div class="panel"><p class="hint">Only fill what the label lists. Units match the label: mg or µg.</p><div class="eyebrow">Vitamins</div><div class="grid2">'+MICROS.filter(function(m){return m.g==='v';}).map(function(m){return mfld(m,f);}).join('')+'</div>';

@@ -33,6 +33,7 @@ Then open the app from its new icon and tap Load backup file to bring in the pla
 
 ## Version history
 
+- 1.3.1 (Nov-26): lost decimal points fixed by checking each value against the per-portion column and the % RI column; fields the label's % RI disagrees with are marked Check
 - 1.3 (Nov-26): crop box before reading, multilingual Lidl-style labels (15 languages, stacked or slash-separated names), reference-intake footnotes ignored, lost decimal commas repaired by plausibility, vitamins checked against the % NRV column, calorie consistency warning, Copy scanned text
 
 - 1.2 (Nov-26): exercises arranged as alternating pairs with no rep numbers (Garmin keeps the sets), automatic easy or 60/30/10 long run, full label values, vitamins and minerals, label scanner
