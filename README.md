@@ -1,6 +1,6 @@
 # Casian Fitness Log
 
-Training plan, rep logging, personal records and meal tracking. Installs to the home screen, works offline and keeps all data on the phone.
+Weekly training plan arranged as alternating pairs, personal records and meal tracking with nutrition label scanning. Installs to the home screen, works offline and keeps all data on the phone.
 
 ## Put it online (one time, free)
 
@@ -17,9 +17,22 @@ Training plan, rep logging, personal records and meal tracking. Installs to the 
 
 Then open the app from its new icon and tap Load backup file to bring in the plan and records.
 
+## Label scanning
+
+- In an ingredient, tap Scan label and take a photo of the nutrition table, flat and filling the frame
+- The first scan downloads the text reader (c.10 MB) and needs an internet connection; after that scanning works offline
+- Values found on the label are filled in and marked; check them and correct anything wrong before saving
+- Romanian and English labels are supported, with the app staying in English
+
 ## Notes
 
 - The code in the repository is public; the log itself never leaves the phone. Never upload a backup file to the repository
 - On iPhone, the home-screen app and Safari keep separate data, so load the backup from inside the home-screen app
 - Save a backup from Settings every week or two and keep it in Files, iCloud Drive or Google Drive
 - To update the app, upload the new files over the old ones; the app shows "A new version is ready" on its next launch
+
+## Version history
+
+- 1.2 (Nov-26): exercises arranged as alternating pairs with no rep numbers (Garmin keeps the sets), automatic easy or 60/30/10 long run, full label values, vitamins and minerals, label scanner
+- 1.1 (Oct-26): default reps per exercise
+- 1.0 (Oct-26): first version
