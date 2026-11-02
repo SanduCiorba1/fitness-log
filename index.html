@@ -303,7 +303,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.4.1';
+var APP_VERSION='1.5';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -878,6 +878,7 @@ function parseLabel(text){
   /* A portion size whose "g" was read as a "9" (Portion 309 is Portion 30 g) */
   var HG=/(porti|portion|serving|adag)\D{0,12}?(\d{2,3})9(?![0-9.])/g;
   while((hm=HG.exec(ht))){hn.push({val:parseInt(hm[2],10),idx:hm.index});if(hm.index===HG.lastIndex)HG.lastIndex++;}
+  hn.sort(function(a,b){return a.idx-b.idx;});
   var h100=hn.filter(function(n){return n.val===100;}),hOther=hn.filter(function(n){return n.val!==100&&n.val>0&&n.val<=500;});
   if(hOther.length){portionSize=hOther[0].val;if(h100.length)portionFirst=hOther[0].idx<h100[0].idx;}
   else if(h100.length>=2)portionSize=100;
@@ -897,9 +898,12 @@ function parseLabel(text){
   }
   function take(key,toks,m,line){
     if(key==='kcal'){
-      var kc=pickTok(toks,portionFirst,['kcal'],true),kj=pickTok(toks,portionFirst,['kj'],true),v=null;
+      var kc=pickTok(toks,portionFirst,['kcal'],true),kj=pickTok(toks,portionFirst,['kj'],true),v=null,vj=null;
       if(kc){v=thousands(kc,true);if(v>950)v=null;}
-      if(v==null&&kj){v=thousands(kj,true);v=v>4000?null:v/4.184;}
+      if(kj){vj=thousands(kj,true);vj=vj>4000?null:vj/4.184;}
+      /* kJ and kcal should agree; when a leading digit was lost one of them is far too small, so the larger wins */
+      if(v!=null&&vj!=null&&Math.abs(v-vj)>0.25*Math.max(v,vj))v=Math.max(v,vj);
+      if(v==null&&vj!=null)v=vj;
       if(v==null)return false;
       vals.kcal=Math.round(v);found.push('kcal');if(line!=null)lineOf.kcal=line;return true;
     }
@@ -914,7 +918,8 @@ function parseLabel(text){
       var pcts=toks.filter(function(x){return x.unit==='%'&&x.val>0&&x.val<=1000;}),pt=(portionFirst&&pcts.length>1)?pcts[1]:pcts[0];
       if(pt){
         var dv=def.nrv*pt.val/100;
-        if(val==null||!(val>0)||val/dv>1.6||dv/val>1.6)val=sig(dv);
+        /* a tiny percentage is more often a misread than a real value, so it never overrides a readable amount */
+        if(val==null||!(val>0)||((val/dv>1.6||dv/val>1.6)&&pt.val>=5))val=sig(dv);
       }
       if(val==null||!(val>=0))return false;
       micros[key]=r3(val);foundMicros.push(key);return true;
@@ -1040,8 +1045,385 @@ function parseLabel(text){
   return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:Object.keys(seenFlag)};
 }
 
+/* ---------- label scanning: table layout from the reader's word boxes ----------
+   The first read of the whole crop gives words with positions (TSV). From those we find the value
+   columns (right-aligned clusters of numbers), cut each column out as a narrow strip, binarise it
+   ourselves, split it into rows by the glyph shapes and read the digits again. The glyph shapes tell
+   how many digits a value has, where its decimal comma sits and whether a unit follows, so a lost
+   comma or a "g" read as "9" no longer changes the value. */
+var VALUE_WL='0123456789,.<>|gkcalJm/%µ ';
+function parseTsv(tsv){
+  var out=[],rows=String(tsv||'').split('\n');
+  for(var i=1;i<rows.length;i++){
+    var p=rows[i].split('\t');if(p.length<12||p[0]!=='5')continue;
+    var t=p[11];if(!t||!t.trim())continue;
+    out.push({x:+p[6],y:+p[7],w:+p[8],h:+p[9],conf:+p[10],text:t.trim(),line:p[2]+'-'+p[3]+'-'+p[4]});
+  }
+  return out;
+}
+function tsvLines(words){
+  var by={};words.forEach(function(w){(by[w.line]=by[w.line]||[]).push(w);});
+  var out=[];
+  Object.keys(by).forEach(function(k){
+    var ws=by[k].sort(function(a,b){return a.x-b.x;}),mh=median(ws.map(function(w){return w.h;}));
+    /* the reader sometimes merges neighbouring lines: regroup the words by their own vertical centres */
+    var groups=[];
+    ws.slice().sort(function(a,b){return (a.y+a.h/2)-(b.y+b.h/2);}).forEach(function(w){
+      var cy=w.y+w.h/2,g=groups[groups.length-1];
+      if(g&&cy-g.cy<0.6*mh){g.ws.push(w);g.cy=(g.cy*(g.ws.length-1)+cy)/g.ws.length;}else groups.push({ws:[w],cy:cy});
+    });
+    groups.forEach(function(g){
+      var l={words:g.ws.sort(function(a,b){return a.x-b.x;}),x0:1e9,x1:0,y0:1e9,y1:0};
+      l.words.forEach(function(w){l.x0=Math.min(l.x0,w.x);l.x1=Math.max(l.x1,w.x+w.w);l.y0=Math.min(l.y0,w.y);l.y1=Math.max(l.y1,w.y+w.h);});
+      l.text=l.words.map(function(w){return w.text;}).join(' ');out.push(l);
+    });
+  });
+  out.sort(function(a,b){return a.y0-b.y0;});return out;
+}
+function median(arr){var a=arr.slice().sort(function(x,y){return x-y;});return a.length?a[Math.floor(a.length/2)]:0;}
+/* Tilt of the photo: the slope of the word bottoms along each wide line, median over lines */
+function skewOf(lines){
+  var sl=[];
+  lines.forEach(function(l){
+    if(l.words.length<2)return;var a=l.words[0],b=l.words[l.words.length-1],dx=(b.x+b.w)-(a.x);
+    if(dx<8*median(l.words.map(function(w){return w.h;})))return;
+    sl.push(((b.y+b.h)-(a.y+a.h))/dx);
+  });
+  if(sl.length<2)return 0;var m=median(sl);return Math.abs(m)<0.08?m:0;
+}
+function overlapY(a,b){return Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0);}
+/* Value columns: clusters of right edges of words that contain a digit, in the right 60% of the crop */
+function findValueColumns(words,W,H){
+  var numw=words.filter(function(w){return /\d/.test(w.text)&&w.x+w.w>W*0.4&&w.h<H*0.2&&w.h>2;});
+  if(numw.length<2)return [];
+  var h=median(numw.map(function(w){return w.h;}));
+  numw.sort(function(a,b){return (a.x+a.w)-(b.x+b.w);});
+  var clusters=[];
+  numw.forEach(function(w){var e=w.x+w.w,c=clusters[clusters.length-1];if(c&&e-c.last<Math.max(h*1.2,W*0.03)){c.last=e;c.ws.push(w);}else clusters.push({last:e,ws:[w]});});
+  var cols=[];
+  clusters.forEach(function(c){
+    if(c.ws.length<2)return;
+    var mr=median(c.ws.map(function(w){return w.x+w.w;}));
+    var members=c.ws.filter(function(w){return Math.abs(w.x+w.w-mr)<=0.8*h;});
+    if(members.length<2)return;
+    var valueLike=members.filter(function(w){return /^[^a-z]*<?\d+([.,]\d+)?\s*(g|mg|ug|kcal|kj|%|ml)?[^a-z0-9]*$/i.test(w.text)||/kcal|kj/i.test(w.text);}).length;
+    if(valueLike<0.5*members.length)return;
+    var x1=Math.min(W,Math.round(mr+0.5*h)),x0=Math.max(0,Math.round(Math.min.apply(null,members.map(function(w){return w.x;}))-0.5*h),Math.round(mr-7*h));
+    cols.push({x0:x0,x1:x1,mr:mr,h:h,n:members.length,words:members,kind:'',header:''});
+  });
+  cols.sort(function(a,b){return a.x0-b.x0;});
+  return cols;
+}
+/* Header words above the table tell which column is per 100 g, per portion or % RI */
+function classifyColumns(cols,lines){
+  if(!cols.length)return;
+  var firstName=null;
+  lines.forEach(function(l){if(firstName)return;var c=cleanLine(l.text);if(matchesIn(c).length)firstName=l;});
+  var hdr=lines.filter(function(l){var c=cleanLine(l.text);return (!firstName||l.y1<=firstName.y0+0.3*(l.y1-l.y0))&&!matchesIn(c).length&&(/100\s*(g|ml)|\b100\b/.test(c)||/porti|portion|serving|adag|\bri\b|nrv|%/.test(c));});
+  if(!hdr.length){var any=lines.filter(function(l){return /100/.test(l.text);});if(any.length)hdr=[any[0]];}
+  /* each header word goes to the column nearest to its centre */
+  var hw=cols.map(function(){return [];});
+  hdr.forEach(function(l){l.words.forEach(function(w){
+    var cx=w.x+w.w/2,best=-1,bd=1e9;
+    cols.forEach(function(c,i){var d=cx<c.x0?c.x0-cx:cx>c.x1?cx-c.x1:0;if(d<bd){bd=d;best=i;}});
+    if(best>-1&&bd<=1.5*cols[best].h)hw[best].push(w);
+  });});
+  cols.forEach(function(c,i){
+    c.header=hw[i].map(function(w){return w.text;}).join(' ');
+    var t=cleanLine(c.header);
+    if(/100\s*(g|ml)|\b100\b/.test(t))c.kind='100';
+    else if(/\d+\s*(g|ml)\b|porti|portion|serving|adag|porc|pack|piece|stuk|slice|quarter/.test(t)&&!/^\s*%/.test(t))c.kind='portion';
+    else if(/%|\bri\b|nrv|gda/.test(t))c.kind='pct';
+  });
+  var pctLike=function(c){return c.words.filter(function(w){return /%/.test(w.text);}).length>=Math.max(2,c.n*0.5);};
+  cols.forEach(function(c){if(!c.kind&&pctLike(c))c.kind='pct';});
+  /* a cluster of two stray numbers is not a column unless its header says so */
+  var maxN=0;cols.forEach(function(c){if(c.kind!=='pct')maxN=Math.max(maxN,c.n);});
+  cols.forEach(function(c){c.weak=!c.kind&&(c.n<3||c.n<0.4*maxN);});
+  var unk=cols.filter(function(c){return !c.kind&&!c.weak;}),has100=cols.some(function(c){return c.kind==='100';});
+  /* without a readable header, the per 100 g column is the leftmost full one (EU labels put it first) */
+  var mainN=0;unk.forEach(function(c){mainN=Math.max(mainN,c.n);});
+  unk.forEach(function(c){if(!has100&&c.n>=0.6*mainN){c.kind='100';has100=true;}else c.kind='portion';});
+  var main=null;cols.forEach(function(c){if(c.kind==='100'&&(!main||c.n>main.n))main=c;});
+  if(!main){cols.forEach(function(c){if(c.kind!=='pct'&&!c.weak&&(!main||c.n>main.n))main=c;});if(main)main.kind='100';}
+  cols.forEach(function(c){c.main=c===main;});
+}
+/* ---- the strip: background-flattened binarisation, connected components, rows and glyph patterns ---- */
+function stripBinary(grey,W,H,x0,x1,h){
+  var sw=x1-x0,n=sw*H,g=new Float32Array(n),i,x,y,v;
+  for(y=0;y<H;y++)for(x=0;x<sw;x++)g[y*sw+x]=grey[y*W+x0+x];
+  var k=Math.max(3,Math.min(31,Math.round(h*0.9)));if(k%2===0)k++;var r=(k-1)/2;
+  var t=new Float32Array(n),bg=new Float32Array(n),m;
+  for(y=0;y<H;y++)for(x=0;x<sw;x++){m=0;for(i=-r;i<=r;i++){var xx=x+i;if(xx<0||xx>=sw)continue;v=g[y*sw+xx];if(v>m)m=v;}t[y*sw+x]=m;}
+  for(y=0;y<H;y++)for(x=0;x<sw;x++){m=0;for(i=-r;i<=r;i++){var yy=y+i;if(yy<0||yy>=H)continue;v=t[yy*sw+x];if(v>m)m=v;}bg[y*sw+x]=m;}
+  /* box blur of the background with a summed-area table */
+  var sat=new Float64Array((sw+1)*(H+1));
+  for(y=1;y<=H;y++){var rs=0;for(x=1;x<=sw;x++){rs+=bg[(y-1)*sw+(x-1)];sat[y*(sw+1)+x]=sat[(y-1)*(sw+1)+x]+rs;}}
+  var diff=new Float32Array(n),hist=new Uint32Array(256);
+  for(y=0;y<H;y++){var ya=Math.max(0,y-r),yb=Math.min(H,y+r+1);for(x=0;x<sw;x++){var xa=Math.max(0,x-r),xb=Math.min(sw,x+r+1);
+    var s=sat[yb*(sw+1)+xb]-sat[ya*(sw+1)+xb]-sat[yb*(sw+1)+xa]+sat[ya*(sw+1)+xa],mean=s/((yb-ya)*(xb-xa));
+    var d=mean-g[y*sw+x];diff[y*sw+x]=d;hist[Math.max(0,Math.min(255,Math.round(d)))]++;}}
+  var acc=0,p=255;for(i=255;i>=0;i--){acc+=hist[i];if(acc>n*0.005){p=i;break;}}
+  var thr=Math.max(18,0.45*p),bin=new Uint8Array(n);
+  for(i=0;i<n;i++)bin[i]=diff[i]>thr?0:255;
+  return {bin:bin,w:sw,h:H};
+}
+function stripComponents(bin,w,h){
+  var lab=new Int32Array(w*h),comps=[],n=0,stack=[],i;
+  for(i=0;i<w*h;i++){
+    if(bin[i]!==0||lab[i])continue;
+    n++;lab[i]=n;stack.push(i);
+    var c={x0:i%w,x1:i%w,y0:(i/w)|0,y1:(i/w)|0,a:0,id:n};
+    while(stack.length){
+      var q=stack.pop(),qx=q%w,qy=(q/w)|0;c.a++;
+      if(qx<c.x0)c.x0=qx;if(qx>c.x1)c.x1=qx;if(qy<c.y0)c.y0=qy;if(qy>c.y1)c.y1=qy;
+      for(var dy=-1;dy<=1;dy++){var ny=qy+dy;if(ny<0||ny>=h)continue;for(var dx=-1;dx<=1;dx++){var nx=qx+dx;if(nx<0||nx>=w)continue;var j=ny*w+nx;if(bin[j]===0&&!lab[j]){lab[j]=n;stack.push(j);}}}
+    }
+    c.x1++;c.y1++;comps.push(c);
+  }
+  return {comps:comps,lab:lab};
+}
+/* Drop rules, borders and specks; return the kept components and a cleaned image */
+function cleanStrip(bin,w,h,charH){
+  var cc=stripComponents(bin,w,h),keep=[],keepId=new Uint8Array(cc.comps.length+1);
+  cc.comps.forEach(function(c){
+    var cw=c.x1-c.x0,ch=c.y1-c.y0;
+    if(ch>2.2*charH||cw>2.5*charH)return;
+    if(c.a<Math.max(4,0.0025*charH*charH))return;
+    keep.push(c);keepId[c.id]=1;
+  });
+  var out=new Uint8Array(w*h);
+  for(var i=0;i<w*h;i++)out[i]=(bin[i]===0&&keepId[cc.lab[i]])?0:255;
+  return {bin:out,comps:keep};
+}
+function stripRows(comps,charH){
+  var tall=comps.filter(function(c){return c.y1-c.y0>=0.45*charH;}),small=comps.filter(function(c){return c.y1-c.y0<0.45*charH;}),rows=[];
+  tall.sort(function(a,b){return (a.y0+a.y1)-(b.y0+b.y1);});
+  tall.forEach(function(c){
+    var cy=(c.y0+c.y1)/2,r=rows[rows.length-1];
+    if(r&&cy-r.cy<0.55*charH){r.comps.push(c);r.cy=(r.cy*(r.comps.length-1)+cy)/r.comps.length;}
+    else rows.push({comps:[c],cy:cy});
+  });
+  small.forEach(function(s){
+    var cy=(s.y0+s.y1)/2,best=null,bd=1e9;
+    rows.forEach(function(r){var d=Math.abs(cy-r.cy);if(d<bd){bd=d;best=r;}});
+    if(best&&bd<0.7*charH)best.comps.push(s);
+  });
+  rows.forEach(function(r){
+    r.comps.sort(function(a,b){return a.x0-b.x0;});
+    r.y0=1e9;r.y1=0;r.x0=1e9;r.x1=0;
+    r.comps.forEach(function(c){r.y0=Math.min(r.y0,c.y0);r.y1=Math.max(r.y1,c.y1);r.x0=Math.min(r.x0,c.x0);r.x1=Math.max(r.x1,c.x1);});
+    r.pat=rowPattern(r);
+  });
+  return rows;
+}
+/* Glyph pattern of a row: D digit, g descender glyph, x small letter, ',' comma, '.' speck, '-' gap.
+   Returns the digit group at the right end: number of digits, digits before the comma, whether a unit follows. */
+function rowPattern(row){
+  /* the value sits at the right end of the row, so the glyph references (height, baseline) come from the last glyphs only;
+     a long name reaching into the strip, or a tilted photo, must not shift them */
+  var comps=row.comps,th=0,i,tail=comps.slice(-6);
+  tail.forEach(function(c){th=Math.max(th,c.y1-c.y0);});
+  var tallT=tail.filter(function(c){return c.y1-c.y0>=0.7*th;});
+  if(!tallT.length)return null;
+  var base=1e9;tallT.slice(-4).forEach(function(c){base=Math.min(base,c.y1);});
+  var digitH=median(tallT.map(function(c){return c.y1-c.y0;}));
+  var seq=[],prev=null;
+  comps.forEach(function(c){
+    var hh=c.y1-c.y0,ww=c.x1-c.x0,kind;
+    if(prev&&c.x0-prev.x1>0.45*digitH)seq.push({k:'-'});
+    if(hh>=0.7*th)kind=(ww<=Math.max(2,0.1*digitH)&&hh>=0.95*digitH)?'x':(c.y1-base>0.18*digitH)?'g':'D';
+    else if(hh<=0.5*digitH&&ww<=0.5*digitH&&hh>=0.1*digitH&&ww<=2.2*hh&&c.y1>=base-0.12*digitH&&c.y0>=base-0.45*digitH)kind=',';
+    else if(hh<0.12*digitH&&ww<0.12*digitH)kind='.';
+    else kind='x';
+    seq.push({k:kind,n:kind==='D'?Math.max(1,Math.round(ww/(0.75*digitH))):1,c:c});
+    prev=c;
+  });
+  var s=seq.map(function(e){return e.k;}).join('');
+  /* the value is the last run of digits and commas; a unit (g, mg, kcal) may follow after a gap */
+  var m=/([D,.]*D[D,.]*)[-]?([gx.]*)[,.]*$/.exec(s);
+  if(!m)return {s:s,n:0};
+  var start=m.index,grp=m[1],digits=0,before=-1,commas=0,j=0;
+  for(i=0;i<grp.length;i++){
+    var e=seq[start+i];
+    if(e.k==='D')digits+=e.n;
+    else if(e.k===','){commas++;before=digits;}
+  }
+  if(commas>1)return {s:s,n:0};
+  return {s:s,n:digits,before:before,unit:m[2].length>0,hasG:/g/.test(m[2])};
+}
+/* Choose the digits of a value from several reads, guided by the glyph pattern */
+function voteDigits(reads,pat){
+  var counts={},order=[];
+  reads.forEach(function(t){
+    var d=String(t||'').replace(/[^0-9]/g,'');if(!d)return;var cand=null;
+    if(d.length===pat.n)cand=d;
+    else if(d.length===pat.n+1&&(pat.unit||/[g9q4]\s*$/.test(t)))cand=d.slice(0,pat.n);
+    if(cand==null)return;
+    if(!(cand in counts)){counts[cand]=0;order.push(cand);}counts[cand]++;
+  });
+  if(!order.length)return null;
+  order.sort(function(a,b){return counts[b]-counts[a];});
+  voteDigits.lastUnanimous=order.length===1&&counts[order[0]]>=2;
+  return order[0];
+}
+function formatValue(digits,pat){
+  if(pat.before>0&&pat.before<digits.length)return digits.slice(0,pat.before)+','+digits.slice(pat.before);
+  if(pat.before===0)return '0,'+digits;
+  return digits;
+}
+/* A read of a strip (TSV from the reader) gives lines; attach each to the geometric row it overlaps most */
+function attachReads(rows,readLines,scale){
+  rows.forEach(function(r){r.reads=r.reads||[];});
+  readLines.forEach(function(l){
+    var best=null,bo=0,y0=l.y0/scale,y1=l.y1/scale;
+    rows.forEach(function(r){var o=Math.min(y1,r.y1)-Math.max(y0,r.y0);if(o>bo){bo=o;best=r;}});
+    if(best&&bo>0.3*(y1-y0))best.reads.push(l.text);
+  });
+}
+function valueOfRow(r,kind){
+  var t=(r.reads||[]).join(' ');
+  if(kind==='pct'||(/\d\s*%/.test(t)&&!/\d\s*(g|mg|ug|µg|kcal|kj)\b/i.test(t))){
+    var pm=/(\d{1,3})\s*%/.exec(t);
+    /* a table rule next to the number is read as a leading 1 (|55% as 155%) */
+    if(pm&&pm[1].length===3&&pm[1].charAt(0)==='1'&&r.pat&&r.pat.n<=3)pm[1]=pm[1].slice(1);
+    if(pm)return {text:pm[1]+'%',sure:true};
+    var ds=(r.reads||[]).map(function(x){return String(x).replace(/[^0-9]/g,'');}).filter(function(d){return d.length&&d.length<=3;});
+    if(ds.length&&r.pat&&r.pat.n===ds[0].length+1)return {text:ds[0]+'%'};
+    return {text:''};
+  }
+  /* side columns may only contribute clean values, never stray text */
+  function loose(txt){if(kind&&kind!=='100'&&!/^\s*<?\s*\d+([.,]\d+)?\s*(g|mg|ug|µg|kcal|kj)?\s*$/i.test(txt||''))return {text:''};return {text:txt||'',loose:true};}
+  if(/kcal|kj|k[j3li1]\b/i.test(t)||/\d\s*k[cj3]/i.test(t))return {text:(r.reads||[])[0]||'',energy:true};
+  if(!r.pat||!r.pat.n)return loose((r.reads||[])[0]);
+  var d=voteDigits(r.reads||[],r.pat),pat=r.pat;
+  if(d==null)return loose((r.reads||[])[0]);
+  if(pat.before<0){
+    /* no comma seen in the glyphs: take it from the reads when most of them agree on one position */
+    var pos={},tot=0;(r.reads||[]).forEach(function(x){var m=/(\d+)[.,](\d+)/.exec(String(x));if(m&&(m[1]+m[2]).length===d.length){pos[m[1].length]=(pos[m[1].length]||0)+1;tot++;}});
+    var bestP=-1,bc=0;Object.keys(pos).forEach(function(k){if(pos[k]>bc){bc=pos[k];bestP=+k;}});
+    if(bestP>-1&&bc*2>=(r.reads||[]).length)pat={n:pat.n,before:bestP,unit:pat.unit,hasG:pat.hasG};
+  }
+  var unit='g';
+  if(/\d\s*(mg)\b/.test(t))unit='mg';else if(/(ug|µg|μg|pg|yg|mcg)\b/.test(t))unit='µg';else if(/%/.test(t))unit='%';
+  return {text:formatValue(d,pat)+(unit==='%'?'%':' '+unit),sure:true,unsure:!voteDigits.lastUnanimous};
+}
+/* The whole table stage. ocr(strips) gets [{bin,w,h,col}] and must return a Promise of, per strip,
+   a list of reads [{lines:[{text,y0,y1}],scale}] (the host decides which reader settings to use). */
+function tableRead(tsv,grey,W,H,ocr){
+  var words=parseTsv(tsv),lines=tsvLines(words),cols=findValueColumns(words,W,H);
+  classifyColumns(cols,lines);
+  var main=cols.filter(function(c){return c.main;})[0];
+  if(!main)return Promise.resolve(null);
+  /* side columns count when they sit right of the per 100 g column or carry a header of their own */
+  var useCols=cols.filter(function(c){return c.main||((c.kind==='portion'||c.kind==='pct')&&!c.weak&&(c.header||c.x0>main.x0));}),strips=[];
+  useCols.forEach(function(c){
+    var sb=stripBinary(grey,W,H,c.x0,c.x1,c.h),cl=cleanStrip(sb.bin,sb.w,sb.h,c.h);
+    c.rows=stripRows(cl.comps,c.h);c.strip={bin:cl.bin,w:sb.w,h:sb.h};
+    strips.push({bin:cl.bin,w:sb.w,h:sb.h,col:c});
+  });
+  /* the energy value (1476 kJ/352 kcal) is wider than the gram values and may start left of the strip:
+     rows that look like energy get one extra read of a wider band */
+  var prevX1=0;cols.forEach(function(c){if(c.x1<=main.x0&&c.x1>prevX1)prevX1=c.x1;});
+  var wideX0=Math.max(prevX1,Math.round(main.mr-11*main.h));
+  var rowsByY=main.rows.slice().sort(function(a,b){return a.y0-b.y0;});
+  rowsByY.forEach(function(r,idx){
+    /* energy sits in the first rows, as a 3 or 4 digit number without a decimal comma */
+    if(!r.pat||r.pat.n<3||r.pat.before>=0||idx>3)return;
+    var yy0=Math.max(0,Math.round(r.y0-0.45*main.h)),yy1=Math.min(H,Math.round(r.y1+0.45*main.h));
+    if(wideX0>=main.x0-main.h)return;
+    var sb=stripBinary(grey,W,H,wideX0,main.x1,main.h),cl=cleanStrip(sb.bin,sb.w,sb.h,main.h),hh=yy1-yy0,sub=new Uint8Array(sb.w*hh);
+    for(var y=0;y<hh;y++)sub.set(cl.bin.subarray((yy0+y)*sb.w,(yy0+y+1)*sb.w),y*sb.w);
+    strips.push({bin:sub,w:sb.w,h:hh,col:main,row:r,kind:'energy'});
+  });
+  return ocr(strips).then(function(sets){
+    strips.forEach(function(st,i){
+      var rs=(sets&&sets[i])||[];
+      if(st.kind==='energy'){var t=rs.map(function(x){return x.lines.map(function(l){return l.text;}).join(' ');}).join(' ').trim();if(/kcal|kj|k[j3li1]\b/i.test(t)&&/\d/.test(t)){st.row.wide=t;}return;}
+      rs.forEach(function(x){attachReads(st.col.rows,x.lines,x.scale||1);});
+    });
+    return assembleTable(lines,useCols,main);
+  });
+}
+function assembleTable(lines,cols,main){
+  var out=[],info={rows:0,sure:0,unsure:[]},skew=skewOf(lines),mx=(main.x0+main.x1)/2;
+  function shifted(o,fromX){var d=skew*(mx-fromX);return {y0:o.y0+d,y1:o.y1+d};}
+  var hdr=cols.map(function(c){return (c.header||(c.kind==='100'?'per 100 g':c.kind==='pct'?'%RI':'')).replace(/\b100\s*[9q]\b/g,'100 g');}).join(' | ');
+  if(!/100/.test(hdr))hdr='per 100 g'+(hdr?' | '+hdr:'');
+  out.push(hdr);
+  var rowsM=main.rows.slice().sort(function(a,b){return a.y0-b.y0;});
+  rowsM.forEach(function(r){r.val=valueOfRow(r,'100');r.names=[];});
+  cols.forEach(function(c){if(c!==main)c.rows.forEach(function(r){r.val=valueOfRow(r,c.kind);});});
+  function isHeader(l){var c=cleanLine(l.text);return /100\s*(g|ml)|\b100\b/.test(c)&&!matchesIn(c).length;}
+  function inCol(w){return cols.some(function(c){return w.x+w.w>c.x0&&w.x<c.x1;});}
+  function nameOf(l){
+    return l.words.filter(function(w){
+      if(w.x>=main.x1)return false;
+      if(inCol(w)&&(/\d/.test(w.text)||/kcal|kj|^k[j3li]|^(g|mg|ug|µg|ml|%)$/i.test(w.text)))return false;
+      return !/^[\d.,]+$/.test(w.text)&&!/^(kcal|kj|g|mg|ug|µg|ml|%)$/i.test(w.text);
+    }).map(function(w){return /\b[bdk]\d{1,2}(?![0-9])/i.test(w.text)?w.text:w.text.replace(/\d+/g,'');}).join(' ');
+  }
+  /* each pass-1 line goes to the row it overlaps most; the rest wait for the next row below them */
+  var pendingFor=[];rowsM.forEach(function(){pendingFor.push([]);});
+  lines.forEach(function(l){
+    if(isHeader(l))return;
+    var best=-1,bo=0,ls=shifted(l,(l.x0+l.x1)/2);
+    rowsM.forEach(function(r,i){var o=overlapY(ls,r);if(o>bo){bo=o;best=i;}});
+    if(best>-1&&bo>0.3*Math.min(l.y1-l.y0,rowsM[best].y1-rowsM[best].y0)){rowsM[best].names.push(nameOf(l));rowsM[best].lineText=(rowsM[best].lineText||'')+' '+l.text;if(/kcal|kj|k[j3li1]\b/i.test(l.text)&&!rowsM[best].energyLine)rowsM[best].energyLine=l;return;}
+    var cy=(ls.y0+ls.y1)/2;
+    for(var i=0;i<rowsM.length;i++){if(cy<rowsM[i].y0){pendingFor[i].push(nameOf(l));return;}}
+  });
+  var hdrLines=lines.filter(isHeader),firstNamed=-1;
+  rowsM.forEach(function(r,i){if(firstNamed<0&&r.names.some(function(t){return matchesIn(cleanLine(t)).length>0;}))firstNamed=i;});
+  if(firstNamed<0)firstNamed=0;
+  rowsM.forEach(function(r,i){
+    if(hdrLines.some(function(l){return overlapY(shifted(l,(l.x0+l.x1)/2),r)>0.3*(r.y1-r.y0);}))return;
+    if(/100\s*(g|ml)/.test(cleanLine(r.val.text||'')))return;
+    /* a "per 100 g" header read as a value row: an integer like 100, 10 or 910 above the first named row */
+    if(!r.names.some(function(t){return matchesIn(cleanLine(t)).length>0;})&&i<=firstNamed&&!/[.,]\d/.test(r.val.text||'')&&/^[0-9]?(100|10|00)$/.test((r.val.text||'').replace(/[^0-9]/g,'')))return;
+    var vals=[],nameAll=(pendingFor[i].join(' ')+' '+r.names.join(' ')),isMicro=matchesIn(cleanLine(nameAll)).some(function(m){return !!MICRO_BY[m.key];});
+    /* vitamin tables carry a % NRV next to each value column; only the one beside the per 100 g column belongs to it */
+    var nearPct=null;cols.forEach(function(c){if(c.kind==='pct'&&c.x0>=main.x1-main.h&&(!nearPct||c.x0<nearPct.x0))nearPct=c;});
+    cols.forEach(function(c){
+      if(isMicro&&c.kind==='pct'&&c!==nearPct)return;
+      if(c===main){
+        var vt=r.val.text;
+        if(r.val.energy){
+          /* the strip starts at the gram values, so a long energy value can lose its first digit there:
+             the wider read and the first pass's own line compete, the longest kcal number wins */
+          var cands=[vt];
+          if(r.wide)cands.unshift(r.wide);
+          if(r.energyLine)cands.push(r.energyLine.words.filter(function(w){return w.x+w.w>main.x0-6*main.h&&w.x<main.x1&&/\d|kcal|kj|k[j3li1]/i.test(w.text);}).map(function(w){return w.text;}).join(' '));
+          var bestE=null,bestL=-1;
+          cands.forEach(function(t){var ct=cleanLine(t||''),m=/(\d{1,3})\s*kcal/.exec(ct),len=m?m[1].length:0;if(/\d{3,4}\s*kj/.test(ct))len=Math.max(len,2.5);if(len>bestL){bestL=len;bestE=t;}});
+          if(bestE)vt=bestE;
+        }
+        vals.push(vt);return;}
+      var best=null,bo=0,cx=(c.x0+c.x1)/2;c.rows.forEach(function(q){var o=overlapY(shifted(q,cx),r);if(o>bo){bo=o;best=q;}});
+      if(best&&bo>0.3*(r.y1-r.y0)&&best.val&&best.val.text)vals.push(best.val.text);
+    });
+    /* a name line that wraps below its value belongs to the row above: drop waiting text when it names a different nutrient */
+    var own=r.names.join(' '),pend=pendingFor[i].join(' '),mo=matchesIn(cleanLine(own)),mp=matchesIn(cleanLine(pend));
+    if(mo.length&&mp.length&&mp.some(function(x){return !mo.some(function(y){return y.key===x.key;});}))pend='';
+    var name=(pend+' '+own).replace(/\s+/g,' ').trim();
+    /* the English number read has no µ: take mg or µg from the first pass's own words when the strip read says only g */
+    var ownRaw=cleanLine(r.names.join(' ')+' '+(r.lineText||''));
+    if(/\s(mg|ug)\b/.test(ownRaw)&&/\dg?\s*g$/.test(vals[0]||'')&&!/\d\s*(mg|ug)/.test(vals[0]))vals[0]=vals[0].replace(/\s*g$/,/\sug\b/.test(ownRaw)?' µg':' mg');
+    out.push((name+' '+vals.join(' | ')).trim());info.rows++;if(r.val.sure)info.sure++;
+    if(!r.val.energy&&(r.val.loose||r.val.unsure))info.unsure.push(name);
+  });
+  return {text:out.join('\n'),info:info,cols:cols};
+}
+/* How much of a table a first read found: keyword lines and numbers */
+function pass1Quality(tsv){
+  var words=parseTsv(tsv),lines=tsvLines(words),kw=0,num=0;
+  lines.forEach(function(l){if(matchesIn(cleanLine(l.text)).length)kw++;});
+  words.forEach(function(w){if(/\d/.test(w.text))num++;});
+  return kw*4+Math.min(num,8);
+}
+
 /* ---------- label scanning: camera photo to text (OCR runs on the phone) ---------- */
-var OCR={worker:null,loading:null,onProgress:null};
+var OCR={worker:null,loading:null,onProgress:null,lang:''};
 function loadScript(urls){
   return new Promise(function(res,rej){
     var i=0;
@@ -1054,21 +1436,34 @@ function loadScript(urls){
     tryNext();
   });
 }
+var OCR_P1={tessedit_pageseg_mode:'6',tessedit_char_whitelist:'',user_defined_dpi:'300',thresholding_method:'2'};
 function getWorker(){
   if(OCR.worker)return Promise.resolve(OCR.worker);
   if(OCR.loading)return OCR.loading;
   var p=(window.Tesseract?Promise.resolve():loadScript(TESS_URLS)).then(function(){
     if(!window.Tesseract)throw new Error('load');
-    return window.Tesseract.createWorker('ron',1,{logger:function(m){if(OCR.onProgress)OCR.onProgress(m);}});
-  }).then(function(w){
-    /* Read the table as one block, line by line, so each name stays on the same line as its value */
-    var p=w.setParameters?w.setParameters({tessedit_pageseg_mode:'6',user_defined_dpi:'300'}):null;
-    return Promise.resolve(p).catch(function(){}).then(function(){return w;});
-  }).then(function(w){OCR.worker=w;OCR.loading=null;return w;},function(e){OCR.loading=null;throw e;});
+    /* Romanian reads the names; English reads the numbers column best (digits and the "g") */
+    return window.Tesseract.createWorker('ron+eng',1,{logger:function(m){if(OCR.onProgress)OCR.onProgress(m);}});
+  }).then(function(w){OCR.lang='ron+eng';return setLang(w,'ron').then(function(){return w;});})
+  .then(function(w){OCR.worker=w;OCR.loading=null;return w;},function(e){OCR.loading=null;throw e;});
   OCR.loading=p;return p;
 }
+function setLang(w,lang){
+  if(OCR.lang===lang||!w.reinitialize)return Promise.resolve();
+  return Promise.resolve(w.reinitialize(lang,1)).then(function(){OCR.lang=lang;},function(){});
+}
+function recog(w,img,lang,params){
+  return setLang(w,lang).then(function(){return w.setParameters?w.setParameters(params):null;}).catch(function(){})
+    .then(function(){return w.recognize(img,{},{text:true,tsv:true});})
+    .then(function(res){var d=(res&&res.data)||{};return {text:d.text||'',tsv:d.tsv||''};});
+}
+function binToCanvas(bin,w,h){
+  var c=document.createElement('canvas');c.width=w;c.height=h;var ctx=c.getContext('2d'),im=ctx.createImageData(w,h),d=im.data;
+  for(var i=0;i<w*h;i++){var v=bin[i]===0?0:255;d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255;}
+  ctx.putImageData(im,0,0);return c;
+}
 function statusText(st){
-  var map={'loading tesseract core':'Downloading the reader (first time only)','initializing tesseract':'Starting the reader','loading language traineddata':'Downloading the Romanian reader (first time only)','initializing api':'Starting the reader','recognizing text':'Reading the label'};
+  var map={'loading tesseract core':'Downloading the reader (first time only)','initializing tesseract':'Starting the reader','loading language traineddata':'Downloading the language files (first time only)','initializing api':'Starting the reader','recognizing text':'Reading the label'};
   return map[st]||'Working';
 }
 function updScanUI(){
@@ -1078,31 +1473,44 @@ function updScanUI(){
   var bar=document.getElementById('scan-bar');if(bar)bar.style.width=(pct||0)+'%';
 }
 function scanScore(p){return p.found.length+p.foundMicros.length;}
-function runScan(canvases){
+function setStatus(st,progress){var g=UI.ingForm;if(!g||!g.scan||!g.scan.busy)return;g.scan.step=st;g.scan.status=st;g.scan.progress=progress==null?null:progress;updScanUI();}
+function runScan(prep){
   var f=UI.ingForm;if(!f)return;
   f.scan={busy:true,status:'Starting the reader',progress:0,err:'',text:'',found:[],foundMicros:[],showText:false};render();
-  OCR.onProgress=function(m){var g=UI.ingForm;if(!g||!g.scan||!g.scan.busy)return;g.scan.status=statusText(m.status)+(m.status==='recognizing text'&&g.scan.pass?' (pass '+g.scan.pass+' of 2)':'');g.scan.progress=m.status==='recognizing text'?m.progress:null;updScanUI();};
-  var list=[].concat(canvases),results=[];
-  function pass(idx,w){
-    var g=UI.ingForm;if(!g||!g.scan)return Promise.resolve();
-    if(idx>=list.length)return Promise.resolve();
-    g.scan.pass=idx+1;g.scan.status='Reading the label (pass '+(idx+1)+' of 2)';updScanUI();
-    return w.recognize(list[idx]).then(function(res){
-      var text=(res&&res.data&&res.data.text)||'';results.push({text:text,parsed:parseLabel(text)});
-      /* a first pass that already found the whole table is enough */
-      if(idx===0&&scanScore(results[0].parsed)>=7)return;
-      return pass(idx+1,w);
+  OCR.onProgress=function(m){var g=UI.ingForm;if(!g||!g.scan||!g.scan.busy)return;if(m.status==='recognizing text'){g.scan.status=g.scan.step||'Reading the label';g.scan.progress=m.progress;}else{g.scan.status=statusText(m.status);g.scan.progress=null;}updScanUI();};
+  var VWL=VALUE_WL;
+  getWorker().then(function(w){
+    setStatus('Reading the label');
+    return recog(w,prep.canvases[0],'ron',OCR_P1).then(function(r1){
+      var q=pass1Quality(r1.tsv);
+      if(q>=20)return r1;
+      setStatus('Reading the label again (dark or uneven photo)');
+      return recog(w,prep.canvases[1],'ron',OCR_P1).then(function(r2){return pass1Quality(r2.tsv)>q?r2:r1;});
+    }).then(function(p1){
+      function ocrStrips(strips){
+        var sets=strips.map(function(){return [];}),plan=[];
+        /* every column strip once in English (sparse text), the main column twice more; the energy band as one line */
+        strips.forEach(function(st,i){plan.push({i:i,lang:'eng',psm:st.kind==='energy'?'7':'11'});});
+        strips.forEach(function(st,i){if(st.col.main&&!st.kind)plan.push({i:i,lang:'eng',psm:'6'});});
+        strips.forEach(function(st,i){if(st.col.main&&!st.kind)plan.push({i:i,lang:'ron',psm:'11'});});
+        var cvs=strips.map(function(st){return binToCanvas(st.bin,st.w,st.h);}),k=0;
+        return plan.reduce(function(pr,job){return pr.then(function(){
+          k++;setStatus('Reading the numbers ('+k+' of '+plan.length+')');
+          return recog(w,cvs[job.i],job.lang,{tessedit_pageseg_mode:job.psm,tessedit_char_whitelist:VWL,user_defined_dpi:'300'}).then(function(r){sets[job.i].push({lines:tsvLines(parseTsv(r.tsv)),scale:1});},function(){});
+        });},Promise.resolve()).then(function(){return sets;});
+      }
+      return tableRead(p1.tsv,prep.grey,prep.w,prep.h,ocrStrips).then(function(tbl){
+        var text=(tbl?tbl.text+'\n':'')+p1.text,parsed=parseLabel(text);
+        /* values whose digit reads disagreed are marked Check */
+        if(tbl)tbl.info.unsure.forEach(function(nm){matchesIn(cleanLine(nm)).forEach(function(m){if(parsed.found.indexOf(m.key)>-1&&parsed.flags.indexOf(m.key)<0)parsed.flags.push(m.key);});});
+        applyScan((tbl?tbl.text+'\n--- raw ---\n':'')+p1.text,parsed);
+      });
     });
-  }
-  getWorker().then(function(w){return pass(0,w);}).then(function(){
-    var g=UI.ingForm;if(!g||!g.scan)return;
-    if(!results.length)throw new Error('empty');
-    results.sort(function(a,b){return scanScore(b.parsed)-scanScore(a.parsed)||a.parsed.flags.length-b.parsed.flags.length;});
-    applyScan(results[0].text,results[0].parsed);
-  }).catch(function(){
+  }).catch(function(e){
+    try{console.error('scan failed',e);}catch(x){}
     var g=UI.ingForm;if(!g||!g.scan)return;
     g.scan.busy=false;g.scan.status='';
-    g.scan.err=(navigator.onLine===false||!window.Tesseract)?'Scanning needs an internet connection the first time, to download the reader (c.10 MB). After that it works offline.':'Could not read that photo. Try again with the nutrition table filling the frame, flat and in good light.';
+    g.scan.err=(navigator.onLine===false||!window.Tesseract)?'Scanning needs an internet connection the first time, to download the reader (c.20 MB). After that it works offline.':'Could not read that photo. Try again with the nutrition table filling the frame, flat and in good light.';
     render();
   });
 }
@@ -1176,9 +1584,20 @@ function cropToCanvases(img,rect){
   var sx=Math.round(rect.x*W),sy=Math.round(rect.y*H),sw=Math.max(1,Math.round(rect.w*W)),sh=Math.max(1,Math.round(rect.h*H));
   var target=2400,scale=Math.min(3,Math.max(0.2,target/Math.max(sw,sh)));
   var cw=Math.max(1,Math.round(sw*scale)),ch=Math.max(1,Math.round(sh*scale));
-  var c=document.createElement('canvas');c.width=cw;c.height=ch;
-  var ctx=c.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  var src=document.createElement('canvas');src.width=cw;src.height=ch;
+  var ctx=src.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   ctx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
+  var t=treatments(src),ang=estimateSkew(t.binB,cw,ch);
+  /* a tilted photo is straightened so that each value sits level with its name */
+  if(Math.abs(ang)>=0.2){
+    var c2=document.createElement('canvas');c2.width=cw;c2.height=ch;var x2=c2.getContext('2d');
+    x2.fillStyle='#fff';x2.fillRect(0,0,cw,ch);x2.translate(cw/2,ch/2);x2.rotate(-ang*Math.PI/180);x2.drawImage(src,-cw/2,-ch/2);
+    t=treatments(c2);
+  }
+  return {canvases:[t.A,t.B],grey:t.grey,w:cw,h:ch,skew:ang};
+}
+function treatments(src){
+  var cw=src.width,ch=src.height,ctx=src.getContext('2d');
   var im=ctx.getImageData(0,0,cw,ch),d=im.data,n=cw*ch,g=new Float32Array(n),i,x,y;
   for(i=0;i<n;i++)g[i]=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000;
   /* separable 5-tap blur, about one pixel wide */
@@ -1188,27 +1607,41 @@ function cropToCanvases(img,rect){
   /* version A: contrast stretch between the 2nd and 98th percentile */
   var hist=new Uint32Array(256);for(i=0;i<n;i++)hist[Math.min(255,Math.max(0,g[i]|0))]++;
   var lo=0,hi=255,acc2=0;for(i=0;i<256;i++){acc2+=hist[i];if(acc2>n*0.02){lo=i;break;}}acc2=0;for(i=255;i>=0;i--){acc2+=hist[i];if(acc2>n*0.02){hi=i;break;}}
-  var rg=Math.max(1,hi-lo),A=ctx.createImageData(cw,ch),da=A.data,v;
-  for(i=0;i<n;i++){v=Math.max(0,Math.min(255,Math.round((g[i]-lo)*255/rg)));da[i*4]=da[i*4+1]=da[i*4+2]=v;da[i*4+3]=255;}
-  ctx.putImageData(A,0,0);
+  var rg=Math.max(1,hi-lo),cA=document.createElement('canvas');cA.width=cw;cA.height=ch;var ctxA=cA.getContext('2d'),A=ctxA.createImageData(cw,ch),da=A.data,v,grey=new Uint8Array(n);
+  for(i=0;i<n;i++){v=Math.max(0,Math.min(255,Math.round((g[i]-lo)*255/rg)));grey[i]=v;da[i*4]=da[i*4+1]=da[i*4+2]=v;da[i*4+3]=255;}
+  ctxA.putImageData(A,0,0);
   /* version B: local threshold, each pixel against the mean of its 41 px neighbourhood (summed-area table) */
   var sat=new Float64Array((cw+1)*(ch+1));
   for(y=1;y<=ch;y++){var rs=0;for(x=1;x<=cw;x++){rs+=g[(y-1)*cw+(x-1)];sat[y*(cw+1)+x]=sat[(y-1)*(cw+1)+x]+rs;}}
-  var cB=document.createElement('canvas');cB.width=cw;cB.height=ch;var ctxB=cB.getContext('2d'),B=ctxB.createImageData(cw,ch),db=B.data,R=20,off=12;
+  var cB=document.createElement('canvas');cB.width=cw;cB.height=ch;var ctxB=cB.getContext('2d'),B=ctxB.createImageData(cw,ch),db=B.data,R=20,off=12,binB=new Uint8Array(n);
   for(y=0;y<ch;y++){var y0=Math.max(0,y-R),y1=Math.min(ch,y+R+1);for(x=0;x<cw;x++){var x0=Math.max(0,x-R),x1=Math.min(cw,x+R+1);
     var sum=sat[y1*(cw+1)+x1]-sat[y0*(cw+1)+x1]-sat[y1*(cw+1)+x0]+sat[y0*(cw+1)+x0],mean=sum/((y1-y0)*(x1-x0));
-    v=g[y*cw+x]>mean-off?255:0;i=(y*cw+x)*4;db[i]=db[i+1]=db[i+2]=v;db[i+3]=255;}}
+    v=g[y*cw+x]>mean-off?255:0;i=(y*cw+x)*4;db[i]=db[i+1]=db[i+2]=v;db[i+3]=255;binB[y*cw+x]=v;}}
   ctxB.putImageData(B,0,0);
-  return [c,cB];
+  return {A:cA,B:cB,grey:grey,binB:binB};
+}
+/* Tilt of the text: the angle (between -3 and 3 degrees) at which the rows of ink stack up most sharply */
+function estimateSkew(bin,w,h){
+  var xs=[],ys=[],x,y;
+  for(y=0;y<h;y++)for(x=0;x<w;x+=3){if(bin[y*w+x]===0){xs.push(x);ys.push(y);}}
+  if(xs.length<50)return 0;
+  var best=-1,bestA=0,prof=new Float64Array(h+2*w+2),i,m=xs.length;
+  for(var a=-3;a<=3.001;a+=0.2){
+    var t=Math.tan(a*Math.PI/180);prof.fill(0);
+    for(i=0;i<m;i++)prof[Math.round(ys[i]-xs[i]*t)+w]++;
+    var sc=0;for(i=0;i<prof.length;i++)sc+=prof[i]*prof[i];
+    if(sc>best){best=sc;bestA=a;}
+  }
+  return Math.round(bestA*10)/10;
 }
 function finishCrop(whole){
   var f=UI.ingForm;if(!f||!f.crop)return;
   var c=f.crop,rect=whole?{x:0,y:0,w:1,h:1}:c.rect;
   f.crop=null;
-  var canvases;
-  try{canvases=cropToCanvases(c.img,rect);}catch(e){URL.revokeObjectURL(c.url);toast('Could not prepare that photo.',3500);render();return;}
+  var prep;
+  try{prep=cropToCanvases(c.img,rect);}catch(e){URL.revokeObjectURL(c.url);toast('Could not prepare that photo.',3500);render();return;}
   URL.revokeObjectURL(c.url);
-  runScan(canvases);
+  runScan(prep);
 }
 
 /* ---------- header and tabs ---------- */
@@ -1296,7 +1729,7 @@ function renderSettings(){
   h+='<div class="kv"><span>On this phone</span><b>'+esc(c)+'</b></div>';
   h+='<div class="row"><button class="btn primary" data-act="export">Save backup</button><button class="btn" data-act="import">Load backup</button></div><p class="hint">Loading a backup replaces what is on this phone.</p></section>';
   h+='<section class="card"><h3>Install</h3>'+installHtml()+'</section>';
-  h+='<section class="card"><h3>Label scanning</h3><p class="hint">The first scan downloads the text reader (c.10 MB) and needs an internet connection. After that, scanning works offline. The photo never leaves your phone.</p></section>';
+  h+='<section class="card"><h3>Label scanning</h3><p class="hint">The first scan downloads the text reader with its Romanian and English language files (c.20 MB) and needs an internet connection. After that, scanning works offline. The photo never leaves your phone. The reader straightens the photo, finds the column of values and reads it on its own, so a tight crop around the table still gives the best result.</p></section>';
   h+='<section class="card"><h3>Storage</h3><p class="hint">'+(S.storeState==='memory'?'Saving is not available in this browser.':(S.persisted?'Protected: the browser will not clear your log to free up space.':'The browser may clear site data if your phone runs very low on space, so keep a recent backup.'))+'</p></section>';
   h+='<p class="hint center">Casian Fitness Log, version '+APP_VERSION+'</p>';
   return h;

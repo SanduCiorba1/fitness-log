@@ -19,11 +19,11 @@ Then open the app from its new icon and tap Load backup file to bring in the pla
 
 ## Label scanning
 
-- In an ingredient, tap Scan label, take a photo of the label, then drag the corners of the box around the nutrition table and tap Read this area. A tight box reads the small numbers far better
-- The first scan downloads the text reader (c.10 MB) and needs an internet connection; after that scanning works offline
-- Each scan is read up to twice with different image treatments, so a dark or glossy photo can take twice as long
-- Values found on the label are filled in and marked; check them and correct anything wrong before saving
-- Romanian and English labels are supported, with the app staying in English
+- In an ingredient, tap Scan label, take a photo of the label, then drag the corners of the box around the nutrition table and tap Read this area. A tight box around one table reads best; scan the vitamins table separately if the label has one
+- The first scan downloads the text reader with its Romanian and English language files (c.20 MB) and needs an internet connection; after that scanning works offline
+- The reader straightens the photo, reads the whole table once, then finds the column of values and reads it again on its own, so a scan takes a few seconds longer than before but gets the small numbers right far more often
+- Values found on the label are filled in and marked; check them and correct anything wrong before saving. Values the reader is unsure about are marked Check
+- Romanian, English and the other languages found on Lidl labels are supported, with the app staying in English
 
 ## Notes
 
@@ -34,6 +34,7 @@ Then open the app from its new icon and tap Load backup file to bring in the pla
 
 ## Version history
 
+- 1.5 (Nov-26): table-aware reading: the photo is straightened, the column of values is located from the positions of the numbers and read again by itself with both language files, and the number of digits, the decimal comma and the unit are taken from the shapes of the glyphs, so a lost comma or a "g" read as "9" no longer changes a value; the energy line gets its own wider read; tested on the six real labels sent so far (every value right) and on 200 generated labels in 11 layouts and 8 fonts under phone-photo conditions (94% of values right, from 82% with 1.4.1)
 - 1.4.1 (Nov-26): polyols and starch lines recognised (so they are never mistaken for fibre, and polyols count 2.4 kcal per g in the calorie check), a look-alike letter in front of a number also tried as a digit (Z3,0 is 23,0), stray digits from table borders ignored, 09 read as 0 g
 - 1.4 (Nov-26): two image treatments per scan (contrast stretch, then local threshold for dark or uneven photos), light blur against screen moire, nameless values placed by the EU table order, per-portion column used as a fallback reading, joint check of fat, saturates, carbs, sugars and protein against the calories
 - 1.3.1 (Nov-26): lost decimal points fixed by checking each value against the per-portion column and the % RI column; fields the label's % RI disagrees with are marked Check
