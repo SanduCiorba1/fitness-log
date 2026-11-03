@@ -303,7 +303,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.6.1';
+var APP_VERSION='1.6.2';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -769,7 +769,7 @@ function cleanLine(raw){
   s=s.replace(/(\d)\s*[.,]\s*(\d)/g,'$1.$2');
   s=s.replace(/(\d)\s*(µg|μg|ug|mcg|pg|yg)(?![a-z])/g,'$1 ug');
   s=s.replace(/(\d)\s*q(?![a-z])/g,'$1 g');
-  s=s.replace(/(\d)\s*%\s*ca[l1i]/g,'$1 kcal').replace(/k[ce]a[l1i]/g,'kcal').replace(/(\d)\s*k[ce]a?l?(?![a-z])/g,'$1 kcal').replace(/\bk\s?j\b/g,'kj').replace(/(\d)\s*k[3\]l1i]\b/g,'$1 kj');
+  s=s.replace(/(\d)\s*%\s*ca[l1i]/g,'$1 kcal').replace(/(\d{3})\s*c?ca[l1i]?(?![a-z])/g,'$1 kcal').replace(/k[ce]a[l1i]/g,'kcal').replace(/(\d)\s*k[ce]a?l?(?![a-z])/g,'$1 kcal').replace(/\bk\s?j\b/g,'kj').replace(/(\d)\s*k[3\]l1i]\b/g,'$1 kj');
   s=s.replace(/\b(\d{1,3}) (\d{3})\s*(kj|kcal)\b/g,'$1$2 $3');
   return s;
 }
@@ -1188,21 +1188,25 @@ function findValueColumns(words,W,H){
     var valueLike=members.filter(function(w){return /^[^a-z]*<?\d+([.,]\d+)?\s*(g|mg|ug|kcal|kj|%|ml)?[^a-z0-9]*$/i.test(w.text)||/kcal|kj/i.test(w.text);}).length;
     if(valueLike<0.5*members.length)return;
     /* the strip starts well left of the leftmost number seen, because a first read that drops a leading digit (454 for 25,4) would otherwise cut it off */
-    var minL=Math.min.apply(null,members.map(function(w){return w.x;}));
-    var x1=Math.min(W,Math.round(mr+0.5*h)),cx0=Math.max(0,Math.round(minL-0.5*h),Math.round(mr-7*h)),x0=Math.max(0,Math.round(minL-STRIP_LEFT*h),Math.round(mr-7*h));
+    var minL=Math.min.apply(null,members.map(function(w){return w.x;})),maxR=Math.max.apply(null,members.map(function(w){return w.x+w.w;}));
+    /* the strip ends right of the widest member, not only of the median right edge: on a curved bag the lower rows drift sideways */
+    var x1=Math.min(W,Math.round(Math.max(mr,maxR)+1.0*h)),cx0=Math.max(0,Math.round(minL-0.5*h),Math.round(mr-7*h)),x0=Math.max(0,Math.round(minL-STRIP_LEFT*h),Math.round(mr-7*h));
     cols.push({x0:x0,x1:x1,cx0:cx0,mr:mr,h:h,n:members.length,words:members,kind:'',header:''});
   });
   cols.sort(function(a,b){return a.cx0-b.cx0;});
   /* the wide strip never reaches into the previous column's numbers */
-  cols.forEach(function(c,i){if(i>0){var lim=Math.round(cols[i-1].mr+0.2*c.h);if(c.x0<lim)c.x0=Math.min(lim,c.cx0);}});
+  cols.forEach(function(c,i){if(i>0){var lim=Math.round(cols[i-1].mr+0.2*c.h);if(c.x0<lim)c.x0=Math.min(lim,c.cx0);}
+    if(i<cols.length-1){var lim2=Math.round(cols[i+1].cx0-0.2*c.h);if(c.x1>lim2)c.x1=Math.max(lim2,Math.round(c.mr+0.5*c.h));}});
   return cols;
 }
+/* Header text with the usual misreads of "ø/100 g" repaired: 1009 and 100q for 100 g */
+function hdrText(t){return cleanLine(t).replace(/100\s*[9q](?![0-9])/g,'100 g');}
 /* Header words above the table tell which column is per 100 g, per portion or % RI */
 function classifyColumns(cols,lines){
   if(!cols.length)return;
   var firstName=null;
   lines.forEach(function(l){if(firstName)return;var c=cleanLine(l.text);if(matchesIn(c).length)firstName=l;});
-  var hdr=lines.filter(function(l){var c=cleanLine(l.text);return (!firstName||l.y1<=firstName.y0+0.3*(l.y1-l.y0))&&!matchesIn(c).length&&(/100\s*(g|ml)|\b100\b/.test(c)||/porti|portion|serving|adag|\bri\b|nrv|%/.test(c));});
+  var hdr=lines.filter(function(l){var c=hdrText(l.text);return (!firstName||l.y1<=firstName.y0+0.3*(l.y1-l.y0))&&!matchesIn(c).length&&(/100\s*(g|ml)|\b100\b/.test(c)||/porti|portion|serving|adag|\bri\b|nrv|%/.test(c));});
   if(!hdr.length){var any=lines.filter(function(l){return /100/.test(l.text);});if(any.length)hdr=[any[0]];}
   /* each header word goes to the column nearest to its centre */
   var hw=cols.map(function(){return [];});
@@ -1213,7 +1217,7 @@ function classifyColumns(cols,lines){
   });});
   cols.forEach(function(c,i){
     c.header=hw[i].map(function(w){return w.text;}).join(' ');
-    var t=cleanLine(c.header);
+    var t=hdrText(c.header);
     if(/100\s*(g|ml)|\b100\b/.test(t))c.kind='100';
     else if(/\d+\s*(g|ml)\b|porti|portion|serving|adag|porc|pack|piece|stuk|slice|quarter/.test(t)&&!/^\s*%/.test(t))c.kind='portion';
     else if(/%|\bri\b|nrv|gda/.test(t))c.kind='pct';
@@ -1249,14 +1253,38 @@ function stripBinary(grey,W,H,x0,x1,h){
     var s=sat[yb*(sw+1)+xb]-sat[ya*(sw+1)+xb]-sat[yb*(sw+1)+xa]+sat[ya*(sw+1)+xa],mean=s/((yb-ya)*(xb-xa));
     var d=mean-g[y*sw+x];diff[y*sw+x]=d;if(x>=xs){hist[Math.max(0,Math.min(255,Math.round(d)))]++;cnt++;}}}
   var acc=0,p=255;for(i=255;i>=0;i--){acc+=hist[i];if(acc>cnt*0.005){p=i;break;}}
-  var thr=Math.max(18,0.45*p),bin=new Uint8Array(n);
+  /* a large dark area in the strip (the edge of a dark wrapper, a border, a rule) is not ink of the glyphs and would raise
+     the ink level: the pixels of such areas, found at the usual threshold, are left out and the level is measured again */
+  var bin0=new Uint8Array(n),thr0=Math.max(18,0.45*p);
+  for(i=0;i<n;i++)bin0[i]=diff[i]>thr0?0:255;
+  var cc0=stripComponents(bin0,sw,H),huge=new Uint8Array(cc0.comps.length+1),anyHuge=false;
+  cc0.comps.forEach(function(c){if(c.y1-c.y0>2.2*h||c.x1-c.x0>2.5*h){huge[c.id]=1;anyHuge=true;}});
+  if(anyHuge){
+    hist=new Uint32Array(256);cnt=0;
+    for(y=0;y<H;y++)for(x=xs;x<sw;x++){i=y*sw+x;if(bin0[i]===0&&huge[cc0.lab[i]])continue;hist[Math.max(0,Math.min(255,Math.round(diff[i])))]++;cnt++;}
+    acc=0;p=255;for(i=255;i>=0;i--){acc+=hist[i];if(acc>cnt*0.005){p=i;break;}}
+  }
+  /* the threshold is chosen among a few fractions of the ink level by what it makes of the value glyphs: too high breaks thin or
+     soft strokes into fragments, too low fuses neighbouring glyphs, and both lower the count of glyph-sized components.
+     A lower threshold is taken only when it finds clearly more glyphs, so the highest that works keeps the glyphs apart */
+  var pw=sw-xs,sub=new Uint8Array(pw*H),bestF=0.45,bestScore=-1;
+  stripBinary.lastScores='';
+  [0.45,0.36,0.28,0.22].forEach(function(f){
+    var thr=Math.max(18,f*p);
+    for(y=0;y<H;y++)for(x=0;x<pw;x++)sub[y*pw+x]=diff[y*sw+xs+x]>thr?0:255;
+    var cc=stripComponents(sub,pw,H),score=0;
+    cc.comps.forEach(function(c){var ch=c.y1-c.y0,cw=c.x1-c.x0;if(ch>=0.4*h&&ch<=1.2*h&&cw>=0.06*h&&cw<=1.0*h)score++;});
+    stripBinary.lastScores+=' '+f+':'+score;
+    if(bestScore<0||(score>bestScore*1.25&&score>=bestScore+3)){bestScore=score;bestF=f;}
+  });
+  var thr=Math.max(18,bestF*p),bin=new Uint8Array(n);
   for(i=0;i<n;i++)bin[i]=diff[i]>thr?0:255;
-  return {bin:bin,w:sw,h:H,diff:diff,p:p};
+  return {bin:bin,w:sw,h:H,diff:diff,p:p,f:bestF};
 }
 /* A wide glyph that is two digits touching is cut at its thinnest column near the expected boundary */
-function valleySplit(bin,w,h,c,digitH){
-  var cw=c.x1-c.x0;if(cw<=0.85*digitH)return [c];
-  var n=Math.round(cw/(0.62*digitH));if(n<2)return [c];
+function valleySplit(bin,w,h,c,digitH,force){
+  var cw=c.x1-c.x0;if(cw<=(force?0.65:0.85)*digitH)return [c];
+  var n=Math.round(cw/((force?0.45:0.62)*digitH));if(n<2)return [c];
   var col=new Float64Array(cw),x,y,mx=0;
   for(y=c.y0;y<c.y1;y++)for(x=0;x<cw;x++)if(bin[y*w+c.x0+x]===0)col[x]++;
   for(x=0;x<cw;x++)mx=Math.max(mx,col[x]);
@@ -1265,7 +1293,7 @@ function valleySplit(bin,w,h,c,digitH){
     var target=Math.round(cw*k/n),lo=Math.max(start+2,target-Math.floor(0.25*cw/n)),hi=Math.min(cw-2,target+Math.floor(0.25*cw/n));
     if(hi<=lo)return [c];
     var cut=lo;for(x=lo;x<hi;x++)if(col[x]<col[cut])cut=x;
-    if(col[cut]>0.5*mx)return [c];
+    if(col[cut]>(force?0.55:0.5)*mx)return [c];
     parts.push([start,cut]);start=cut;
   }
   parts.push([start,cw]);
@@ -1323,6 +1351,23 @@ function cleanStrip(bin,w,h,charH){
   for(var i=0;i<w*h;i++)out[i]=(bin[i]===0&&keepId[cc.lab[i]])?0:255;
   return {bin:out,comps:keep};
 }
+/* A glyph whose thin stroke the threshold cut (the top bar of a 3 or a 2 hanging loose) comes back as one piece: two pieces
+   of a row that stand one above the other, of similar width, with only a small gap between them, are one glyph. A comma under
+   a digit is much narrower than the digit, so it stays apart */
+function mergePieces(comps,charH){
+  var again=true;
+  while(again){
+    again=false;
+    for(var i=0;i<comps.length&&!again;i++)for(var j=i+1;j<comps.length&&!again;j++){
+      var a=comps[i],b=comps[j],wa=a.x1-a.x0,wb=b.x1-b.x0,ov=Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0);
+      if(ov<0.6*Math.min(wa,wb)||Math.min(wa,wb)<0.3*Math.max(wa,wb))continue;
+      var gap=Math.max(a.y0,b.y0)-Math.min(a.y1,b.y1),y0=Math.min(a.y0,b.y0),y1=Math.max(a.y1,b.y1);
+      /* a thin diagonal lost altogether leaves a wide gap, which is fine as long as the two pieces together are no taller than a digit */
+      if(gap>0.45*charH||(gap>0.15*charH&&y1-y0>1.15*charH)||y1-y0>1.3*charH)continue;
+      a.x0=Math.min(a.x0,b.x0);a.x1=Math.max(a.x1,b.x1);a.y0=y0;a.y1=y1;a.a+=b.a;comps.splice(j,1);again=true;
+    }
+  }
+}
 function stripRows(comps,charH){
   var tall=comps.filter(function(c){return c.y1-c.y0>=0.45*charH;}),small=comps.filter(function(c){return c.y1-c.y0<0.45*charH;}),rows=[];
   tall.sort(function(a,b){return (a.y0+a.y1)-(b.y0+b.y1);});
@@ -1336,6 +1381,7 @@ function stripRows(comps,charH){
     rows.forEach(function(r){var d=Math.abs(cy-r.cy);if(d<bd){bd=d;best=r;}});
     if(best&&bd<0.7*charH)best.comps.push(s);
   });
+  rows.forEach(function(r){mergePieces(r.comps,charH);});
   rows.forEach(function(r){
     r.comps.sort(function(a,b){return a.x0-b.x0;});
     r.y0=1e9;r.y1=0;r.x0=1e9;r.x1=0;
@@ -1363,12 +1409,12 @@ function rowPattern(row){
     else if(hh<=0.5*digitH&&ww<=0.5*digitH&&hh>=0.1*digitH&&ww<=2.2*hh&&c.y1>=base-0.12*digitH&&c.y0>=base-0.45*digitH)kind=',';
     else if(hh<0.12*digitH&&ww<0.12*digitH)kind='.';
     else kind='x';
-    seq.push({k:kind,n:kind==='D'?Math.max(1,Math.round(ww/(0.75*digitH))):1,c:c});
+    seq.push({k:kind,n:kind==='D'?Math.max(1,Math.round(ww/(0.75*digitH))):1,c:c});c.kind=kind;
     prev=c;
   });
   /* a decimal comma printed tight against its digit fuses with it into one glyph that hangs below the baseline;
      a unit never stands directly before a digit, so such a glyph followed by a digit is a digit with its comma */
-  for(i=0;i+1<seq.length;i++)if(seq[i].k==='g'&&seq[i+1].k==='D'&&seq[i].c&&(seq[i].c.x1-seq[i].c.x0)<=1.1*digitH){seq[i].k='D';seq[i].n=1;}
+  for(i=0;i+1<seq.length;i++)if(seq[i].k==='g'&&seq[i+1].k==='D'&&seq[i].c&&(seq[i].c.x1-seq[i].c.x0)<=1.1*digitH){seq[i].k='D';seq[i].n=1;seq[i].c.kind='D';}
   var s=seq.map(function(e){return e.k;}).join('');
   /* the value is the last run of digits and commas; a unit (g, mg, kcal) may follow after a gap */
   var m=/([D,.]*D[D,.]*)[-]?([gx.]*)[,.]*$/.exec(s);
@@ -1422,7 +1468,7 @@ function attachReads(rows,readLines,scale){
 function valueOfRow(r,kind,strip){
   var t=(r.reads||[]).join(' '),net=strip?netReadRow(strip,r):null;
   /* a digit fused with its comma is one glyph the shapes cannot count, so a fair reading of one settles the digit count like a confident one */
-  var netSure=net&&(net.conf>=0.9||(net.fused&&net.conf>=0.6));
+  var netSure=net&&(net.conf>=0.9||((net.fused||net.split)&&net.conf>=0.6));
   if(net){r.reads=(r.reads||[]).concat([net.text]);if(netSure)r.reads.push(net.text);r.net=net;if(!/\d\s*(g|mg|ug|µg|kcal|kj|%)/i.test(t)&&net.unit)t+=' '+net.digits+(net.unit==='%'?'%':' '+net.unit);}
   if(kind==='pct'||(/\d\s*%/.test(t)&&!/\d\s*(g|mg|ug|µg|kcal|kj)\b/i.test(t))){
     var pm=/(\d{1,3})\s*%/.exec(t);
@@ -1435,12 +1481,15 @@ function valueOfRow(r,kind,strip){
   }
   /* side columns may only contribute clean values, never stray text */
   function loose(txt){if(kind&&kind!=='100'&&!/^\s*<?\s*\d+([.,]\d+)?\s*(g|mg|ug|µg|kcal|kj)?\s*$/i.test(txt||''))return {text:''};return {text:txt||'',loose:true};}
-  if(/kcal|kj|k[j3li1]\b/i.test(t)||/\d\s*k[cj3]/i.test(t))return {text:(r.reads||[])[0]||'',energy:true};
+  if(/kcal|kj|k[j3li1]\b/i.test(t)||/\d\s*k[cj3]/i.test(t)||/\d{2,3}\s*cal\b/i.test(t))return {text:(r.reads||[])[0]||'',energy:true};
   if(!r.pat||!r.pat.n)return loose((r.reads||[])[0]);
   var pat=r.pat;
   /* a confident glyph reading settles the digit count when the glyph shapes and the reads disagree */
   if(netSure&&net.digits.length!==pat.n&&net.digits.length>=1&&net.digits.length<=4)pat={n:net.digits.length,before:net.before,unit:!!net.unit,hasG:net.unit==='g'};
-  var d=voteDigits(r.reads||[],pat,netSure?net.digits:null);
+  /* a wide glyph cut in two in the narrow mode is two digits even when the recogniser is unsure of them */
+  else if(net&&net.extra&&pat.n+net.extra<=4)pat={n:pat.n+net.extra,before:pat.before,unit:pat.unit,hasG:pat.hasG};
+  /* ties go to the glyph recogniser unless it is guessing: one of its readings is worth at least one text read */
+  var d=voteDigits(r.reads||[],pat,net&&net.conf>=0.4?net.digits:null);
   if(d==null)return loose((r.reads||[])[0]);
   if(pat.before<0&&net&&net.before>=0&&net.digits===d)pat={n:pat.n,before:net.before,unit:pat.unit,hasG:pat.hasG};
   if(pat.before<0){
@@ -1476,7 +1525,8 @@ function tableRead(tsv,grey,W,H,ocr){
   var rowsByY=main.rows.slice().sort(function(a,b){return a.y0-b.y0;});
   rowsByY.forEach(function(r,idx){
     /* energy sits in the first rows, as a 3 or 4 digit number without a decimal comma */
-    if(!r.pat||r.pat.n<3||r.pat.before>=0||idx>3)return;
+    var nD=r.pat&&r.pat.s?r.pat.s.replace(/[^D]/g,'').length:0;
+    if(!r.pat||nD<3||(r.pat.n>=2&&r.pat.before>=0)||idx>3)return;
     var yy0=Math.max(0,Math.round(r.y0-0.45*main.h)),yy1=Math.min(H,Math.round(r.y1+0.45*main.h));
     if(wideX0>=main.x0-main.h)return;
     var sb=stripBinary(grey,W,H,wideX0,main.x1,main.h),cl=cleanStrip(sb.bin,sb.w,sb.h,main.h),hh=yy1-yy0,sub=new Uint8Array(sb.w*hh);
@@ -1508,7 +1558,7 @@ function assembleTable(lines,cols,main){
   var rowsM=main.rows.slice().sort(function(a,b){return a.y0-b.y0;});
   rowsM.forEach(function(r){r.val=valueOfRow(r,'100',main.strip);r.names=[];});
   cols.forEach(function(c){if(c!==main)c.rows.forEach(function(r){r.val=valueOfRow(r,c.kind,c.strip);});});
-  function isHeader(l){var c=cleanLine(l.text);return /100\s*(g|ml)|\b100\b/.test(c)&&!matchesIn(c).length;}
+  function isHeader(l){var c=hdrText(l.text);return /100\s*(g|ml)|\b100\b/.test(c)&&!matchesIn(c).length;}
   function inCol(w){return cols.some(function(c){return w.x+w.w>c.x0&&w.x<c.x1;});}
   function nameOf(l){
     return l.words.filter(function(w){
@@ -1549,7 +1599,12 @@ function assembleTable(lines,cols,main){
           if(r.wide)cands.unshift(r.wide);
           if(r.energyLine)cands.push(r.energyLine.words.filter(function(w){return w.x+w.w>main.x0-6*main.h&&w.x<main.x1&&/\d|kcal|kj|k[j3li1]/i.test(w.text);}).map(function(w){return w.text;}).join(' '));
           var bestE=null,bestL=-1;
-          cands.forEach(function(t){var ct=cleanLine(t||''),m=/(\d{1,3})\s*kcal/.exec(ct),len=m?m[1].length:0;if(/\d{3,4}\s*kj/.test(ct))len=Math.max(len,2.5);if(len>bestL){bestL=len;bestE=t;}});
+          cands.forEach(function(t){
+            var ct=cleanLine(t||'').replace(/(\d)\s*cal\b/g,'$1 kcal'),m=/(\d{1,3})\s*kcal/.exec(ct),mj=/(\d{3,4})\s*kj/.exec(ct),len=m?m[1].length:0;
+            if(mj)len=Math.max(len,2.5);
+            /* the numbers found go out in a clean form (a read of 01535 kcal would otherwise look like 1535 kcal) */
+            var norm=(m||mj)?((mj?mj[1]+' kJ/':'')+(m?m[1]+' kcal':'')):t;
+            if(len>bestL){bestL=len;bestE=norm;}});
           if(bestE)vt=bestE;
         }
         vals.push(vt);return;}
@@ -1639,17 +1694,30 @@ function rowInk(strip,comps){
 }
 function netReadRow(strip,r){
   if(!GLYPH_NET||!r.pat||!r.pat.group||!r.pat.group.length)return null;
-  var comps=[],digitH=r.pat.digitH;
-  r.pat.group.forEach(function(c){comps=comps.concat(valleySplit(strip.bin,strip.w,strip.h,c,digitH));});
-  comps=comps.concat(r.pat.unitComps||[]);
+  var comps=[],digitH=r.pat.digitH,forced=false,extra=0;
+  r.pat.group.forEach(function(c){
+    var parts=valleySplit(strip.bin,strip.w,strip.h,c,digitH);
+    if(parts.length===1&&c.x1-c.x0>0.65*digitH){
+      /* a wide glyph the recogniser cannot name, or barely can, is two condensed digits touching: cut it at its narrowest */
+      var g0=classifyGlyph(GLYPH_NET,glyphInput(strip.diff,strip.w,strip.h,rowInk(strip,[c]),c,digitH));
+      if(g0.cls==='M'||g0.cls==='S'||g0.cls==='L'||g0.p<0.5)parts=valleySplit(strip.bin,strip.w,strip.h,c,digitH,true);
+      if(parts.length>1){forced=true;extra+=parts.length-1;}
+    }
+    comps=comps.concat(parts);
+  });
+  var unitPos=comps.length;comps=comps.concat(r.pat.unitComps||[]);
   var pRow=rowInk(strip,comps);
   var digits='',before=-1,unit='',conf=1,ok=true,seenDigit=false,fused=false;
-  comps.forEach(function(c){
+  comps.forEach(function(c,idx){
     if(!ok)return;
     var g=classifyGlyph(GLYPH_NET,glyphInput(strip.diff,strip.w,strip.h,pRow,c,digitH)),k=g.cls;
+    /* a glyph hanging below the baseline after the digits is the unit g; a blurred g looks like a 9 to the net */
+    if(c.kind==='g'&&idx>=unitPos&&(k.length===2||(k>='0'&&k<='9'&&k.length===1))&&(g.p<0.9||idx===comps.length-1))k='g';
+    /* a small blob at the baseline that the shapes call a comma is one unless the net is fairly sure it is something else */
+    if((c.kind===','||c.kind==='.')&&g.p<0.6)k=',';
     if(k==='M'){ok=false;return;}
     if(k==='S'||k==='L'||k==='<'){if(seenDigit&&unit==='')conf=Math.min(conf,g.p);return;}
-    if(k.length===2&&k.charAt(1)===','){digits+=k.charAt(0);before=digits.length;seenDigit=true;fused=true;conf=Math.min(conf,g.p);return;}
+    if(k.length===2&&k.charAt(1)===','){digits+=k.charAt(0);if(before<0)before=digits.length;seenDigit=true;fused=true;conf=Math.min(conf,g.p);return;}
     /* the comma fused with the digit after it (",3" in 53,3) */
     if(k.length===2&&k.charAt(0)===','){if(seenDigit&&before<0)before=digits.length;digits+=k.charAt(1);seenDigit=true;fused=true;conf=Math.min(conf,g.p);return;}
     if(k>='0'&&k<='9'&&k.length===1){if(unit){ok=false;return;}digits+=k;seenDigit=true;conf=Math.min(conf,g.p);return;}
@@ -1663,7 +1731,7 @@ function netReadRow(strip,r){
   if(unit==='m')unit='mg';else if(unit==='u')unit='µg';
   /* the text carries digits and comma only: the unit is settled from the text reads, which see the whole row */
   var text=(before>0?digits.slice(0,before)+','+digits.slice(before):before===0?'0,'+digits:digits);
-  return {digits:digits,before:before,unit:unit,conf:conf,text:text,fused:fused};
+  return {digits:digits,before:before,unit:unit,conf:conf,text:text,fused:fused,split:forced,extra:extra};
 }
 function setGlyphNet(spec){GLYPH_NET=loadGlyphNet(spec);return !!GLYPH_NET;}
 function setStripLeft(v){STRIP_LEFT=v;}
