@@ -303,7 +303,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.2.9';
+var APP_VERSION='1.2.10';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -840,8 +840,8 @@ var ENERGY_RE=/energ|energy|calori|kalori|valoare|brennwert/;
 function vitRe(letter,extra){return new RegExp('\\b[vw]itam(?:in|iin)(?:a|e|y|s|as)?\\.?\\s+'+letter+'\\s?[0-9]?\\b|\\b'+letter+'-vitamin'+(extra?'|'+extra:''));}
 var MICRO_RE=[
   /* the digit in a vitamin's name is often read as a look-alike letter (B6 as BG, B12 as Bl2), so those forms count after the word vitamin */
-  ['b12',/\bb\s?12\b|cobalamin|kobalamin|vitamin[a-z]*\s+b\s?[1li][2z]\b/],['b6',/\bb\s?6\b|piridox|pyridox|pirydoks|vitamin[a-z]*\s+b\s?[6g]\b/],['b1',/\bb\s?1\b|tiamin|thia[a-z]{1,2}in|tiamiin|vitamin[a-z]*\s+b\s?[1li]\b/],['b2',/\bb\s?2\b|ribo[a-z]{0,2}avin|ryboflawin|vitamin[a-z]*\s+b\s?[2z]\b/],
-  ['b3',/\bb\s?3\b|niacin|niacyn/],['b5',/\bb\s?5\b|pantoten|pantothen/],['folate',/\bb\s?9\b|folic|folat|folsav|folian/],['biotin',/\bb\s?7\b|biotin|biotyn/],
+  ['b12',/\bb\s?12\b(?![.,]\d)|cobalamin|kobalamin|vitamin[a-z]*\s+b\s?[1li][2z]\b(?![.,]\d)/],['b6',/\bb\s?6\b(?![.,]\d)|piridox|pyridox|pirydoks|vitamin[a-z]*\s+b\s?[6g]\b(?![.,]\d)/],['b1',/\bb\s?1\b(?![.,]\d)|tiamin|thia[a-z]{1,2}in|tiamiin|vitamin[a-z]*\s+b\s?[1li]\b(?![.,]\d)/],['b2',/\bb\s?2\b(?![.,]\d)|ribo[a-z]{0,2}avin|ryboflawin|vitamin[a-z]*\s+b\s?[2z]\b(?![.,]\d)/],
+  ['b3',/\bb\s?3\b(?![.,]\d)|niacin|niacyn/],['b5',/\bb\s?5\b(?![.,]\d)|pantoten|pantothen/],['folate',/\bb\s?9\b(?![.,]\d)|folic|folat|folsav|folian/],['biotin',/\bb\s?7\b(?![.,]\d)|biotin|biotyn/],
   ['vitA',vitRe('a','retinol')],['vitD',vitRe('d','colecalciferol|cholecalciferol')],['vitE',vitRe('e','tocoferol|tocopherol')],['vitK',vitRe('k')],['vitC',vitRe('c','ascorbic')],
   ['calcium',/calci|kalci|kalzium|kaltsium|\bwapn/],['iron',/\bfier\b|\biron\b|\beisen\b|zelj?ezo|zelazo|\bfer\b|\bferro\b|hierro/],['magnesium',/magnez|magnesi|magnij|magnees/],['zinc',/\bzinc\b|\bzink\b|\bcink\b|\bcynk\b|\bzinco\b|\btsink\b/],
   ['potassium',/potasiu|potassium|kalium|\bkalij\b|\bpotas\b|\bkalis\b|\bkaalium\b|potasio|potassio/],['phosphorus',/fosf|phosph|foszf/],['iodine',/\biod(?:ura|ine|at|o)?\b|\bjod|\byodo\b/],['selenium',/seleni|\bselen\b|szelen|\bseleen\b/],
@@ -994,13 +994,14 @@ function parseLabel(text){
     if(pctV!=null&&!UNSTORED[key]&&Math.abs(vals[key]-pctV)/Math.max(pctV,0.3)>0.4)flags.push({key:key,text:'the % RI column suggests c.'+sig(pctV)+' g'});
     if(!UNSTORED[key])found.push(key);if(line!=null)lineOf[key]=line;return true;
   }
+  var fwdAt=-1;
   function forward(i,key){
     for(var q=i+1;q<lines.length&&q<i+4;q++){
       if(consumed[q])return [];
       var ms=matchesIn(lines[q]);
       if(ms.some(function(x){return x.key!==key;}))return [];
       /* the value line of a wrapped name is spent: it is not a nameless row as well */
-      var tk=tokens(lines[q]);if(tk.length){consumed[q]=1;return tk;}
+      var tk=tokens(lines[q]);if(tk.length){consumed[q]=1;fwdAt=q;return tk;}
     }
     return [];
   }
@@ -1035,9 +1036,9 @@ function parseLabel(text){
       var toks=tokens(line.slice(M.end,cutAt));
       /* a vitamin name that swallowed its own number (vitamina e 2 mg): read again from the name itself */
       if(!toks.length&&MICRO_BY[M.key])toks=tokens(line.slice(M.idx,cutAt)).filter(function(t){return t.unit;});
-      if(!toks.length&&cutAt===line.length)toks=forward(i,M.key);
-      if(M.key==='kcal'&&toks.length&&!toks.some(function(t){return t.unit==='kcal';})&&lines[i+1]&&!consumed[i+1]){
-        var nt=tokens(lines[i+1]);if(nt.some(function(t){return t.unit==='kcal';})&&!matchesIn(lines[i+1]).some(function(x){return x.key!=='kcal';}))toks=toks.concat(nt);
+      var at=i;if(!toks.length&&cutAt===line.length){fwdAt=-1;toks=forward(i,M.key);if(fwdAt>-1)at=fwdAt;}
+      if(M.key==='kcal'&&toks.length&&!toks.some(function(t){return t.unit==='kcal';})&&lines[at+1]&&!consumed[at+1]){
+        var nt=tokens(lines[at+1]);if(nt.some(function(t){return t.unit==='kcal';})&&!matchesIn(lines[at+1]).some(function(x){return x.key!=='kcal';}))toks=toks.concat(nt);
       }
       if(toks.length)take(M.key,toks,M.m,i);
     }
@@ -1137,9 +1138,9 @@ function parseLabel(text){
     }
   }
   var seenFlag={};
-  flags.forEach(function(fl){if(vals[fl.key]==null||seenFlag[fl.key])return;seenFlag[fl.key]=1;var nm=LABEL.filter(function(l){return l.k===fl.key;})[0];warn+=(warn?' ':'')+(nm?nm.name:fl.key)+' ('+vals[fl.key]+(fl.key==='kcal'?' kcal':' g')+'): '+fl.text+'. Check it.';});
+  flags.forEach(function(fl){if(vals[fl.key]==null||seenFlag[fl.key])return;seenFlag[fl.key]=fl.text;var nm=LABEL.filter(function(l){return l.k===fl.key;})[0];warn+=(warn?' ':'')+(nm?nm.name:fl.key)+' ('+vals[fl.key]+(fl.key==='kcal'?' kcal':' g')+'): '+fl.text+'. Check it.';});
   Object.keys(UNSTORED).forEach(function(k){delete vals[k];});
-  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:Object.keys(seenFlag)};
+  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:Object.keys(seenFlag),why:seenFlag};
 }
 
 /* ---------- label scanning: table layout from the reader's word boxes ----------
@@ -2269,6 +2270,7 @@ function runScan(prep){
     try{console.error('scan failed',e);}catch(x){}
     var g=UI.ingForm;if(!g||!g.scan)return;
     g.scan.busy=false;g.scan.status='';
+    scanLogEnd({error:String((e&&e.message)||e||'the classic reader failed').slice(0,300)});SCANLOG.note='';
     g.scan.err=(navigator.onLine===false||!window.Tesseract)?'Scanning needs an internet connection the first time, to download the reader (c.20 MB). After that it works offline.':'Could not read that photo. Try again with the nutrition table filling the frame, flat and in good light.';
     render();
   });
@@ -2282,7 +2284,9 @@ function applyScan(text,parsed){
   p.foundMicros.forEach(function(id){f.micros[id]=String(p.micros[id]);f.scanKeys['m:'+id]=true;});
   if(p.foundMicros.length)f.showMicros=true;
   if(p.basis)f.basis=p.basis;
-  f.scan={busy:false,done:true,status:'',progress:null,err:'',text:text,found:p.found,foundMicros:p.foundMicros,showText:false,warn:p.warn||''};
+  var note=SCANLOG.note;SCANLOG.note='';
+  f.scan={busy:false,done:true,status:'',progress:null,err:'',text:text,found:p.found,foundMicros:p.foundMicros,showText:false,warn:[p.warn||'',note||''].filter(Boolean).join(' ')};
+  f.scanRecId=scanLogEnd({text:text,vals:p.vals,micros:p.micros,found:p.found,foundMicros:p.foundMicros,flags:p.flags||[],basis:p.basis||'g',warn:p.warn||''})||f.scanRecId;
   var n=p.found.length+p.foundMicros.length;
   render();
   toast(n?'Found '+n+(n===1?' value':' values')+'. Check them against the label.':'No values recognised. Try a closer, sharper photo.',3500);
@@ -2305,7 +2309,8 @@ function showCrop(file){
 }
 function cropHtml(c){
   var r=c.rect,st='left:'+(r.x*100).toFixed(2)+'%;top:'+(r.y*100).toFixed(2)+'%;width:'+(r.w*100).toFixed(2)+'%;height:'+(r.h*100).toFixed(2)+'%';
-  return '<div class="scan"><p class="hint"><b>Drag the corners</b> so the box covers only the nutrition table, then tap Read. A tight box reads the small numbers much better. If the text lies sideways, tap Rotate until it is upright.</p>'+
+  var tip=readerKind()==='classic'?'<b>Drag the corners</b> so the box covers only the nutrition table, then tap Read. A tight box reads the small numbers much better. If the text lies sideways, tap Rotate until it is upright.':'<b>Drag the corners</b> so the box holds the nutrition table, then tap Read. The box need not be exact: the reader looks for the table inside it and turns a sideways photo by itself.';
+  return '<div class="scan"><p class="hint">'+tip+'</p>'+
     '<div class="crop-stage" id="crop-stage"><img src="'+esc(c.viewUrl||c.url)+'" alt="Label photo"><div class="crop-box" id="crop-box" style="'+st+'"><span class="crop-h" data-h="nw"></span><span class="crop-h" data-h="ne"></span><span class="crop-h" data-h="sw"></span><span class="crop-h" data-h="se"></span></div></div>'+
     '<div class="row"><button class="btn primary" data-act="crop-read">Read this area</button><button class="btn" data-act="crop-rotate">Rotate</button><button class="btn" data-act="crop-all">Use whole photo</button><button class="btn ghost" data-act="crop-cancel">Cancel</button></div></div>';
 }
@@ -2436,12 +2441,1198 @@ function estimateSkew(bin,w,h){
 }
 function finishCrop(whole){
   var f=UI.ingForm;if(!f||!f.crop)return;
-  var c=f.crop,rect=whole?{x:0,y:0,w:1,h:1}:c.rect;
+  var c=f.crop,rect=whole?{x:0,y:0,w:1,h:1}:c.rect,kind=readerKind(),rot=c.rot||0;
   f.crop=null;
+  var rec=scanLogBegin(c.img,rect,rot,kind);
+  /* the network reader works on the colour crop, the classic reader on its grey treatments */
+  if(kind!=='classic'){runScanNet({img:c.img,rect:rect,rot:rot,kind:kind,url:c.url});return;}
   var prep;
-  try{prep=cropToCanvases(c.img,rect,c.rot||0);}catch(e){URL.revokeObjectURL(c.url);toast('Could not prepare that photo.',3500);render();return;}
+  try{prep=cropToCanvases(c.img,rect,rot);}catch(e){URL.revokeObjectURL(c.url);SCANLOG.cur=null;toast('Could not prepare that photo.',3500);render();return;}
   URL.revokeObjectURL(c.url);
+  try{scanLogImage(rec,netCrop(c.img,rect,rot).canvas);}catch(e){}
   runScan(prep);
+}
+
+/* ---------- label scanning: the network reader ----------
+   A text detection network marks every piece of text in the crop and a recognition network reads each piece; the code
+   here prepares their inputs, tidies the detector's map (stacked value cells are cut apart, bent lines straightened),
+   and puts the pieces into rows and columns as the canonical text that parseLabel reads. It has no DOM dependencies:
+   the caller hands over the pixels and a function that runs a network, so the phone and the test bench run this code
+   unchanged. */
+var NR=null;
+try{NR=(function(){
+'use strict';
+var DEF={detLimit:960,thresh:0.3,boxThresh:0.6,unclip:1.6,stretch:2,stretchShort:1.5,blur:1.2,tight:true,tightDy:0.15,split:true,curves:true,register:true,cubic:false,normFrom:88,normTo:64,probe:false,probeMin:0.55,stopIfSideways:false,zoom:true,zoomAlways:false,noRedetect:false,tables:true};
+
+/* ----- small numeric helpers */
+function median(a){var s=Array.prototype.slice.call(a).sort(function(x,y){return x-y;}),n=s.length;if(!n)return 0;return n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2;}
+function rint(x){var f=Math.floor(x),d=x-f;if(d<0.5)return f;if(d>0.5)return f+1;return f%2===0?f:f+1;}
+function hyp(ax,ay,bx,by){return Math.sqrt((ax-bx)*(ax-bx)+(ay-by)*(ay-by));}
+/* solves the small linear system A x = b (Gaussian elimination with pivoting) */
+function solve(A,b){
+  var n=b.length,i,j,k,M=A.map(function(r,i2){return r.concat([b[i2]]);});
+  for(i=0;i<n;i++){
+    var p=i;for(j=i+1;j<n;j++)if(Math.abs(M[j][i])>Math.abs(M[p][i]))p=j;
+    var t=M[i];M[i]=M[p];M[p]=t;
+    if(Math.abs(M[i][i])<1e-300)return null;
+    for(j=i+1;j<n;j++){var f=M[j][i]/M[i][i];for(k=i;k<=n;k++)M[j][k]-=f*M[i][k];}
+  }
+  var x=new Array(n);
+  for(i=n-1;i>=0;i--){var s=M[i][n];for(j=i+1;j<n;j++)s-=M[i][j]*x[j];x[i]=s/M[i][i];}
+  return x;
+}
+/* least squares polynomial of degree deg through (xs, ys); coefficients highest power first, as numpy.polyfit */
+function polyfit(xs,ys,deg){
+  var n=xs.length,i,mx=0,sx=0;for(i=0;i<n;i++)mx+=xs[i];mx/=n;for(i=0;i<n;i++)sx=Math.max(sx,Math.abs(xs[i]-mx));if(sx<1e-9)sx=1;
+  var m=deg+1,A=[],b=[],r,c;for(r=0;r<m;r++){A.push(new Array(m).fill(0));b.push(0);}
+  for(i=0;i<n;i++){var u=(xs[i]-mx)/sx,pw=[1];for(r=1;r<=2*deg;r++)pw.push(pw[r-1]*u);
+    for(r=0;r<m;r++){for(c=0;c<m;c++)A[r][c]+=pw[r+c];b[r]+=pw[r]*ys[i];}}
+  var co=solve(A,b);if(!co){co=new Array(m).fill(0);var my=0;for(i=0;i<n;i++)my+=ys[i];co[0]=my/n;}
+  /* back from u = (x - mx) / sx to x */
+  if(deg===1){var b1=co[1]/sx;return [b1,co[0]-b1*mx];}
+  var a2=co[2]/(sx*sx),a1=co[1]/sx-2*a2*mx,a0=co[0]-co[1]*mx/sx+a2*mx*mx;return [a2,a1,a0];
+}
+function polyval(p,x){var v=0;for(var i=0;i<p.length;i++)v=v*x+p[i];return v;}
+
+/* ----- resampling: each axis by area averaging when it shrinks and by linear interpolation when it grows */
+function taps(sn,dn){
+  var sc=sn/dn,st=new Int32Array(dn),cn=new Int32Array(dn),ws=[],j,i;
+  for(j=0;j<dn;j++){
+    if(sc>1){
+      var a=j*sc,b=(j+1)*sc,i0=Math.floor(a),i1=Math.min(sn,Math.ceil(b));st[j]=i0;cn[j]=i1-i0;
+      for(i=i0;i<i1;i++)ws.push((Math.min(i+1,b)-Math.max(i,a))/sc);
+    }else{
+      var x=(j+0.5)*sc-0.5,k=Math.floor(x),f=x-k;if(k<0){k=0;f=0;}if(k>=sn-1){k=sn-1;f=0;}
+      st[j]=k;if(f>0){cn[j]=2;ws.push(1-f);ws.push(f);}else{cn[j]=1;ws.push(1);}
+    }
+  }
+  return {st:st,cn:cn,w:Float32Array.from(ws)};
+}
+/* src: interleaved pixels with step values per pixel (the first three are used); result: Float32 interleaved, 3 per pixel */
+function resize3(src,sw,sh,step,dw,dh){
+  var tx=taps(sw,dw),ty=taps(sh,dh),tmp=new Float32Array(dw*sh*3),out=new Float32Array(dw*dh*3),x,y,k,o,wi,i,a0,a1,a2,w;
+  for(y=0;y<sh;y++){wi=0;var row=y*sw*step;
+    for(x=0;x<dw;x++){a0=a1=a2=0;i=row+tx.st[x]*step;
+      for(k=tx.cn[x];k>0;k--){w=tx.w[wi++];a0+=src[i]*w;a1+=src[i+1]*w;a2+=src[i+2]*w;i+=step;}
+      o=(y*dw+x)*3;tmp[o]=a0;tmp[o+1]=a1;tmp[o+2]=a2;}}
+  var rowLen=dw*3;wi=0;
+  for(y=0;y<dh;y++){var n=ty.cn[y],s0=ty.st[y],base=y*rowLen;
+    for(k=0;k<n;k++){w=ty.w[wi++];var sb=(s0+k)*rowLen;for(x=0;x<rowLen;x++)out[base+x]+=tmp[sb+x]*w;}}
+  return out;
+}
+
+/* ----- the detector's map: blobs and their measurements */
+/* 8-connected components of a binary map; each gets its bounding box and area, in raster order of its first pixel */
+function components(bin,w,h){
+  var lab=new Int32Array(w*h),stack=new Int32Array(w*h),out=[],n=0,i,sp;
+  for(i=0;i<w*h;i++){
+    if(!bin[i]||lab[i])continue;
+    n++;lab[i]=n;sp=0;stack[sp++]=i;var x0=w,y0=h,x1=-1,y1=-1,area=0;
+    while(sp){var p=stack[--sp],px=p%w,py=(p-px)/w;area++;
+      if(px<x0)x0=px;if(px>x1)x1=px;if(py<y0)y0=py;if(py>y1)y1=py;
+      for(var dy=-1;dy<=1;dy++){var yy=py+dy;if(yy<0||yy>=h)continue;
+        for(var dx=-1;dx<=1;dx++){var xx=px+dx;if(xx<0||xx>=w)continue;var q=yy*w+xx;if(bin[q]&&!lab[q]){lab[q]=n;stack[sp++]=q;}}}
+    }
+    out.push({id:n,bx:x0,by:y0,bw:x1-x0+1,bh:y1-y0+1,area:area});
+  }
+  return {lab:lab,list:out};
+}
+function maskOf(lab,w,c){var m=new Uint8Array(c.bw*c.bh);for(var y=0;y<c.bh;y++){var r=(c.by+y)*w+c.bx;for(var x=0;x<c.bw;x++)if(lab[r+x]===c.id)m[y*c.bw+x]=1;}return m;}
+/* measurements of one blob: column heights, centre line, mean thickness, slope */
+function comp(mask,bw,bh,bx,by){
+  var cols=new Float64Array(bw),yc=new Float64Array(bw),x,y,ncol=0,area=0;
+  for(y=0;y<bh;y++)for(x=0;x<bw;x++)if(mask[y*bw+x]){cols[x]++;yc[x]+=y;}
+  var xs=[],ys=[];for(x=0;x<bw;x++){if(cols[x]>0){yc[x]/=cols[x];ncol++;area+=cols[x];xs.push(x);ys.push(yc[x]);}}
+  return {mask:mask,bx:bx,by:by,bw:bw,bh:bh,cols:cols,yc:yc,ncol:ncol,area:area,t:area/Math.max(1,ncol),xs:xs,ys:ys,slope:ncol>=8?polyfit(xs,ys,1)[0]:0};
+}
+/* cuts a blob holding several text lines at the waists of its row profile (taken along the text direction) */
+function splitStacked(c,medT,gslope){
+  var m=c.mask,bh=c.bh,bw=c.bw,shift=new Int32Array(bw),x,y,lo=1e9,hi=-1e9;
+  if(c.ncol>8*medT){var p2=polyfit(c.xs,c.ys,2),mean=0,line=new Float64Array(bw);for(x=0;x<bw;x++){line[x]=polyval(p2,x);mean+=line[x];}mean/=bw;for(x=0;x<bw;x++)shift[x]=rint(line[x]-mean);}
+  else for(x=0;x<bw;x++)shift[x]=rint(gslope*(x-bw/2));
+  for(x=0;x<bw;x++){if(shift[x]<lo)lo=shift[x];if(shift[x]>hi)hi=shift[x];}
+  var H=bh+hi-lo,prof=new Float64Array(H),filled=0;
+  for(y=0;y<bh;y++)for(x=0;x<bw;x++)if(m[y*bw+x])prof[y+hi-shift[x]]++;
+  for(y=0;y<H;y++)if(prof[y]>0)filled++;
+  if(filled<2.2*medT)return null;
+  var ps=new Float64Array(H);for(y=0;y<H;y++)ps[y]=0.25*(y>0?prof[y-1]:0)+0.5*prof[y]+0.25*(y<H-1?prof[y+1]:0);
+  var minh=Math.max(4,Math.floor(0.5*medT)),cuts=[];
+  function rec(a,b){
+    /* the deepest row of [a, b) that is a waist: clearly narrower than the widest row on either side of it */
+    if(b-a<2*minh)return;
+    var best=-1,r,k,left=-1e9,rightMax=new Float64Array(b-a+1);rightMax[b-a]=-1e9;
+    for(k=b-1;k>=a;k--)rightMax[k-a]=Math.max(rightMax[k-a+1],ps[k]);
+    for(k=a;k<a+minh;k++)left=Math.max(left,ps[k]);
+    for(r=a+minh;r<b-minh;r++){
+      var right=rightMax[r+1-a];
+      if(ps[r]<0.72*Math.min(left,right)&&(best<0||ps[r]<ps[best]))best=r;
+      left=Math.max(left,ps[r]);
+    }
+    if(best<0)return;
+    cuts.push(best);rec(a,best);rec(best+1,b);
+  }
+  rec(0,H);
+  if(!cuts.length)return null;
+  cuts.sort(function(p,q){return p-q;});
+  var bounds=[0].concat(cuts,[H]),parts=[],i;
+  for(i=0;i+1<bounds.length;i++){
+    var a=bounds[i],b=bounds[i+1],pm=new Uint8Array(bw*bh),cnt=0;
+    for(y=0;y<bh;y++)for(x=0;x<bw;x++){if(m[y*bw+x]){var r=y+hi-shift[x];if(r>=a&&r<b){pm[y*bw+x]=1;cnt++;}}}
+    if(cnt<10)continue;
+    var cc=components(pm,bw,bh);
+    cc.list.forEach(function(q){
+      if(q.area<10||Math.min(q.bw,q.bh)<3)return;
+      var pc=comp(maskOf(cc.lab,bw,q),q.bw,q.bh,c.bx+q.bx,c.by+q.by);pc.piece=true;parts.push(pc);
+    });
+  }
+  return parts.length>=2?parts:null;
+}
+/* outer border of a blob (8-connected, followed clockwise): its pixels and its length */
+function border(m,w,h){
+  var s=-1,i;for(i=0;i<w*h;i++)if(m[i]){s=i;break;}
+  if(s<0)return {pts:[],len:0};
+  /* directions clockwise on screen from west: W NW N NE E SE S SW */
+  var DX=[-1,-1,0,1,1,1,0,-1],DY=[0,-1,-1,-1,0,1,1,1],x=s%w,y=(s-x)/w,sx=x,sy=y,dir=2,first=-1,pts=[[x,y]],len=0,guard=8*w*h+16;
+  while(guard-->0){
+    var start=dir%2===0?(dir+7)%8:(dir+6)%8,nd=-1;
+    for(i=0;i<8;i++){var d=(start+i)%8,xx=x+DX[d],yy=y+DY[d];if(xx>=0&&yy>=0&&xx<w&&yy<h&&m[yy*w+xx]){nd=d;break;}}
+    if(nd<0)break;
+    if(x===sx&&y===sy){if(first<0)first=nd;else if(nd===first)break;}
+    x+=DX[nd];y+=DY[nd];dir=nd;len+=nd%2===0?1:Math.SQRT2;pts.push([x,y]);
+  }
+  return {pts:pts,len:len};
+}
+function convexHull(pts){
+  var p=pts.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1];}),n=p.length,i,k=0,h=[],t;
+  if(n<3)return p;
+  function cr(o,a,b){return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);}
+  for(i=0;i<n;i++){while(k>=2&&cr(h[k-2],h[k-1],p[i])<=0)k--;h[k++]=p[i];}
+  for(i=n-2,t=k+1;i>=0;i--){while(k>=t&&cr(h[k-2],h[k-1],p[i])<=0)k--;h[k++]=p[i];}
+  h.length=k-1;return h;
+}
+/* smallest rectangle around a set of points: centre, the unit vector of one side and both side lengths */
+function minAreaRect(pts){
+  var h=convexHull(pts),n=h.length,i,j,best=null;
+  if(n===0)return null;
+  if(n===1)return {cx:h[0][0],cy:h[0][1],ux:1,uy:0,w:0,h:0};
+  for(i=0;i<n;i++){
+    var a=h[i],b=h[(i+1)%n],ex=b[0]-a[0],ey=b[1]-a[1],l=Math.sqrt(ex*ex+ey*ey);if(l<1e-9)continue;
+    var ux=ex/l,uy=ey/l,u0=1e18,u1=-1e18,v0=1e18,v1=-1e18;
+    for(j=0;j<n;j++){var pu=h[j][0]*ux+h[j][1]*uy,pv=-h[j][0]*uy+h[j][1]*ux;if(pu<u0)u0=pu;if(pu>u1)u1=pu;if(pv<v0)v0=pv;if(pv>v1)v1=pv;}
+    var ar=(u1-u0)*(v1-v0);
+    if(!best||ar<best.ar){var cu=(u0+u1)/2,cv=(v0+v1)/2;best={ar:ar,cx:cu*ux-cv*uy,cy:cu*uy+cv*ux,ux:ux,uy:uy,w:u1-u0,h:v1-v0};}
+  }
+  return best;
+}
+/* top-left, top-right, bottom-right, bottom-left for a roughly level box */
+function orderPts(p){
+  var s=p.slice().sort(function(a,b){return a[0]-b[0];}),l=s.slice(0,2).sort(function(a,b){return a[1]-b[1];}),r=s.slice(2).sort(function(a,b){return a[1]-b[1];});
+  return [l[0],r[0],r[1],l[1]];
+}
+/* centre line y(x) = a2 x^2 + a1 x + a0 in picture coordinates from the fit made in the detector's map */
+function lineImg(p2,bx,by,sx,sy){var a=p2[0],b=p2[1],c=p2[2];return [sy*a/(sx*sx),sy*(b-2*a*bx)/sx,sy*(a*bx*bx-b*bx+c+by)];}
+
+/* ----- detection: the text regions of the picture. Each region has its four corners, its score and, for a line that
+   bends (round tubs, bottles), the curve its centre follows, so that the cut-out can be straightened. */
+function detInput(img,o){
+  var w=img.width,h=img.height,r=Math.min(1,o.detLimit/Math.max(w,h));
+  var nh=Math.max(32,rint(h*r/32)*32),nw=Math.max(32,rint(w*r/32)*32);
+  var rs=resize3(img.data,w,h,4,nw,nh),n=nw*nh,x=new Float32Array(3*n),i;
+  /* the networks were trained on blue, green, red order with these means and deviations */
+  var mean=[0.485,0.456,0.406],std=[0.229,0.224,0.225];
+  for(i=0;i<n;i++){x[i]=(rs[i*3+2]/255-mean[0])/std[0];x[n+i]=(rs[i*3+1]/255-mean[1])/std[1];x[2*n+i]=(rs[i*3]/255-mean[2])/std[2];}
+  return {data:x,dims:[1,3,nh,nw],nw:nw,nh:nh};
+}
+function detBoxes(prob,nw,nh,w,h,o,info){
+  var n=nw*nh,bin=new Uint8Array(n),i;for(i=0;i<n;i++)bin[i]=prob[i]>o.thresh?1:0;
+  var sx=w/nw,sy=h/nh,cc=components(bin,nw,nh),comps=[];
+  cc.list.slice(0,2999).forEach(function(c){if(c.area<12||Math.min(c.bw,c.bh)<3)return;comps.push(comp(maskOf(cc.lab,nw,c),c.bw,c.bh,c.bx,c.by));});
+  if(!comps.length)return [];
+  var lines=comps.filter(function(c){return c.ncol>4*c.t;});if(!lines.length)lines=comps;
+  var medT=median(lines.map(function(c){return c.t;})),sl=comps.filter(function(c){return c.ncol>8*c.t;}).map(function(c){return c.slope;}),gslope=sl.length?median(sl):0;
+  info.medT=medT*sy;info.slope=gslope*sy/sx;info.split=0;info.curved=0;
+  /* blobs that hold several lines on top of each other (tight value columns) are cut at the waists of their row profile */
+  if(o.split){var out=[];comps.forEach(function(c){var parts=c.bh>2*medT?splitStacked(c,medT,gslope):null;if(parts){out=out.concat(parts);info.split++;}else out.push(c);});comps=out;}
+  var boxes=[];
+  comps.forEach(function(c){
+    var m=c.mask,bx=c.bx,by=c.by,mw=c.bw,mh=c.bh,x,y,sum=0,area=c.area;
+    for(y=0;y<mh;y++)for(x=0;x<mw;x++)if(m[y*mw+x])sum+=prob[(by+y)*nw+bx+x];
+    var score=sum/area;if(score<o.boxThresh)return;
+    var bd=border(m,mw,mh),per=Math.max(1,bd.len),pts,d;
+    /* a long line whose centre leaves its chord by more than a fraction of its thickness is a bent line */
+    if(o.curves&&c.ncol>=6*c.t&&c.ncol>=24){
+      var p2=polyfit(c.xs,c.ys,2),p1=polyfit(c.xs,c.ys,1),sag=0;
+      for(x=0;x<c.xs.length;x++)sag=Math.max(sag,Math.abs(polyval(p2,c.xs[x])-polyval(p1,c.xs[x])));
+      if(sag>0.3*c.t){
+        d=area*o.unclip/per;var hh=c.t/2+d,xl=bx-d,xr=bx+mw+d,f=function(xx){return polyval(p2,xx-bx)+by;},xe=bx+mw-1;
+        pts=[[xl*sx,(f(xl)-hh)*sy],[xr*sx,(f(xr)-hh)*sy],[xr*sx,(f(xr)+hh)*sy],[xl*sx,(f(xl)+hh)*sy]];
+        boxes.push({pts:pts,score:score,curve:{p2:p2,bx:bx,by:by,xl:xl,xr:xr,hh:hh,sx:sx,sy:sy},line:lineImg(p2,bx,by,sx,sy),rx:xe*sx,ry:f(xe)*sy,rslope:(2*p2[0]*(xe-bx)+p2[1])*sy/sx});
+        info.curved++;return;
+      }
+    }
+    function clip(p){return [Math.min(w-1,Math.max(0,p[0]*sx)),Math.min(h-1,Math.max(0,p[1]*sy))];}
+    if(o.tight&&c.ncol<3*c.t){
+      /* a short text (a value cell, a single word): the detector's blob is about as tall as the print and narrower
+         than it, so the box grows sideways only; a piece cut out of a stack keeps to its own rows */
+      d=area*o.unclip/per;var dy=(c.piece?0.04:o.tightDy)*mh,cxm=bx+mw/2,cym=by+mh/2,hw=mw/2+d,hh2=mh/2+dy,ca=1/Math.sqrt(1+gslope*gslope),sa=gslope*ca;
+      pts=[[-hw,-hh2],[hw,-hh2],[hw,hh2],[-hw,hh2]].map(function(q){return clip([cxm+q[0]*ca-q[1]*sa,cym+q[0]*sa+q[1]*ca]);});
+      boxes.push({pts:pts,score:score,curve:null,line:null,rx:(pts[1][0]+pts[2][0])/2,ry:(pts[1][1]+pts[2][1])/2,rslope:gslope*sy/sx});
+      return;
+    }
+    var gp=bd.pts.map(function(q){return [q[0]+bx,q[1]+by];}),rc=minAreaRect(gp);
+    if(!rc||Math.min(rc.w,rc.h)<3)return;
+    d=rc.w*rc.h*o.unclip/(2*(rc.w+rc.h));
+    if(Math.min(rc.w+2*d,rc.h+2*d)<5)return;
+    var hu=rc.w/2+d,hv=rc.h/2+d,vx=-rc.uy,vy=rc.ux;
+    pts=orderPts([[-1,-1],[1,-1],[1,1],[-1,1]].map(function(q){return clip([rc.cx+q[0]*hu*rc.ux+q[1]*hv*vx,rc.cy+q[0]*hu*rc.uy+q[1]*hv*vy]);}));
+    var line=null;if(c.ncol>=6*c.t&&c.ncol>=24)line=lineImg(polyfit(c.xs,c.ys,2),bx,by,sx,sy);
+    boxes.push({pts:pts,score:score,curve:null,line:line,rx:(pts[1][0]+pts[2][0])/2,ry:(pts[1][1]+pts[2][1])/2,rslope:(pts[1][1]-pts[0][1])/Math.max(1e-6,pts[1][0]-pts[0][0])});
+  });
+  return boxes;
+}
+
+/* ----- cut-outs for the recogniser */
+/* one pixel of the picture at a fractional position (edges repeated), linear or cubic interpolation; adds into out[o..o+2] */
+function sample(img,x,y,out,o,cubic){
+  var w=img.width,h=img.height,d=img.data,x0=Math.floor(x),y0=Math.floor(y),fx=x-x0,fy=y-y0,i,j;
+  if(!cubic){
+    var xa=x0<0?0:(x0>w-1?w-1:x0),xb=x0+1<0?0:(x0+1>w-1?w-1:x0+1),ya=y0<0?0:(y0>h-1?h-1:y0),yb=y0+1<0?0:(y0+1>h-1?h-1:y0+1);
+    var p00=(ya*w+xa)*4,p01=(ya*w+xb)*4,p10=(yb*w+xa)*4,p11=(yb*w+xb)*4,w00=(1-fx)*(1-fy),w01=fx*(1-fy),w10=(1-fx)*fy,w11=fx*fy;
+    out[o]=d[p00]*w00+d[p01]*w01+d[p10]*w10+d[p11]*w11;out[o+1]=d[p00+1]*w00+d[p01+1]*w01+d[p10+1]*w10+d[p11+1]*w11;out[o+2]=d[p00+2]*w00+d[p01+2]*w01+d[p10+2]*w10+d[p11+2]*w11;
+    return;
+  }
+  var A=-0.75,wx=cw(fx),wy=cw(fy),a0=0,a1=0,a2=0;
+  function cw(t){var t1=t+1,t2=1-t;var c0=((A*t1-5*A)*t1+8*A)*t1-4*A,c1=((A+2)*t-(A+3))*t*t+1,c2=((A+2)*t2-(A+3))*t2*t2+1;return [c0,c1,c2,1-c0-c1-c2];}
+  for(j=0;j<4;j++){var yy=y0-1+j;yy=yy<0?0:(yy>h-1?h-1:yy);
+    for(i=0;i<4;i++){var xx=x0-1+i;xx=xx<0?0:(xx>w-1?w-1:xx);var p=(yy*w+xx)*4,ww=wx[i]*wy[j];a0+=d[p]*ww;a1+=d[p+1]*ww;a2+=d[p+2]*ww;}}
+  out[o]=a0<0?0:(a0>255?255:a0);out[o+1]=a1<0?0:(a1>255?255:a1);out[o+2]=a2<0?0:(a2>255?255:a2);
+}
+/* the cut-out of one region as interleaved Float32 (3 per pixel); k scales picture coordinates to the working copy */
+function cutOut(img,box,k,cubic){
+  var W,H,out,i,j;
+  if(box.curve){
+    var c=box.curve;W=rint((c.xr-c.xl)*c.sx*k);H=rint(2*c.hh*c.sy*k);if(W<2||H<2)return null;
+    out=new Float32Array(W*H*3);
+    for(i=0;i<W;i++){var xi=c.xl*c.sx*k+i,yc=(polyval(c.p2,xi/(c.sx*k)-c.bx)+c.by)*c.sy*k;
+      for(j=0;j<H;j++)sample(img,xi,yc+j-c.hh*c.sy*k,out,(j*W+i)*3,cubic);}
+    return {data:out,w:W,h:H};
+  }
+  var p=box.pts.map(function(q){return [q[0]*k,q[1]*k];});
+  W=Math.floor(Math.max(hyp(p[0][0],p[0][1],p[1][0],p[1][1]),hyp(p[3][0],p[3][1],p[2][0],p[2][1])));
+  H=Math.floor(Math.max(hyp(p[0][0],p[0][1],p[3][0],p[3][1]),hyp(p[1][0],p[1][1],p[2][0],p[2][1])));
+  if(W<2||H<2)return null;
+  out=new Float32Array(W*H*3);
+  for(j=0;j<H;j++){var v=j/H,lx=p[0][0]+(p[3][0]-p[0][0])*v,ly=p[0][1]+(p[3][1]-p[0][1])*v,rx=p[1][0]+(p[2][0]-p[1][0])*v,ry=p[1][1]+(p[2][1]-p[1][1])*v;
+    for(i=0;i<W;i++){var u=i/W;sample(img,lx+(rx-lx)*u,ly+(ry-ly)*u,out,(j*W+i)*3,cubic);}}
+  if(H>=1.5*W){
+    /* text running up the side: turned a quarter so that it reads left to right */
+    var t=new Float32Array(W*H*3),nw=H,nh=W;
+    for(j=0;j<nh;j++)for(i=0;i<nw;i++){var s=(i*W+(W-1-j))*3,o=(j*nw+i)*3;t[o]=out[s];t[o+1]=out[s+1];t[o+2]=out[s+2];}
+    return {data:t,w:nw,h:nh};
+  }
+  return {data:out,w:W,h:H};
+}
+/* Gaussian blur of an interleaved 3-channel picture (edges mirrored) */
+function gauss(a,w,h,sigma){
+  var ks=Math.round(sigma*6+1)|1;if(ks<3)return a;
+  var r=(ks-1)/2,kern=new Float32Array(ks),s=0,i,x,y,k;
+  for(i=0;i<ks;i++){kern[i]=Math.exp(-(i-r)*(i-r)/(2*sigma*sigma));s+=kern[i];}
+  for(i=0;i<ks;i++)kern[i]/=s;
+  function mir(v,n){if(n===1)return 0;while(v<0||v>=n){if(v<0)v=-v;if(v>=n)v=2*n-2-v;}return v;}
+  var tmp=new Float32Array(a.length),out=new Float32Array(a.length),ix=new Int32Array(w+2*r),iy=new Int32Array(h+2*r);
+  for(i=0;i<w+2*r;i++)ix[i]=mir(i-r,w)*3;for(i=0;i<h+2*r;i++)iy[i]=mir(i-r,h)*w*3;
+  for(y=0;y<h;y++){var row=y*w*3;for(x=0;x<w;x++){var a0=0,a1=0,a2=0;for(k=0;k<ks;k++){var p=row+ix[x+k],kw=kern[k];a0+=a[p]*kw;a1+=a[p+1]*kw;a2+=a[p+2]*kw;}var o=row+x*3;tmp[o]=a0;tmp[o+1]=a1;tmp[o+2]=a2;}}
+  for(y=0;y<h;y++){var orow=y*w*3;for(k=0;k<ks;k++){var srow=iy[y+k],kw2=kern[k];for(x=0;x<w*3;x++)out[orow+x]+=tmp[srow+x]*kw2;}}
+  return out;
+}
+/* the recogniser's input for one cut-out: smoothed at the scale the recogniser works at (print screens disappear),
+   stretched sideways (condensed print has too few columns per letter otherwise), 48 pixels high */
+function recInput(cut,o){
+  var w=cut.w,h=cut.h,a=cut.data;
+  if(o.blur>0)a=gauss(a,w,h,o.blur*h/48);
+  var nw=Math.max(16,Math.min(3200,Math.ceil(48*w/h*(w<3.2*h?o.stretchShort:o.stretch)))),rs=resize3(a,w,h,3,nw,48),n=nw*48,x=new Float32Array(3*n),i;
+  for(i=0;i<n;i++){x[i]=(rs[i*3+2]/255-0.5)/0.5;x[n+i]=(rs[i*3+1]/255-0.5)/0.5;x[2*n+i]=(rs[i*3]/255-0.5)/0.5;}
+  return {data:x,dims:[1,3,48,nw]};
+}
+/* greedy decoding of the recogniser's output (one row of class scores per step; class 0 is the blank) */
+function decode(p,T,C,chars){
+  var txt='',sum=0,cnt=0,prev=-1,t,k;
+  for(t=0;t<T;t++){var best=0,bv=p[t*C];for(k=1;k<C;k++){var v=p[t*C+k];if(v>bv){bv=v;best=k;}}
+    if(best!==prev&&best!==0){txt+=best<chars.length?chars[best]:' ';sum+=bv;cnt++;}
+    prev=best;}
+  return {text:txt,conf:cnt?sum/cnt:0};
+}
+
+/* ----- the whole read: detection, cut-outs, recognition. run(which, data, dims) runs a network ('det' or 'rec') and
+   resolves to {data, dims}. chars is the recogniser's alphabet: index 0 the blank, then its characters.
+   With opts.chars2 (the alphabet of a second recogniser, run as 'rec2') every cut-out is read a second time by that
+   network once the first read is complete: the two networks make different mistakes, so the caller gets two readings
+   of the same boxes to compare (see merge). */
+function slotOf(b,dc){
+  var p=b.pts,xs=p.map(function(q){return q[0];}),ys=p.map(function(q){return q[1];});
+  return {pts:p,text:dc.text,conf:dc.conf,det:b.score,curved:!!b.curve,line:b.line,rx:b.rx,ry:b.ry,rslope:b.rslope,
+    x0:Math.min.apply(null,xs),x1:Math.max.apply(null,xs),y0:Math.min.apply(null,ys),y1:Math.max.apply(null,ys),
+    cx:(xs[0]+xs[1]+xs[2]+xs[3])/4,cy:(ys[0]+ys[1]+ys[2]+ys[3])/4,
+    h:(hyp(p[0][0],p[0][1],p[3][0],p[3][1])+hyp(p[1][0],p[1][1],p[2][0],p[2][1]))/2,
+    angle:Math.atan2(p[1][1]-p[0][1],p[1][0]-p[0][0])*180/Math.PI};
+}
+function now(){return (typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();}
+async function readBoxes(img,run,chars,opts,onProgress){
+  var o=Object.assign({},DEF,opts||{}),info={w:img.width,h:img.height,ms:{}},t0=now(),t1;
+  var di=detInput(img,o);t1=now();info.ms.detPrep=t1-t0;
+  var dr=await run('det',di.data,di.dims);t0=now();info.ms.det=t0-t1;
+  var boxes=detBoxes(dr.data,di.nw,di.nh,img.width,img.height,o,info);t1=now();info.ms.detPost=t1-t0;
+  info.boxes=boxes.length;
+  /* text lying on its side reads as nothing: the caller may ask to stop here and turn the crop first */
+  if(o.stopIfSideways&&sideways(boxes))return {boxes:[],info:info,aborted:true,sideways:true};
+  /* cut-outs are taken from a reduced copy when the print is large (a camera original), so that the recogniser sees
+     every label at about the same scale and the work per box stays small */
+  var hs=boxes.map(function(b){return b.curve?2*b.curve.hh*b.curve.sy:Math.min(hyp(b.pts[0][0],b.pts[0][1],b.pts[3][0],b.pts[3][1]),hyp(b.pts[0][0],b.pts[0][1],b.pts[1][0],b.pts[1][1]));});
+  var hsort=hs.slice().sort(function(p,q){return p-q;}),mh=hs.length?hsort[Math.floor(0.35*(hs.length-1))]:0,k=1,work=img;
+  if(o.normFrom>0&&mh>o.normFrom){
+    k=o.normTo/mh;var ww=Math.max(8,Math.round(img.width*k)),wh=Math.max(8,Math.round(img.height*k)),rs=resize3(img.data,img.width,img.height,4,ww,wh),u=new Uint8ClampedArray(ww*wh*4);
+    for(var i=0;i<ww*wh;i++){u[i*4]=rs[i*3];u[i*4+1]=rs[i*3+1];u[i*4+2]=rs[i*3+2];u[i*4+3]=255;}
+    work={data:u,width:ww,height:wh};k=ww/img.width;
+  }
+  info.cutScale=k;info.boxH=mh;info.ms.norm=now()-t1;info.ms.recPrep=0;info.ms.rec=0;
+  /* The longest boxes are read first: text standing on its head reads with low confidence (under 0.4 against over 0.8
+     the right way up on the test labels), so with opts.probe the read stops after six boxes when their mean confidence
+     is under opts.probeMin and the caller turns the crop instead of reading all of it. */
+  var order=boxes.map(function(_,i2){return i2;}),nProbe=0,nShort=0,shortAll=[];
+  var lens=boxes.map(function(b){return Math.max(hyp(b.pts[0][0],b.pts[0][1],b.pts[1][0],b.pts[1][1]),hyp(b.pts[0][0],b.pts[0][1],b.pts[3][0],b.pts[3][1]));});
+  if(o.probe||o.zoom){
+    /* reading order: the six longest boxes (orientation check), then the short boxes (value cells: enough to find
+       the table), then everything else */
+    var first=o.probe?order.slice().sort(function(p,q){return lens[q]-lens[p];}).slice(0,6):[];nProbe=first.length;
+    shortAll=o.zoom?order.filter(function(i2){return lens[i2]<6*hs[i2];}):[];var shortB=shortAll.filter(function(i2){return first.indexOf(i2)<0;});
+    nShort=shortB.length;order=first.concat(shortB,order.filter(function(i2){return first.indexOf(i2)<0&&shortB.indexOf(i2)<0;}));
+  }
+  /* progress counts the second recogniser's pass as 0.4 of the first (it is the smaller network) */
+  var slots=new Array(boxes.length),pSum=0,pN=0,inputs=o.chars2?new Array(boxes.length):null,total=boxes.length*(o.chars2?1.4:1);
+  for(var oi=0;oi<order.length;oi++){
+    var bi=order[oi],b=boxes[bi];t0=now();
+    var cut=cutOut(work,b,k,o.cubic);
+    if(cut){
+      var ri=recInput(cut,o);t1=now();info.ms.recPrep+=t1-t0;
+      if(inputs)inputs[bi]=ri;
+      var rr=await run('rec',ri.data,ri.dims);info.ms.rec+=now()-t1;
+      var T=rr.dims[rr.dims.length-2],C=rr.dims[rr.dims.length-1],dc=decode(rr.data,T,C,chars);
+      if(oi<nProbe&&dc.text.trim().length>=2){pSum+=dc.conf;pN++;}
+      if(dc.text.trim())slots[bi]=slotOf(b,dc);
+    }
+    if(nProbe&&oi===nProbe-1){
+      info.probe=pN?pSum/pN:null;
+      if(pN>=3&&info.probe<o.probeMin)return {boxes:[],info:info,aborted:true,upsideDown:true};
+    }
+    if(o.zoom&&oi===nProbe+nShort-1){
+      /* the table is found from the value cells read so far; when it fills only part of the crop, the caller reads
+         that part again on its own, at full scale and without the text around it */
+      /* (only the short boxes count, so that the result does not depend on whether the orientation check ran) */
+      var sl=new Array(boxes.length);shortAll.forEach(function(i2){sl[i2]=slots[i2];});
+      var reg=locateTable(boxes,sl,img.width,img.height);info.table0=reg;
+      if(reg&&(reg.loose||o.zoomAlways))return {boxes:[],info:info,zoom:reg};
+      /* no table found although the picture holds more detail than the detector was given (a loose crop, a whole
+         photo): the caller detects again at a larger size */
+      if(!reg&&!o.noRedetect&&Math.max(img.width,img.height)>1.25*o.detLimit)return {boxes:[],info:info,redetect:Math.min(1440,Math.ceil(Math.max(img.width,img.height)/32)*32)};
+    }
+    if(onProgress)await onProgress(oi+1,total);
+  }
+  var res=slots.filter(function(x){return !!x;}),res2=null;
+  info.read=res.length;
+  if(inputs){
+    /* the second reading of the same cut-outs */
+    var slots2=new Array(boxes.length);info.ms.rec2=0;
+    for(oi=0;oi<order.length;oi++){
+      var inp=inputs[order[oi]];
+      if(inp){
+        t1=now();var r2=await run('rec2',inp.data,inp.dims);info.ms.rec2+=now()-t1;
+        var d2=decode(r2.data,r2.dims[r2.dims.length-2],r2.dims[r2.dims.length-1],o.chars2);
+        if(d2.text.trim())slots2[order[oi]]=slotOf(boxes[order[oi]],d2);
+        inputs[order[oi]]=null;
+      }
+      if(onProgress)await onProgress(boxes.length+0.4*(oi+1),total);
+    }
+    res2=slots2.filter(function(x){return !!x;});info.read2=res2.length;
+  }
+  return {boxes:res,boxes2:res2,info:info};
+}
+
+/* ----- where the table is: a crop drawn loosely around the table also holds text from beside, above and below it, which
+   misleads the row assembly and makes the print small for the detector. The table is the block around the fullest
+   right-aligned column of values; it reaches left to where the names of its rows begin, right to its last column and
+   up and down as far as text follows without a large gap. Uses the boxes read so far (the short ones) for the values
+   and the bare geometry of all boxes for the rest. */
+function locateTable(boxes,slots,W,H){
+  var got=[],i,j;for(i=0;i<slots.length;i++)if(slots[i])got.push(slots[i]);
+  if(got.length<4)return null;
+  var hmed=median(got.map(function(r){return r.h;})),toks=[];
+  got.forEach(function(r){
+    var tk=tokensOf(r),digits=0;tk.forEach(function(t){digits+=t.text.replace(/[^0-9]/g,'').length;});
+    var letters=r.text.replace(RE_UNITWORD,'').replace(/[^a-zA-ZăâîșțşţĂÂÎȘȚ]/g,'').length;
+    if(digits>=1&&letters<=Math.max(1,digits)){toks=toks.concat(tk);r.num0=true;}
+  });
+  if(toks.length<4)return null;
+  var order=toks.slice().sort(function(a,b){return a.x1-b.x1;}),cols=[],tol=1.3*hmed;
+  order.forEach(function(t){var c=cols[cols.length-1];if(c&&t.x1-c.last<tol){c.toks.push(t);c.last=t.x1;}else cols.push({toks:[t],last:t.x1});});
+  function isVal(t){return t.unit==='g'||t.unit==='mg'||t.unit==='µg'||t.unit==='μg'||t.unit==='ug'||t.unit==='mcg'||(t.unit===''&&/[.,]\d/.test(t.text));}
+  var best=null,bn=0;cols.forEach(function(c){var n=c.toks.filter(isVal).length;if(n>bn){bn=n;best=c;}});
+  if(!best||bn<4)return null;
+  var bt=best.toks.slice().sort(function(a,b){return a.cy-b.cy;}),gaps=[];for(i=1;i<bt.length;i++){var g=bt[i].cy-bt[i-1].cy;if(g>0.4*hmed)gaps.push(g);}
+  var pitch=gaps.length?median(gaps):2*hmed,top=1e18,bot=-1e18,right=-1e18;
+  bt.forEach(function(t){top=Math.min(top,t.box.y0);bot=Math.max(bot,t.box.y1);right=Math.max(right,t.box.x1);});
+  /* the columns right of it that share its rows (per portion, per cent): most of their cells stand level with one of its cells */
+  var slope=median(got.map(function(r){return r.rslope;}));
+  cols.forEach(function(c){
+    if(c===best||c.toks.length<2||c.last<=best.last)return;
+    var lined=c.toks.filter(function(t){for(var q=0;q<bt.length;q++)if(Math.abs(bt[q].cy+slope*(t.x1-bt[q].x1)-t.cy)<0.6*hmed)return true;return false;});
+    if(lined.length>=0.6*c.toks.length&&lined.length>=2)lined.forEach(function(t){right=Math.max(right,t.box.x1);});
+  });
+  /* the names: for every value of the column the box whose right end comes nearest to it on its line */
+  var x0s=[];
+  bt.forEach(function(t){
+    var bx=null,br=-1e18;
+    boxes.forEach(function(b,bi){
+      if(slots[bi]&&slots[bi].num0)return;            /* a value of another column is no name */
+      if(b.rx>=t.x0+0.5*hmed)return;
+      if(Math.abs(b.ry+b.rslope*(t.x0-b.rx)-t.cy)>0.7*hmed)return;
+      if(Math.max(hyp(b.pts[0][0],b.pts[0][1],b.pts[1][0],b.pts[1][1]),1)<2*hmed)return;
+      if(b.rx>br){br=b.rx;bx=b;}
+    });
+    if(bx)x0s.push(Math.min(bx.pts[0][0],bx.pts[3][0]));
+  });
+  var left=0;if(x0s.length>=3){x0s.sort(function(p,q){return p-q;});left=Math.max(0,x0s[Math.floor(0.25*(x0s.length-1))]);}
+  if(right-left<4*hmed)return null;
+  /* The crop is loose when the table leaves a good part of its width free. Then the part to read again runs from a
+     little left of the names to a little right of the last column, and from above the heading (three rows
+     over the first value, since a value of the first rows may have been missed) to two rows under the last. */
+  var loose=left+(W-right)>=0.1*W;
+  var reg={x0:Math.max(0,Math.floor(left-1.5*hmed)),y0:Math.max(0,Math.floor(top-3*pitch)),x1:Math.min(W,Math.ceil(right+1.5*hmed)),y1:Math.min(H,Math.ceil(bot+2*pitch)),rows:bt.length,loose:loose};
+  /* values standing outside that part mean a second table in the crop (vitamins under the main table): nothing is cut away then */
+  var outside=toks.filter(function(t){return isVal(t)&&(t.box.cx<reg.x0||t.box.cx>reg.x1||t.box.cy<reg.y0||t.box.cy>reg.y1);}).length;
+  if(outside>=Math.max(4,0.5*bt.length)){reg.loose=false;reg.second=outside;}
+  return reg;
+}
+
+/* ----- rows and columns: the boxes become the canonical text */
+var LET='\\p{L}\\p{N}_';
+var RE_TOK=/<?\s*\d+(?:[.,]\d+)?\s*(?:mg|µg|μg|ug|mcg|kcal|kj|kJ|k3|k7|ml|g|%)?/g,RE_UNIT=/(mg|µg|μg|ug|mcg|kcal|kj|kJ|k3|k7|ml|g|%)$/;
+var RE_UNITWORD=new RegExp('(mg|µg|ug|kcal|kj|k3|k7|ml|g)(?!['+LET+'])','giu');
+var RE_HDR=new RegExp('(\\d{1,4})\\s*(g|ml|9)(?!['+LET+'])|%|(?<!['+LET+'])ri(?!['+LET+'])|(?<!['+LET+'])cr(?!['+LET+'])|vnr|nrv|gda|porti|portion|serving','gu');
+/* look-alike letters inside a number (the patterns use look-behind, so they are built at run time: a browser without
+   it then fails here, inside the module, and not while parsing the whole script) */
+var RE_N1=new RegExp('(?<![a-zA-Z])[Oo](?=\\s?[.,]?\\s?\\d|\\s?[g9](?!['+LET+'])|$)','gu'),RE_N2=new RegExp('(?<=\\d)[Oo](?=\\d|\\s?[g%]|$)','g'),
+  RE_N3=new RegExp('(?<=\\d)[lI|](?=\\d)','g'),RE_N4=new RegExp('(?<=\\d)\\s(?=[.,]\\d)','g'),RE_N5=new RegExp('(?<=\\d[.,])\\s(?=\\d)','g');
+function normNum(t){return t.replace(RE_N1,'0').replace(RE_N2,'0').replace(RE_N3,'1').replace(RE_N4,'').replace(RE_N5,'');}
+/* value-like tokens of a box with their approximate horizontal extent (by character position) */
+function tokensOf(box){
+  var t=normNum(box.text),n=Math.max(1,t.length),out=[],m;RE_TOK.lastIndex=0;
+  while((m=RE_TOK.exec(t))){
+    if(m[0]===''){RE_TOK.lastIndex++;continue;}
+    var s=m[0].trim();if(!s)continue;
+    var u=RE_UNIT.exec(s);
+    out.push({text:s,x0:box.x0+(box.x1-box.x0)*m.index/n,x1:box.x0+(box.x1-box.x0)*(m.index+m[0].length)/n,cy:box.cy,h:box.h,unit:u?u[1].toLowerCase():'',box:box,pre:t.slice(0,m.index),post:t.slice(m.index+m[0].length)});
+  }
+  return out;
+}
+function isEnergy(t){return t.unit==='kcal'||t.unit==='kj'||t.unit==='k3'||t.unit==='k7';}
+/* boxes grouped into text rows by their centres, each row left to right */
+function rowsOf(res){
+  var items=res.slice().sort(function(a,b){return a.cy-b.cy;}),rows=[];
+  items.forEach(function(it){
+    var placed=false;
+    for(var k=rows.length-1;k>=Math.max(0,rows.length-6)&&!placed;k--){
+      var row=rows[k],ref=row[row.length-1],ang=Math.abs(ref.angle)<20?ref.angle*Math.PI/180:0,ey=ref.cy+Math.tan(ang)*(it.cx-ref.cx);
+      if(Math.abs(it.cy-ey)<0.45*Math.min(it.h,ref.h)+0.1*Math.max(it.h,ref.h)){row.push(it);placed=true;}
+    }
+    if(!placed)rows.push([it]);
+  });
+  rows.forEach(function(r){r.sort(function(a,b){return a.x0-b.x0;});});
+  function my(r){var s=0;r.forEach(function(b){s+=b.cy;});return s/r.length;}
+  rows.sort(function(a,b){return my(a)-my(b);});
+  return rows;
+}
+function plainText(res){return rowsOf(res).map(function(r){return energyText(r.map(function(b){return b.text;}).join(' | '));}).join('\n');}
+function stripChars(s,chars){var a=0,b=s.length;while(a<b&&chars.indexOf(s[a])>-1)a++;while(b>a&&chars.indexOf(s[b-1])>-1)b--;return s.slice(a,b);}
+/* Two tables in one crop (the macros above, the vitamins below): their columns rarely line up, so read as one table
+   the values of one of them fall between the columns of the other. The tables are told apart by the gap between their
+   rows: the cells of the fullest column of values are sorted by height, and where two neighbours lie more than four
+   row distances apart, with at least four cells on either side, a new table begins. The cut runs 1.6 row distances
+   above the lower table's first row (its heading row stays with it), along the tilt of the text. */
+function tableParts(res,W,o){
+  if(!o.tables||res.length<12)return null;
+  var hmed=median(res.map(function(r){return r.h;})),tol=Math.max(1.3*hmed,0.03*W);
+  var cells=res.filter(function(b){return (b.x1-b.x0)<6*b.h&&tokensOf(b).length>0;}).sort(function(a,b){return a.x1-b.x1;});
+  if(cells.length<8)return null;
+  var best=[],cur=[cells[0]],i;
+  for(i=1;i<=cells.length;i++){
+    if(i<cells.length&&cells[i].x1-cells[i-1].x1<=tol/2)cur.push(cells[i]);
+    else{if(cur.length>best.length)best=cur;cur=i<cells.length?[cells[i]]:[];}
+  }
+  if(best.length<8)return null;
+  best.sort(function(a,b){return a.cy-b.cy;});
+  var ds=[];for(i=1;i<best.length;i++){var d=best[i].cy-best[i-1].cy;if(d>0.6*hmed)ds.push(d);}
+  if(ds.length<6)return null;
+  var pitch=median(ds),cuts=[],run=1;
+  for(i=1;i<best.length;i++){
+    if(best[i].cy-best[i-1].cy>4*pitch&&run>=4&&best.length-i>=4){cuts.push({x:best[i].cx,y:Math.max(best[i].cy-1.6*pitch,best[i-1].cy+0.8*pitch)});run=1;}
+    else run++;
+  }
+  if(!cuts.length)return null;
+  var longb=res.filter(function(r){return (r.x1-r.x0)>4*r.h&&Math.abs(r.angle)<25;}),tilt=longb.length?Math.tan(median(longb.map(function(r){return r.angle;}))*Math.PI/180):0;
+  var parts=cuts.map(function(){return [];});parts.push([]);
+  res.forEach(function(b){var k=0;cuts.forEach(function(c,ci){if(b.cy>c.y+tilt*(b.cx-c.x))k=ci+1;});parts[k].push(b);});
+  return parts;
+}
+function assemble(res,W,H,opts){
+  var o=Object.assign({},DEF,opts||{}),parts=tableParts(res,W,o);
+  if(parts){
+    var as=parts.map(function(p){return assemble1(p,W,H,opts);});
+    /* only when every part is a table of its own; otherwise the crop is read as one */
+    if(as.every(function(a){return a.table&&a.rows>=3;}))return {text:as.map(function(a){return a.text;}).join('\n'),table:true,rows:as.reduce(function(s2,a){return s2+a.rows;},0),
+      cols:Math.max.apply(null,as.map(function(a){return a.cols||0;})),flow:as[0].flow,reg:as[0].reg,conf:[].concat.apply([],as.map(function(a){return a.conf||[];})),parts:as.length};
+  }
+  return assemble1(res,W,H,opts);
+}
+function assemble1(res,W,H,opts){
+  var o=Object.assign({},DEF,opts||{});
+  if(!res.length)return {text:'',table:false};
+  var hs=res.map(function(r){return r.h;}).sort(function(a,b){return a-b;}),hmed=hs[Math.floor(hs.length/2)];
+  /* the tilt of the text: median angle of the long boxes */
+  var longb=res.filter(function(r){return (r.x1-r.x0)>4*r.h&&Math.abs(r.angle)<25;}),tilt=longb.length?Math.tan(median(longb.map(function(r){return r.angle;}))*Math.PI/180):0;
+  /* the flow of the text lines: on round tubs and tilted photos the lines bend and fan out, so the height of a point is
+     carried along the lines to one reference abscissa. Model: y = C + (b0 + b1 C) u + (a0 + a1 C) u^2 with u = x - xm
+     and C the line's own height at xm; all lines are fitted together on samples of their centre lines (each line keeps
+     its own C), which needs no extrapolation of single lines. */
+  var xm=W/2,L=[],i,j;
+  res.forEach(function(r){
+    var wd=r.x1-r.x0;if(wd<4*r.h||Math.abs(r.rslope)>0.47)return;
+    var n=Math.max(3,Math.floor(wd/(2*hmed))+1),xa=r.x0+0.5*r.h,xb=r.x1-0.5*r.h,us=[],ys=[];
+    var lm=[(r.pts[0][0]+r.pts[3][0])/2,(r.pts[0][1]+r.pts[3][1])/2],rm=[(r.pts[1][0]+r.pts[2][0])/2,(r.pts[1][1]+r.pts[2][1])/2];
+    for(var q=0;q<n;q++){var x=xa+(xb-xa)*q/(n-1);us.push(x-xm);ys.push(r.line?polyval(r.line,x):lm[1]+(rm[1]-lm[1])*(x-lm[0])/Math.max(1e-6,rm[0]-lm[0]));}
+    L.push({u:us,y:ys});
+  });
+  var fl=[0,0,tilt,0];                              /* a0, a1, b0, b1 */
+  if(L.length>=2){
+    var Cs=L.map(function(l){var s=0;for(var q=0;q<l.u.length;q++)s+=l.y[q]-tilt*l.u[q];return s/l.u.length;}),cmin=Math.min.apply(null,Cs),cmax=Math.max.apply(null,Cs);
+    var full=L.length>=5&&cmax-cmin>5*hmed,sc=Math.max(1,W/2),np=full?4:2,N=0;L.forEach(function(l){N+=l.u.length;});
+    var a0=0,a1=0,b0=tilt,b1=0;
+    for(var it=0;it<8;it++){
+      var A=[],B=[];for(i=0;i<np;i++){A.push(new Array(np).fill(0));B.push(0);}
+      L.forEach(function(l,li){var Ci=Cs[li];for(var q=0;q<l.u.length;q++){var un=l.u[q]/sc,f=full?[un*un,un,Ci/sc*un*un,Ci/sc*un]:[un*un,un],rhs=l.y[q]-Ci;
+        for(var r=0;r<np;r++){for(var c=0;c<np;c++)A[r][c]+=f[r]*f[c];B[r]+=f[r]*rhs;}}});
+      /* a little ridge keeps the fan-out terms small unless the lines really ask for them */
+      var reg=full?[1e-3,1e-3,3e-2,3e-2]:[1e-3,1e-3];for(i=0;i<np;i++)A[i][i]+=reg[i]*N;
+      var co=solve(A,B);if(!co)break;
+      a0=co[0]/(sc*sc);b0=co[1]/sc;a1=full?co[2]/(sc*sc*sc):0;b1=full?co[3]/(sc*sc):0;
+      Cs=L.map(function(l){var e=[];for(var q=0;q<l.u.length;q++){var u=l.u[q],den=1+a1*u*u+b1*u;e.push((l.y[q]-a0*u*u-b0*u)/(Math.abs(den)>0.2?den:0.2));}return median(e);});
+    }
+    fl=[a0,a1,b0,b1];
+  }
+  function lvl(x,y){var u=x-xm,den=1+fl[1]*u*u+fl[3]*u;return (y-fl[0]*u*u-fl[2]*u)/(Math.abs(den)>0.2?den:0.2);}
+  /* ----- value tokens and columns */
+  var toks=[];
+  res.forEach(function(b){
+    var tk=tokensOf(b),digits=0;tk.forEach(function(t){digits+=t.text.replace(/[^0-9]/g,'').length;});
+    var letters=b.text.replace(RE_UNITWORD,'').replace(/[^a-zA-ZăâîșțşţĂÂÎȘȚ]/g,'').length;
+    /* a box counts as numeric when numbers make up most of its text */
+    b.numeric=digits>=1&&letters<=Math.max(1,digits);
+    if(b.numeric)toks=toks.concat(tk);
+    else if(tk.length){
+      /* a name with its value read in one box: the trailing value token still counts */
+      var last=tk[tk.length-1];
+      if(stripChars(last.post,' |)*')===''&&last.x0>b.x0+0.5*(b.x1-b.x0)){last.inline=true;toks.push(last);}
+    }
+  });
+  var plain={text:plainText(res),table:false};
+  if(toks.filter(function(t){return t.unit!=='%'&&!isEnergy(t);}).length<3)return plain;
+  /* columns by right edge */
+  var order=toks.slice().sort(function(a,b){return a.x1-b.x1;}),cols=[],tol=Math.max(1.3*hmed,0.03*W);
+  order.forEach(function(t){var c=cols[cols.length-1];if(c&&t.x1-c.last<tol){c.toks.push(t);c.last=t.x1;}else cols.push({toks:[t],last:t.x1});});
+  /* percentages standing right of numbers in one cluster are a column of their own */
+  var split=[];
+  cols.forEach(function(c){
+    var pc=c.toks.filter(function(t){return t.unit==='%';}),nn=c.toks.filter(function(t){return t.unit!=='%';});
+    if(pc.length>=2&&nn.length>=2&&median(pc.map(function(t){return t.x0;}))>median(nn.map(function(t){return t.x1;}))-0.3*hmed){split.push({toks:nn});split.push({toks:pc});}
+    else split.push(c);
+  });
+  cols=split.filter(function(c){return c.toks.length>=2;});
+  cols.forEach(function(c){
+    c.x1=median(c.toks.map(function(t){return t.x1;}));c.x0=median(c.toks.map(function(t){return t.x0;}));c.n=c.toks.length;
+    c.pct=c.toks.filter(function(t){return t.unit==='%';}).length>=0.5*c.n;c.kind=c.pct?'pct':'';
+  });
+  cols.sort(function(a,b){return a.x1-b.x1;});
+  var cand=cols.filter(function(c){return !c.pct;});
+  if(!cand.length)return plain;
+  var maxn=Math.max.apply(null,cand.map(function(c){return c.n;})),cf=cand.filter(function(c){return c.n>=Math.max(3,0.4*maxn);});if(cf.length)cand=cf;
+  /* ----- header: boxes above the first value row naming the columns */
+  var top=1e18;cand.forEach(function(c){c.toks.forEach(function(t){if(!isEnergy(t))top=Math.min(top,lvl(t.x1,t.cy));});});
+  if(top>1e17)cand.forEach(function(c){c.toks.forEach(function(t){top=Math.min(top,lvl(t.x1,t.cy));});});
+  var portion=null;
+  res.forEach(function(b){
+    var bl=lvl(b.cx,b.cy);if(bl>top-0.3*hmed||bl<top-6*hmed)return;
+    var t=normNum(b.text).toLowerCase(),n=Math.max(1,t.length),m;RE_HDR.lastIndex=0;
+    while((m=RE_HDR.exec(t))){
+      var x=b.x0+(b.x1-b.x0)*(m.index+m.index+m[0].length)/2/n,near=null,nd=1e18;
+      cols.forEach(function(c){var d=x<=c.x1+hmed?Math.abs((c.x0+c.x1)/2-x):1e9;if(d<nd){nd=d;near=c;}});
+      if(m[1]){
+        var v=parseInt(m[1],10);
+        if(v===100||/^[0-9]?100$/.test(m[1])){if(near.hdr===undefined){near.hdr='100';near.hunit=m[2]==='ml'?'ml':'g';}}
+        else if(!near.hdr){near.hdr='portion';near.size=v;near.hunit=m[2]==='ml'?'ml':'g';}
+      }else if(['%','ri','cr','vnr','nrv','gda'].indexOf(m[0])>-1){if(near.pct)near.hdr='pct';}
+      else if(!near.hdr&&!near.pct)near.hdr='portion';
+    }
+  });
+  /* a heading row standing in the columns themselves (30 g | 100 g): the cell reading 100 g or 100 ml on top of a
+     column names it, and the cells level with it name theirs (a portion size) */
+  var headTok=null;
+  cand.forEach(function(c){
+    var t0=c.toks.slice().sort(function(a,b){return lvl(a.x1,a.cy)-lvl(b.x1,b.cy);})[0];
+    if(t0&&/^[^0-9]{0,3}100\s*(g|ml)$/i.test(t0.text)&&(!headTok||lvl(t0.x1,t0.cy)<lvl(headTok.x1,headTok.cy)))headTok=t0;
+  });
+  if(headTok){
+    var hl=lvl(headTok.x1,headTok.cy);
+    cand.forEach(function(c){c.toks.forEach(function(t){
+      if(Math.abs(lvl(t.x1,t.cy)-hl)>0.5*hmed)return;
+      var m=/^[^0-9]{0,3}(\d{1,4})\s*(g|ml)$/i.exec(t.text);if(!m)return;
+      if(parseInt(m[1],10)===100){if(c.hdr!=='100'){c.hdr='100';c.hunit=m[2].toLowerCase();}}
+      else if(!c.hdr){c.hdr='portion';c.size=parseInt(m[1],10);c.hunit=m[2].toLowerCase();}
+    });});
+  }
+  /* the per 100 g column: among the columns that hold real values (a unit or a decimal mark; stray digits from text
+     beside the table have neither) the one headed 100, else the leftmost without a heading */
+  function isVal(t){return /^(g|mg|µg|μg|ug|mcg|ml)$/.test(t.unit)||(t.unit===''&&/[.,]\d/.test(t.text));}
+  cand.forEach(function(c){c.vn=c.toks.filter(isVal).length;});
+  var vmax=Math.max.apply(null,cand.map(function(c){return c.vn;})),good=cand.filter(function(c){return c.vn>=Math.max(2,0.5*vmax);});
+  if(!good.length)good=cand;
+  var main=null;for(i=0;i<good.length&&!main;i++)if(good[i].hdr==='100')main=good[i];
+  if(!main){var unk=good.filter(function(c){return !c.hdr;});main=unk.length?unk[0]:good[0];}
+  main.kind='100';
+  cand.forEach(function(c){if(c!==main){c.kind=(c.hdr==='portion'||c.x1>main.x1)?'portion':'other';if(c.kind==='portion'&&c.size&&portion===null)portion=c.size;}});
+  var use=[main].concat(cand.filter(function(c){return c!==main&&c.kind==='portion';}).slice(0,1),cols.filter(function(c){return c.pct&&c.x1>main.x1;}).slice(0,1));
+  /* ----- rows from the main column */
+  var mt=main.toks.slice().sort(function(a,b){return lvl(a.x1,a.cy)-lvl(b.x1,b.cy);}),rws=[];
+  mt.forEach(function(t){var y=lvl(t.x1,t.cy),lr=rws[rws.length-1];if(lr&&Math.abs(y-lr.y)<0.5*Math.min(t.h,lr.h))lr.main.push(t);else rws.push({y:y,h:t.h,main:[t],side:new Map(),names:[]});});
+  function nearest(y,lim){var best=null,bd=1e9;rws.forEach(function(r){var d=Math.abs(y-r.y);if(d<bd){bd=d;best=r;}});return best&&bd<=lim?best:null;}
+  var pitch=2*hmed;if(rws.length>2){var df=[];for(i=1;i<rws.length;i++)df.push(rws[i].y-rws[i-1].y);pitch=median(df);}
+  use.slice(1).forEach(function(c){c.toks.forEach(function(t){var r=nearest(lvl(t.x1,t.cy),0.5*pitch);if(r){if(!r.side.has(c))r.side.set(c,[]);r.side.get(c).push(t);}});});
+  /* an energy cell read as one box (2422 kJ/582 k): the number left of the one in the column joins it in the row */
+  var inUse=new Set();use.forEach(function(c){c.toks.forEach(function(t){inUse.add(t);});});
+  rws.forEach(function(r){r.main.slice().forEach(function(t){
+    toks.forEach(function(q){if(q.box===t.box&&q!==t&&!inUse.has(q)&&q.x1<=t.x0+1&&(isEnergy(q)||isEnergy(t))&&/^\d{1,4}\s*[a-zA-Z0-9]*$/.test(q.text)&&/^\d{1,4}\s*[a-zA-Z0-9]*$/.test(t.text)){r.main.push(q);inUse.add(q);}});
+  });});
+  /* ----- names: each non-numeric box goes to the row at the height its right end has along the text flow */
+  var used=new Set();use.forEach(function(c){c.toks.forEach(function(t){if(!t.inline)used.add(t.box);});});
+  var loose=[],nm=res.filter(function(b){return !(used.has(b)||b.numeric)&&b.x0<=main.x1;});
+  nm.forEach(function(b){b.lv=lvl(b.rx,b.ry);});
+  /* the name block and the value column are two rulers that may differ slightly in scale and offset (lines fan out
+     towards the edge of a round tub): the pair of scale and offset that lines up most names with value rows is taken
+     (the column's heading "100 g" is no nutrient row and takes no part; every value row wants a name, names may be spare) */
+  rws.forEach(function(r,ri){r.head=ri===0&&/^[^0-9]{0,3}100\s*(g|ml|9)?$/i.test(r.main.map(function(t){return t.text;}).join(' ').trim());});
+  var R=rws.filter(function(r){return !r.head;}).map(function(r){return r.y;}),reg=[1,0],piv=0;
+  if(R.length){piv=0;R.forEach(function(v){piv+=v;});piv/=R.length;}
+  var rmin=Math.min.apply(null,R),rmax=Math.max.apply(null,R),inr=R.length?nm.filter(function(b){return b.lv>=rmin-pitch&&b.lv<=rmax+pitch;}):[];
+  if(R.length>=4&&inr.length>=4&&o.register){
+    var Nn=inr.map(function(b){return b.lv;}),best=-1e9,nS=Math.floor((1.1201-0.88)/0.005+1e-9)+1,oStep=pitch/30,o0=-0.6*pitch,nO=Math.ceil((0.6*pitch+1e-9-o0)/oStep-1e-12);
+    var dR=new Float64Array(R.length);
+    for(var si=0;si<nS;si++){var s=0.88+si*0.005;if(s>=1.1201)break;
+      for(var oi=0;oi<nO;oi++){var of=o0+oi*oStep;if(of>=0.6*pitch+1e-9)break;
+        dR.fill(1e18);var sn=0;
+        for(i=0;i<Nn.length;i++){var v=s*(Nn[i]-piv)+piv+of,dm=1e18;for(j=0;j<R.length;j++){var d=Math.abs(v-R[j]);if(d<dm)dm=d;if(d<dR[j])dR[j]=d;}sn+=Math.max(0,1-dm/(0.35*pitch));}
+        var sr=0;for(j=0;j<R.length;j++)sr+=Math.max(0,1-dR[j]/(0.35*pitch));
+        var scv=sr+0.5*sn-(0.5*Math.abs(s-1)/0.12+0.5*Math.abs(of)/(0.6*pitch));
+        if(scv>best){best=scv;reg=[s,of];}
+      }}
+  }
+  nm.forEach(function(b){b.lv=reg[0]*(b.lv-piv)+piv+reg[1];});
+  /* names that run over several lines: a line belongs to a row only within half a text line, not half a value pitch */
+  var lv=nm.map(function(b){return b.lv;}).sort(function(a,b){return a-b;}),gaps=[];for(i=1;i<lv.length;i++)if(lv[i]-lv[i-1]>0.4*hmed)gaps.push(lv[i]-lv[i-1]);
+  var linep=gaps.length?Math.min(pitch,median(gaps)):pitch;
+  nm.forEach(function(b){
+    var r=nearest(b.lv,0.55*linep),name=b.text;
+    /* a value read inside the name box is cut off the name */
+    toks.forEach(function(t){if(t.inline&&t.box===b)name=(t.pre||'').trim();});
+    if(r)r.names.push([b.cy,b.x0,name]);else loose.push([b.lv,b.x0,name]);
+  });
+  /* the heading of the value column read as its first row (100 g, 100 ml) gives the basis and the portion size */
+  if(rws.length&&rws[0].head){
+    if(/ml/i.test(rws[0].main.map(function(t){return t.text;}).join(' ')))main.hunit='ml';else if(!main.hunit)main.hunit='g';
+    use.slice(1).forEach(function(c){(rws[0].side.get(c)||[]).forEach(function(t){var m=/^(\d{1,4})\s*(g|ml)?$/i.exec(t.text);
+      if(m&&c.kind==='portion'&&portion===null&&parseInt(m[1],10)!==100){portion=parseInt(m[1],10);c.hunit=(m[2]||'').toLowerCase()==='ml'?'ml':'g';}});});
+  }
+  /* ----- canonical text */
+  var hdr='per 100 '+(main.hunit==='ml'?'ml':'g'),pc=null,pcol=null;use.slice(1).forEach(function(c){if(c.kind==='portion'&&!pc)pc=c;if(c.pct&&!pcol)pcol=c;});
+  if(pc)hdr+=portion?' | per '+portion+' '+(pc.hunit==='ml'?'ml':'g'):' | portion';
+  if(pcol)hdr+=' | %RI';
+  var out=[[-1e9,hdr]],weak=[];
+  rws.forEach(function(r){
+    var names=r.names.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1]||(a[2]<b[2]?-1:a[2]>b[2]?1:0);}).map(function(n){return n[2];}).join(' ');
+    var mv=energyPair(r.main.slice().sort(function(a,b){return a.x0-b.x0;}),names).join(' ').replace(new RegExp('k[37](?!['+LET+'])','gu'),'kJ'),parts=[mv];
+    use.slice(1).forEach(function(c){parts.push((r.side.get(c)||[]).slice().sort(function(a,b){return a.x0-b.x0;}).map(function(t){return t.text;}).join(' '));});
+    while(parts.length&&parts[parts.length-1]==='')parts.pop();
+    out.push([r.y,(names+' '+parts.join(' | ')).trim()]);
+    /* the confidence of the per 100 g value's read, for the caller to mark doubtful values */
+    var cmin=1;r.main.forEach(function(t){if(t.box.conf<cmin)cmin=t.box.conf;});
+    if(!r.head)weak.push({name:names,value:mv,conf:cmin});
+  });
+  loose.forEach(function(l){if(l[0]>top-3*hmed)out.push([l[0],l[2]]);});
+  /* a stable sort keeps the order of lines at the same height */
+  out=out.map(function(e,k){return [e[0],e[1],k];}).sort(function(a,b){return a[0]-b[0]||a[2]-b[2];});
+  return {text:out.map(function(e){return energyText(e[1]);}).join('\n'),table:true,rows:rws.length,cols:use.length,flow:fl,reg:reg,conf:weak};
+}
+/* The energy row carries two whole numbers in the ratio of kJ to kcal (4.184). When one of them lost its unit in the
+   read (435 102 kcal; 2422 kJ/582 k; a heading "kJ/kcal" over 1636 387), both get their units back, so that the row
+   reads as energy whatever became of its name. Needs a sign of energy: a unit on either number or in the name. */
+function energyPair(toks,names){
+  var txt=toks.map(function(t){return t.text;}),iv=toks.map(function(t){var m=/^(\d{1,4})\s*(kcal|kj|kJ|k3|k7)?$/.exec(t.text);return m?{v:parseInt(m[1],10),u:(m[2]||'').toLowerCase()}:null;});
+  for(var a=0;a<toks.length;a++)for(var b=a+1;b<toks.length;b++){
+    var A=iv[a],B=iv[b];if(!A||!B||B.v<1||A.u==='kcal'||(B.u&&B.u!=='kcal'))continue;
+    var q=A.v/B.v;if(q<3.6||q>4.7)continue;
+    if(!(A.u||B.u||/kcal|k\s?j\b|energ/i.test(names)))continue;
+    txt[a]=A.v+' kJ';txt[b]=B.v+' kcal';return txt;
+  }
+  return txt;
+}
+/* the same repair inside a line of text: two whole numbers side by side in the energy ratio, one of them with what is
+   left of its unit (2422 J/582 k; 435 102 kcal), are written out as "2422 kJ/582 kcal" */
+var RE_EPAIR=new RegExp('(?<![\\d.,])(\\d{2,4})(?![\\d.,])\\s*(kj|k[37]|j)?\\s*[\\/|(]?\\s*(\\d{1,4})\\s*(kcal|kca|kc|k|cal)?(?!['+LET+',.])','giu');
+function energyText(line){
+  return line.replace(RE_EPAIR,function(all,a,ua,b,ub){
+    var A=parseInt(a,10),B=parseInt(b,10);if(B<1||!(ua||ub))return all;
+    var q=A/B;return q>=3.6&&q<=4.7?A+' kJ/'+B+' kcal':all;
+  });
+}
+/* how the boxes lie: the share of long boxes that stand upright tells a sideways photo */
+function sideways(boxes){
+  var up=0,flat=0;boxes.forEach(function(b){var p=b.pts,w=hyp(p[0][0],p[0][1],p[1][0],p[1][1]),h=hyp(p[0][0],p[0][1],p[3][0],p[3][1]);if(h>2.5*w)up++;else if(w>2.5*h)flat++;});
+  return up>=4&&up>2*flat;
+}
+function subImage(img,r){
+  var w=r.x1-r.x0,h=r.y1-r.y0,d=new Uint8ClampedArray(w*h*4);
+  for(var y=0;y<h;y++){var so=((r.y0+y)*img.width+r.x0)*4;d.set(img.data.subarray(so,so+w*4),y*w*4);}
+  return {data:d,width:w,height:h};
+}
+async function read(img,run,chars,opts,onProgress){
+  var r=await readBoxes(img,run,chars,opts,onProgress),used=img,zoomed=null;
+  if(r.aborted)return {text:'',table:false,boxes:[],info:r.info,sideways:!!r.sideways,upsideDown:!!r.upsideDown,aborted:true};
+  if(r.redetect){
+    var lim=r.redetect,f0=r.info;
+    r=await readBoxes(img,run,chars,Object.assign({},opts||{},{detLimit:lim,noRedetect:true,probe:false,stopIfSideways:false}),onProgress);
+    r.info.redetect=lim;r.info.first=f0;
+  }
+  if(r.zoom){
+    /* the table fills only part of the crop: that part is read on its own */
+    var first=r.info,sub=subImage(img,r.zoom),o2=Object.assign({},opts||{},{zoom:false,probe:false,stopIfSideways:false});
+    var r2=await readBoxes(sub,run,chars,o2,onProgress),a2=assemble(r2.boxes,sub.width,sub.height,opts);
+    if(a2.table&&a2.rows>=3){
+      r2.info.zoom=[r.zoom.x0,r.zoom.y0,r.zoom.x1,r.zoom.y1];r2.info.first=first;r2.info.table=true;r2.info.rows=a2.rows;r2.info.cols=a2.cols||0;
+      return second({text:a2.text,table:true,boxes:r2.boxes,info:r2.info,sideways:false,conf:a2.conf||[]},r2,sub);
+    }
+    /* no table in the part: the whole crop is read after all */
+    r=await readBoxes(img,run,chars,Object.assign({},opts||{},{zoom:false,probe:false,stopIfSideways:false}),onProgress);r.info.zoomFailed=first.table0;
+  }
+  var t0=now(),a=assemble(r.boxes,used.width,used.height,opts);
+  r.info.ms.assemble=now()-t0;r.info.table=a.table;r.info.rows=a.rows||0;r.info.cols=a.cols||0;
+  return second({text:a.text,table:a.table,boxes:r.boxes,info:r.info,sideways:sideways(r.boxes),conf:a.conf||[]},r,used);
+  /* the second recogniser's reading of the same boxes, put into rows and columns on its own */
+  function second(out,rb,im){
+    if(rb.boxes2){var b2=assemble(rb.boxes2,im.width,im.height,opts);out.text2=b2.text;out.table2=b2.table;out.boxes2=rb.boxes2;out.conf2=b2.conf||[];rb.info.rows2=b2.rows||0;}
+    return out;
+  }
+}
+
+/* ----- two readings of one label combined
+   pa and pb are the app parser's results for the two recognisers' texts. A value both readings agree on is taken as it
+   stands. Where they differ, the first reading's value stands unless the label then contradicts itself and the other
+   reading's value removes the contradiction. The label is checked the way the parser checks doubtful digits: its
+   calories against 4, 4 and 9 kcal per g of protein, carbs and fat with fibre at 2 (within 12 kcal or 5%), saturates not
+   above fat, sugars not above carbs. A value only one reading has is taken as it is. Every value the two readings do
+   not agree on is marked for checking. The reading that found more values is the first one, pa on a tie.
+   Returns the combined result in the parser's own shape, with notes: [{key, kept, other}] for values that differed
+   (other is null when only one reading had the value) and first: 0 or 1 (which reading led). */
+/* The parser's own marks, without those of its % RI check: that check takes the percentages as given per portion when
+   the table has a portion column and per 100 g otherwise, which labels often contradict (on the test labels it marked
+   29 right values and one wrong one). p.why holds the reason of each mark. */
+function marks(p){var why=p.why||{};return (p.flags||[]).filter(function(k){return !/% RI/.test(String(why[k]||''));});}
+function merge(pa,pb){
+  function cnt(p){return p.found.length+p.foundMicros.length;}
+  var P=pa,S=pb,first=0;if(cnt(pb)>cnt(pa)){P=pb;S=pa;first=1;}
+  var keys=[],seen={},cand={},two=[],notes=[];
+  P.found.concat(S.found).forEach(function(k){if(!seen[k]){seen[k]=1;keys.push(k);}});
+  keys.forEach(function(k){
+    var a=P.found.indexOf(k)>-1?P.vals[k]:null,b=S.found.indexOf(k)>-1?S.vals[k]:null;
+    if(a!=null&&b!=null&&Math.abs(a-b)>(k==='kcal'?1:0.0011)){cand[k]=[a,b];two.push(k);}
+    else cand[k]=[a!=null?a:b];
+    if(a==null||b==null)notes.push({key:k,kept:cand[k][0],other:null});
+  });
+  /* what there is to object to in a set of values: broken rules, and the energy (0 unknown, 1 fits, 2 does not fit) */
+  function state(v){
+    var viol=0,en=0,err=0;
+    if(v.sat!=null&&v.f!=null&&v.sat>v.f+0.05)viol++;
+    if(v.sugar!=null&&v.c!=null&&v.sugar>v.c+0.05)viol++;
+    if(v.kcal!=null){
+      var e=4*(v.p||0)+4*(v.c||0)+9*(v.f||0)+2*(v.fibre||0),tol=Math.max(12,0.05*v.kcal);
+      if(v.p==null||v.c==null||v.f==null){if(e-v.kcal>tol)en=2;}
+      else{err=Math.abs(v.kcal-e);en=err<=tol?1:2;}
+    }
+    return {viol:viol,en:en,err:err};
+  }
+  var vals={},cur={};keys.forEach(function(k){vals[k]=cur[k]=cand[k][0];});
+  var s0=state(cur),best=null;
+  if(two.length&&two.length<=10&&(s0.viol||s0.en===2)){
+    (function combo(i,picks){
+      if(i===two.length){
+        if(!picks)return;
+        var st=state(cur);
+        /* the other reading's values are taken only when they leave nothing to object to */
+        if(st.viol||st.en===2||(s0.en===2&&st.en!==1))return;
+        if(!best||picks<best.picks||(picks===best.picks&&st.err<best.err-0.01)){best={picks:picks,err:st.err,v:{}};two.forEach(function(k){best.v[k]=cur[k];});}
+        return;
+      }
+      cand[two[i]].forEach(function(v,r){cur[two[i]]=v;combo(i+1,picks+r);});
+    })(0,0);
+    if(best)two.forEach(function(k){vals[k]=best.v[k];});
+  }
+  two.forEach(function(k){notes.push({key:k,kept:vals[k],other:vals[k]===cand[k][0]?cand[k][1]:cand[k][0]});});
+  var micros={},fm=[];
+  P.foundMicros.concat(S.foundMicros).forEach(function(id){if(fm.indexOf(id)<0){fm.push(id);micros[id]=P.foundMicros.indexOf(id)>-1?P.micros[id]:S.micros[id];}});
+  var flags=marks(P).filter(function(k){return vals[k]!=null;});notes.forEach(function(n){if(flags.indexOf(n.key)<0)flags.push(n.key);});
+  return {vals:vals,micros:micros,found:keys,foundMicros:fm,basis:(P.basis==='ml'||S.basis==='ml')?'ml':(P.basis||S.basis||'g'),
+    lines:P.lines,warn:P.warn||'',flags:flags,why:P.why||{},notes:notes,first:first};
+}
+return {read:read,readBoxes:readBoxes,merge:merge,marks:marks,assemble:assemble,locateTable:locateTable,plainText:plainText,sideways:sideways,DEF:DEF,_t:{energyText:energyText,energyPair:energyPair,resize3:resize3,components:components,border:border,minAreaRect:minAreaRect,polyfit:polyfit,gauss:gauss,detInput:detInput,detBoxes:detBoxes,cutOut:cutOut,recInput:recInput,decode:decode,normNum:normNum,tokensOf:tokensOf}};
+})();}catch(e){NR=null;}
+/* ---------- network reader alphabets: the characters the two recognition models can write, in the order of their
+   output classes (class 0 is the blank that separates repeated letters, the last one the space) ---------- */
+var NET_DICT={latin:"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžſƀƁƂƃƄƅƆƇƈƉƊƋƌƍƎƏƐƑƒƓƔƕƖƗƘƙƚƛƜƝƞƟƠơƢƣƤƥƦƧƨƩƪƫƬƭƮƯưƱƲƳƴƵƶƷƸƹƺƻƼƽƾƿǀǁǂǃǄǅǆǇǈǉǊǋǌǍǎǏǐǑǒǓǔǕǖǗǘǙǚǛǜǝǞǟǠǡǢǣǤǥǦǧǨǩǪǫǬǭǮǯǰǱǲǳǴǵǶǷǸǹǺǻǼǽǾǿȀȁȂȃȄȅȆȇȈȉȊȋȌȍȎȏȐȑȒȓȔȕȖȗȘșȚțȜȝȞȟȠȡȢȣȤȥȦȧȨȩȪȫȬȭȮȯȰȱȲȳȴȵȶȷȸȹȺȻȼȽȾȿɀɁɂɃɄɅɆɇɈɉɊɋɌɍɎɏ!\"#$%&'()*+,-./:;<=>?@[\\]_`{|}^~©®℉№Ω℮™∆✓✔✗✘✕☑☒●▪▫◼▶◀⬆¤¦§¨ª«¬¯°²³´µ¶¸¹º»¼½¾¿×‐‑‒—―‖‗‘’‚‛“”„‟†‡‣․…‧‰‴‵‶‷‸‹›※‼‽‾−₤₡₹₽₴₿¢€£¥ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫⅰⅱⅲⅳⅴⅵⅶⅷⅸⅹⅺⅻ➀➁➂➃➄➅➆➇➈➉➊➋➌➍➎➏➐➑➒➓❶❷❸❹❺❻❼❽❾❿①②③④⑤⑥⑦⑧⑨⑩↑→↓↕←↔⇒⇐⇔∀∃∄∴∵∝∞∩∪∂∫∬∭∮∯∰∑∏√∛∜∱∲∳∶∷∼∖∗≈≠≡≤≥⊂⊃⊥⊾⊿□∥∋ƒ′″ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρσςτυφχψωÅℏ⌀⍺⍵𝑢𝜓०‥︽﹥•÷∕∙⋅·±∓∟∠∡∢℧☺",
+tiny:"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽžſƒΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρστυφχψωϕϵẠồ–—―‖‘’“”†‡•‥…‰′″※⁎⁰⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₒ₠₡₤₧₩₪₫€₭₮₱₹₺₽₿℃℉ℎℏℑ℘ℜ™℧Åℵℶℷℸℹ⅀ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫⅰⅱⅲⅳⅴⅵⅶⅷⅸⅹⅺⅻ←↑→↓↔↕↖↗↘↙⇐⇑⇒⇓⇔⇕∀∂∃∅∆∇∈∉∏∑−∓∕∙√∝∞∠∥∧∨∩∪∫∬∮∴∵∶∷∼∽≈≌≒≠≡≤≥≦≧≪≫≮≯⊂⊃⊆⊇⊊⊋⊕⊗⊙⊥⋅①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳■□▲△▶▼▽◀◆◇○◎●☀☁☂★☆☎☐☑☒☔☕☠♀♂♠♡♣♤♥♦♻⚓⚠⚡✓✔✕✖✘✚✠✨✳✴✶✽❄❌❎❓❤　、。々〆〇〈〉《》「」『』【】〒〔〕〖〗〜〰〵〽㈱㊗㊙一丁七丄万丈三上下不与丐丑专且丕世丘丙业丛东丝丞両丢两严丧个丫中丰串临丸丹为主丼丽举丿乂乃久么义之乌乍乎乏乐乒乓乔乖乘乙乜九乞也习乡书买乱乳乸乾了予争事二亍于亏云互亓五井亘亚些亜亞亟亡亢交亥亦产亨亩享京亭亮亲亳亵人亿什仁仃仄仅仆仇今介仍从仑仓仔仕他仗付仙仝仞仟仡代令以仨仪们仰仲件价仺任份仿企伈伉伊伍伎伏伐休众优伙会伞伟传伤伦伪伫伯估伱伴伶伸伺似伽佃但位低住佐佑体何佗佘余佚佛作佝佞佟你佣佤佧佩佬佯佰佳佶佼使侃侄來侈例侍侏侑侗供依侠侣侥侦侧侨侩侬侮侯侵便係促俄俊俎俏俐俑俗俘俚保俞俟信俨俩俪俫俬俭修俯俱俵俸俺俾倆倉個倌倍倏們倒倔倘候倚倜借倡倦倩倪倫倬倭债值倾偃假偈偉偌偎偏偕做停健偶偷偻偽偿傀傅傈傍備傢傣傥储傩催傲傳傷傻像僑僚僧僳僵價僻儀億儋儒儡儥優儱儿兀允元兄充兆先光克免兑兒兔兖党兜兢入內全兩八公六兮兰共关兴兵其具典兹养兼兽兿冀内冈冉册再冏冒冕冗写冚军农冠冢冤冥冬冮冯冰冲决况冶冷冻冼冽净凄准凇凈凉凋凌凍减凑凖凛凝几凡凤処凬凭凯凰凱凳凶凸凹出击函凿刀刁刂刃分切刈刊刍刑划列刘则刚创初删判刨利刪别刮到制刷券刹刺刻刿剁剂剃削剌前剎剐剑剔剖剡剥剧剩剪副割創剽剿劇劈劉劍劑力劝办功加务劣动助努劫劭励劲劳劵劾势勁勃勅勇勉勋勐勑勒動勘務勝募勤勰勺勾勿匀包匆匈匋匍匐匕化北匙匝匠匡匣匪匮匯匹区医匾匿區十千卅升午卉半华协卑卒卓協单卖南博卜卞卟占卡卢卤卦卧卫卯印危即却卵卷卸卿厂厄厅历厉压厌厍厕厘厚厝原厢厥厦厨厩厮去县叁参參又叉及友双反发叔取受变叙叛叟叠叢口古句另叨叩只叫召叭叮可台叱史右叶号司叹叻叼叽吁吃各吆合吉吊吋同名后吏吐向吒吓吕吖吗君吝吞吟吠吡否吧吨吩含听吭吮启吱吲吴吵吸吹吻吼吾呀呃呆呈告呋呐呓呕呗员呙呛呜呢呤呦周呱味呵呷呸呻呼命咀咂咄咅咆咋和咎咏咐咒咔咕咖咙咚咛咣咤咦咧咨咩咪咫咬咭咯咱咳咸咻咽咿哀品哄哆哇哈哉哌响哎哑哒哓哔哗哚哝哞哟員哥哦哧哨哩哪哭哮哲哺哼哽唁唆唇唉唏唐唑唔唘唛唠唢唤唧唬售唯唰唱唳唷唻唾啃啄商啉啊問啓啕啖啜啟啡啤啥啦啧啪啫啬啮啰啵啶啸啻啼啾喀喂喃善喆喇喉喊喋喏喔喘喙喜喝喧喫喬單喰喱喳喵喷喹喻喽嗅嗉嗑嗒嗓嗔嗖嗜嗝嗞嗟嗡嗣嗤嗦嗨嗪嗬嗮嗯嗲嗳嗷嗽嘀嘈嘉嘌嘎嘘嘛嘞嘟嘢嘣嘤嘧嘬嘱嘲嘴嘶嘹嘻嘿噌噎噗噜噢噤器噩噪噬噱噶噻噼嚎嚏嚒嚓嚞嚣嚷嚼囊囍囔囗囚四回囟因囡团囤园困囱围囹固国图囿圃圆圈國圍園圖圗團圜土圣圧在圩圭地圳圹场圻圾址坂均坊坋坍坎坏坐坑块坚坛坝坞坟坠坡坤坦坨坩坪坫坭坯坳坶坷坻垂垃垄型垌垒垓垚垛垟垠垡垢垣垦垩垫垭垮垸埂埃埋埌城埔埕埗埚域埠埭執培基堀堂堃堆堇堑堕堡堤堪堰報場堵堷塊塌塍塑塔塗塘塞填塬塾境墅墉墊墒墓墙增墟墨墩壁壅壇壐壑壓壕壤士壬壮声壳壴壶壹壽夀处夆备夋夌复夏夔夕外夙多夜够夢夥大天太夫夬夭央夯失头夷夸夹夺奂奄奇奈奉奋奎奏契奓奔奕奖套奘奚奠奢奥奧女奴奶奸她好如妃妄妆妇妈妊妍妒妓妖妗妙妝妞妤妥妨妩妪妫妮妯妲妳妹妻妾姆姊始姌姐姑姒姓委姗姘姚姜姝姣姥姨姬姹姻姿威娃娄娅娆娇娈娉娌娑娓娘娜娟娠娣娥娩娱娲娴娶娼娽婀婆婉婊婕婚婢婦婧婪婴婵婶婷婺婿媄媒媚媛媲媳媽媾嫁嫂嫉嫌嫒嫔嫖嫚嫡嫣嫦嫩嬉嬗嬰嬴嬷孃子孑孓孔孕孖字存孙孚孛孜孝孟孢季孤学孩孪孫孬孰孳孵學孺孽宁它宄宅宇守安宋完宏宓宕宗官宙定宛宜宝实宠审客宣室宥宦宪宫宰害宴宵家宸容宽宾宿寂寄寅密寇富寐寒寓寕寝寞察寡寤寥實寧寨寫寬寮寰寳寵寶寸对寺寻导対寿封専尃射将將專尉尊對導小少尓尔尕尖尘尙尚尝尤尧尬就尴尷尸尹尺尻尼尽尾尿局屁层居屆屈屉届屋屌屎屏屐屑展属屠屡層履屯山屹屿岁岂岌岐岑岔岖岗岘岙岚岛岢岩岫岭岱岳岷岸岽岿峁峄峋峒峙峡峤峥峦峨峩峪峭峯峰島峻崂崃崆崇崋崎崔崖崛崤崧崩崬崭崮崴崽嵇嵊嵋嵌嵐嵘嵩嵬嵯嶂嶙嶪嶺嶽巅巍川州巡巢工左巧巨巩巫差巯己已巳巴巷巽巾币市布帅帆师希帏帐帑帕帖帘帚帛帜帝帥带帧師席帮帯帰帶帷常帼帽幂幄幅幌幔幕幚幛幡幢干平年并幸幹幺幻幼幽广庄庆庇床序庐库应底庖店庙庚府庞废庠庥度座庫庭庵庶康庸庹庾廉廊廓廖廚廠廣廰廳延廷建廿开异弃弄弈弊弋弍式弑弓引弗弘弛弟张弥弦弧弩弭弯弱張強弹强弼彈彐归当录彗彝形彤彦彧彩彪彬彭彰影彳彷役彻彼往征径待徇很徉徊律後徐徒徕得徘徙徜御徨復循微徳徵德徹徽心必忆忌忍忏忐忑忒忖志忘忙応忠忡忧快忱念忻忽忿怀态怂怅怆怎怏怒怔怕怖怜思怠怡急怦性怨怪怯总恂恃恋恍恐恒恕恙恢恣恤恨恩恪恬恭息恰恳恶恸恹恺恻恼恽恿悄悅悉悌悍悔悖悚悟悠患悦您悬悯悱悲悴悵悶悸悻悼情惆惊惋惑惕惘惚惜惟惠惦惧惨惩惫惬惭惮惯惰想惴惶惹惺愁愈愉意愕愚愛感愣愤愧愫愿慈態慌慎慑慕慢慧慨慰慵慶慷憋憎憔憧憨憩憬憶憾懂懈應懊懋懒懦懵懷懿戀戈戊戋戌戍戎戏成我戒或战戚戛戟戢截戬戮戳戴戶户戾房所扁扇扈扉手才扎扑扒打扔托扙扛扞扣扦执扩扪扫扬扭扮扯扰扳扶批扼找承技抄抉把抑抒抓投抖抗折抚抛抠抡抢护报抨披抬抱抵抹抻押抽抿拂拄担拆拇拈拉拌拍拎拐拒拓拔拖拗拘拙拚招拜拟拢拣拥拦拧拨择括拭拮拯拱拳拴拷拼拽拾拿持挂指按挎挑挖挚挛挝挞挟挠挡挣挤挥挨挪挫振挲挺挽捂捅捆捉捋捌捍捎捏捐捕捞损捡换捣捧据捲捶捷捺捻掀掂掇授掉掊掌掏掐排掖掘掠探掣接控推掩措掬掰掳掴掷掸掺揉揍描提插揖揚換握揣揩揪揭援揸揽搀搁搂搅損搏搐搓搔搜搞搪搬搭搴携搽摁摄摆摇摈摊摒摔摘摞摧摩摸摹撂撃撅撇撑撒撕撞撤撩撬播撮撰撵撷撸撻撼擀擂擅操擎擒擘據擞擢擦攀攒攘攝攥攫支收攸改攻放政故效敌敏救敕敖教敛敝敞敟敢散敦敬数敲整敷數文斋斌斐斑斓斗料斛斜斟斡斤斥斧斩断斯新方於施旁旅旋旌旎族旖旗无既日旦旧旨早旬旭旮旯旱时旷旸旺昀昂昆昇昊昌明昏易昔昕昙昝星映春昧昨昭是昱昴昵昶昼显晁時晃晋晌晏晒晓晔晕晖晗晚晞晟晤晦晧晨普景晰晳晴晶晷智晾暂暃暄暇暑暖暗暢暧暨暮暴暹曉曙曜曝曦曬曰曲曳更書曹曼曾替最會月有朋服朐朔朕朗望朝期朦木未末本札术朱朴朵机朽朿杀杂权杆杈杉李杏材村杖杜杞束杠条来杨杩杭杯杰東杲杳杵杷松板极构枇枉枋析枕林枚果枝枞枢枣枪枫枭枯枰枱枳架枷枸枼柄柏某柑柒染柔柘柚柜柞柠查柩柬柯柱柳柴柿栀栅标栈栉栋栎栏树栓栖栗校栩株样核根格栽栾桀桁桂桃桅框案桉桌桎桐桑桓桔桖桠桡桢档桥桦桧桨桩桶桷桼梁梅梆梏梓梗條梢梦梧梨梭梯械梳梵检棉棋棍棒棕棘棚棛棟棠棣森棰棱棵棺棽椁椅椋植椎椐椒椤椭椰椴椹椽椿楂楊楓楔楗楚楝楞楠楣楦業極楷楸楹楼楽楿概榄榆榈榉榔榕榛榜榞榧榨榫榭榮榴榷榻構槌槎槐様槛槟槲槽槿樂樊樓標樟模樣樨横樱樵樸樹樽樾橄橇橋橘橙機橡橪橱橹橼檀檐檔檗檩檬櫥權欠次欢欣欧欲欺款歆歇歉歌歐歙歡止正此步武歧歪歷歸歹死歼殁殃殆殇殉殊残殒殖殚殡殴段殷殺殼殿毁毂毅毋母每毒毓比毕毗毙毛毡毫毯毽氏氐民氓气氖気氘氙氚氛氟氡氢氣氤氦氧氨氩氪氮氯氰氲水永氽汀汁求汇汉汊汐汕汗汛汝汞江池污汤汨汩汪汰汲汴汶汹決汽汾沁沂沃沅沈沉沌沏沐沓沔沙沛沟没沣沤沥沦沧沪沫沭沮沱河沸油治沼沽沾沿泄泅泉泊泌泓泔法泗泛泞泠泡波泣泥注泩泪泫泮泯泰泱泳泵泷泸泺泻泼泽泾洁洄洋洒洗洙洛洞津洪洮洱洲洳洵洺活洼洽派流浃浅浆浇浈浊测浍济浏浐浑浒浓浔浙浚浜浠浣浥浦浩浪浮浴海浸浼涂涅涇消涉涌涎涓涔涕涛涝涞涟涠涡涣涤润涧涨涩涪涫涮涯液涵涸涿淀淄淅淆淇淋淌淑淖淘淙淚淝淞淡淤淦淨淩淫淬淮深淳混淹添淼清渊渌渍渎渐渑渔渗渚渝渠渡渣渤渥温測渭港渲渴游渺湃湄湍湓湖湘湛湟湫湮湯湾湿溃溅溆溉溏源溜溝溟溢溥溧溪溫溯溱溴溶溺滁滂滇滋滏滑滓滔滕滘滙滚滞滟满滢滤滥滦滨滩滬滴滿漁漂漆漉漏漓演漕漠漢漩漪漫漯漱漳漾潇潋潍潔潘潜潞潢潤潦潭潮潴潸潺潼澄澈澍澎澜澡澤澧澳澶澹激濂濃濉濑濒濕濞濟濠濡濤濮濯濱瀑瀘瀚瀛瀣瀵瀹灌灏灞灡灣火灭灯灰灵灶灸灼灾灿炀炅炉炊炎炒炔炕炖炙炜炝炫炬炭炮炯炳炸点為炼炽烁烂烃烈烊烏烘烙烛烜烟烤烦烧烨烩烫烬热烯烷烹烺烽焉焊焕焖焗焘焙焚無焦焯焰焱然煅煊煌煎煖煙煜煞煤煥煦照煨煮煲煸煽熄熊熏熔熘熙熟熠熥熨熬熱熳熵熹燁燃燈燎燒燕燘燙燚燜營燥燦燧燮燴爆爍爐爨爪爬爭爯爰爱爲爵父爷爸爹爺爻爽爾片版牌牍牒牙牛牟牡牢牦牧物牯牲牵特牺犀犁犇犊犍犟犬犯状犷犸犹狀狂狄狈狍狐狒狗狙狞狠狡狩独狭狮狰狱狸狼猎猕猖猗猛猜猝猥猩猪猫猬献猴猷猾猿獅獐獒獗獠獨獭獲獸獻玄率玉王玑玖玛玟玥玩玫玮环现玲玳玷玺玻珀珂珈珉珊珍珏珐珑珙珞珠珣珥珩班珲珺現球琅理琉琊琏琐琚琛琢琥琦琨琪琬琮琯琰琳琴琵琶琼瑁瑄瑕瑗瑙瑚瑛瑜瑞瑟瑩瑪瑭瑰瑶瑷瑾璀璁璃璇璈璋璎璐璜璞璟璧璨璩環璺瓒瓜瓠瓢瓣瓤瓦瓮瓯瓴瓶瓷瓿甄甘甙甚甜生產産甥用甩甫甬甭甯田由甲申电男甸甹町画甾畅畈界畏畐畔留畜略畦番畫畲畴畵當畸畹畿疃疆疌疏疑疖疗疙疚疝疟疡疣疤疥疫疮疯疱疲疳疵疸疹疼疽疾痂病症痈痉痊痒痔痕痘痛痞痠痢痣痤痧痨痪痫痰痱痴痹痼痿瘀瘁瘊瘘瘙瘟瘠瘢瘤瘦瘩瘪瘫瘴瘸瘾瘿療癌癔癖癜癞癣癫癸登發白百皂的皆皇皈皋皎皑皓皖皙皮皱皲皴皺皿盂盅盆盈益盎盏盐监盒盔盖盗盘盛盜盟盤盥目盯盱盲直相盹盼盾省眈眉看眙眞真眠眦眨眩眭眯眶眷眸眺眼着睁睇睐睑睛睡睢督睦睨睫睬睹睽睾睿瞄瞅瞌瞎瞑瞒瞓瞟瞠瞥瞧瞩瞪瞬瞭瞰瞳瞻瞿矗矛矜矞矢矣知矩矫短矮石矶矸矽矾矿砀码砂砌砍砒研砖砚砜砝砣砥砦砧砬砭砰破砷砸砺砻砼砾础硂硅硒硕硖硚硝硪硫硬确硼碁碇碉碌碍碎碑碓碗碘碚碟碣碧碩碰碱碲碳碴碶確碼碾磁磅磊磋磐磕磚磨磬磴磷磺礁礴示礼社祀祁祈祉祎祐祖祗祙祚祛祜祝神祟祠祢祥票祭祯祷祸祺禀禁禄禅福禦禧禮禹禺离禽禾秀私秃秆秉秋种科秒秕秘租秣秤秦秧秩秭积称秸移秽稀程稍税稔稗稚稞稠稣種稳稷稹稻稼稽稿穂穆穗穩穰穴穵究穷穸穹空穿突窃窄窈窍窑窒窕窖窗窘窜窝窟窠窥窦窨窿立竖站竞竟章竣童竭端競竹竺竽竿笃笆笈笋笏笑笔笕笙笛笠符笨笫第笺笼筆等筋筏筐筑筒答策筛筝筠筱筵筷筹签简箍箐箔箕算管箩箫箬箭箱箴箸節篁篆篇築篑篓篙篝篡篦篪篮篱篷簇簋簌簡簧簪簸簿籁籍籣籤米类籼籽粉粑粒粕粗粘粟粢粤粥粧粪粮粱粲粳粵粹粼粽精粿糁糅糊糍糕糖糗糙糜糝糟糠糯系紀約紅紊紋納純紗級素索紧紫累細終組結絡給絮統絲絶綁綉經綦綫維綱網緑線緣緯緻縣縫縮繁織繡繪繹纂纛纠红纣纤约级纨纪纫纬纭纯纰纱纲纳纵纶纷纸纹纺纽纾线绀绁绂练组绅细织终绉绊绋绌绍绎经绐绑绒结绔绕绗绘给绚绛络绝绞统绠绡绢绣绥绦继绨绩绪绫续绮绯绰绱绲绳维绵绶绷绸绺绻综绽绾绿缀缁缂缃缄缅缆缇缈缉缎缐缓缔缕编缘缙缚缜缝缠缢缤缥缦缨缩缪缫缬缭缮缰缴缸缺罂罄罐网罔罕罗罘罚罡罢罩罪置罱署罹羁羅羊羌美羔羙羚羞羟羡群羧義羯羰羲羸羹羽羿翁翅翊翌翎翏習翔翘翟翠翡翥翦翩翰翱翳翻翼耀老考耄者耆而耍耐耑耒耕耗耘耙耜耦耧耱耳耵耶耷耸耻耽耿聂聆聊聋职联聖聘聚聞聨聪聯聲職聿肃肄肆肇肉肋肌肓肖肘肚肛肝肟肠股肢肤肥肩肪肮肯肱育肴肺肼肽肾肿胀胁胃胄胆背胍胎胖胗胚胛胜胞胡胤胥胧胪胫胬胭胯胰胱胳胴胶胸胺能脂脆脉脊脍脏脐脑脒脓脖脘脚脯脱脲脸脾腆腈腊腋腌腐腑腓腔腕腥腦腩腭腮腰腱腴腸腹腺腻腼腾腿膀膈膊膏膘膚膛膜膝膠膦膨膳膺膻臀臂臃臆臊臣臧臨自臭至致臺臻臼臾舀舅舆與興舊舌舍舒舔舖舛舜舞舟航舫般舰舱舵舶舷舸船艄艇艘艦艮良艰色艳艶艷艹艺艾艿节芃芊芋芍芎芒芗芘芙芜芝芡芥芦芩芪芫芬芭芮芯花芳芷芸芹芽芾苁苄苇苋苍苎苏苑苒苓苔苕苗苘苛苜苝苞苟苡苣若苦苪苫苯英苴苷苹茁茂范茄茅茆茉茌茎茏茗茜茧茨茫茬茭茯茱茴茵茶茸茹茼荀荃荆草荏荐荒荔荘荚荞荟荠荡荣荤荥荧荨荪荫荬荭药荷荸荻荼荽莅莆莉莊莎莒莓莘莜莞莠莨莪莫莱莲莳莴获莹莺莼莽菀菁菅菇菊菌菏菓菖菘菜菟菠菡菩菪華菱菲菽萁萃萄萊萋萌萍萎萘萜萝萤营萦萧萨萬萭萱萸萼落葆葉葑葒著葛葡董葩葫葬葭葱葳葵葺蒂蒄蒋蒌蒙蒜蒟蒡蒤蒲蒸蒻蒽蒿蓄蓉蓋蓑蓓蓖蓝蓟蓥蓦蓬蓮蓼蓿蔑蔓蔗蔚蔟蔡蔫蔬蔷蔸蔺蔻蔼蔽蕃蕈蕉蕊蕒蕙蕤蕨蕲蕴蕹蕾薄薇薈薏薛薡薦薩薪薬薯薰薹藁藉藍藏藐藓藔藕藜藝藤藥藩藻藿蘆蘇蘑蘖蘭蘸蘼虎虏虐虑虔處虚虞號虢虫虬虱虹虻虽虾蚀蚁蚂蚊蚌蚓蚕蚜蚝蚣蚤蚧蚨蚩蚪蚬蚯蚱蚴蚶蛀蛆蛇蛊蛋蛎蛏蛐蛔蛙蛛蛟蛤蛭蛮蛰蛳蛴蛹蛾蜀蜂蜃蜇蜈蜊蜍蜒蜓蜕蜗蜘蜚蜛蜜蜡蜥蜱蜴蜷蜻蜿蝇蝈蝉蝌蝎蝗蝙蝠蝴蝶蝽蝾螂螃螈融螟螨螯螳螺蟀蟆蟋蟑蟒蟠蟹蟾蠄蠓蠔蠕蠖蠡蠢蠹血衅衆行衍術衔街衙衛衡衢衣补表衩衫衬衮衰衲衷衾衿袁袂袄袅袆袈袋袍袒袖袜袤袪被袭袱裁裂装裆裔裕裘裙補裝裟裡裤裨裱裳裴裸裹製褀褂複褐褒褓褔褚褥褪褰褲褶襁襄襟西要覃覆見覌視親覺觀见观规觅视觇览觉觊觎觐觑角觞解触觸言訂計訊訓記訣設許診訾詢試詩話該詹誉誊誌誓誘語誠説課調諾謇講謢謹證識譜警譬護讀變计订讣认讥讨让讪讫训议讯记讲讳讴讶讷许讹论讼讽设访诀证诃评诅识诈诉诊诋词诏译诒试诗诘诙诚诛话诞诟诠诡询诣诤该详诧诩诫诬语误诰诱诲说诵请诸诺读诽课诿谀谁调谄谅谆谈谊谋谌谍谎谏谐谑谒谓谔谕谗谙谚谛谜谟谡谢谣谤谥谦谧谨谩谪谬谭谯谰谱谴谷豁豆豇豉豊豌豐豕豚象豪豫豹豺貂貅貉貊貌貔貝負財貢貨販貭貴買費貼貿賀賓賠賣質賴購贈贏贝贞负贡财责贤败账货质贩贪贫贬购贮贯贰贱贲贴贵贷贸费贺贻贼贾贿赁赂赃资赅赈赉赊赋赌赎赏赐赓赔赖赘赚赛赝赞赠赡赢赣赤赦赫赭走赳赴赵赶起趁超越趋趙趟趣足趴趵趸趾跃跄跆跋跌跎跑跖跚跛距跟跤跨跪路跳践跷跺跻踉踊踌踏踝踞踢踩踪踮踱踵踹蹂蹄蹇蹈蹉蹊蹋蹑蹒蹙蹦蹬蹭蹲蹴蹶蹼蹿躁躇躏身躬躯躲躺車軍軎軒軽載輕輝輪輯輸轉车轧轨轩转轭轮软轰轱轲轴轶轻轼载轿较辄辅辆辈辉辊辋辍辐辑输辕辖辗辘辙辛辜辞辟辣辦辧辨辩辫辰辱農边辽达迁迂迄迅过迈迎运近返还这进远违连迟迢迤迥迦迩迪迫迭迮述迳迷迸迹追退送适逃逄逅逆选逊逍透逐逑递途逗這通逛逝逞速造逢連逭逮逯進逵逸逹逺逻逼逾遁遂遇運遍過遏遐遒道達遗遛遠遢遣遥遨適遭遮遴遵選避邀邂邃還邈邋邏邑邓邕邗邛邝邡邢那邦邨邪邬邮邯邰邱邳邴邵邸邹邺邻郁郅郊郎郏郑郓郗郛郜郝郡郢郦郧部郫郭郯郴郵郸都郾鄂鄄鄉鄙鄞鄢鄣鄭鄯鄱鄺酉酊酋酌配酐酒酗酚酝酞酡酣酥酪酬酮酯酰酱酵酶酷酸酿醇醉醋醌醍醐醒醚醛醜醪醫醬醴醺釀采釉释里重野量金釜針釣鈴鈺鉅鉌鉴銀銘銭銮銷鋪鋼錄錦錯錶鍊鍋鍵鎏鎖鎮鎻鏖鏡鏢鐘鐡鐵鑒鑫鑽钇针钉钊钎钏钒钓钕钗钙钚钛钜钝钞钟钠钡钢钣钥钦钧钨钩钬钮钯钰钱钳钴钵钺钻钼钽钾钿铀铁铂铃铄铅铆铈铉铊铋铌铍铎铐铑铒铕铖铛铜铝铞铟铠铡铢铣铤铧铨铪铬铭铮铰铱铲铵银铸铺链铿销锁锂锄锅锆锈锉锋锌锏锐锑锔锕锗锘错锚锛锝锟锡锢锣锤锥锦锨锭键锯锰锲锴锵锶锷锹锺锻锽镀镁镂镇镉镊镌镍镐镑镒镓镖镗镛镜镝镣镦镧镭镯镰镱镳镶長长門閃開閏閑間閟関閣閥閩關门闪闫闭问闯闰闱闲闳间闵闷闸闹闺闻闽闾闿阀阁阂阄阅阆阈阉阊阎阐阑阔阕阖阗阙阚阜阝队阡阪阮阱防阳阴阵阶阻阿陀陂附际陆陇陈陉陋陌降限陕陛陟陡院除陨险陪陰陲陳陵陶陷陽隅隆隋隍随隐隔隗隘隙際障隧隨隶隹隼隽难雀雁雄雅集雇雉雌雍雎雏雒雕雙雜雞離難雨雪雯雲雳零雷雹電雾需霁霄霆震霉霍霎霏霓霖霜霞霭霰露霸霹霾靈靑青靓靖静靛靜非靠靡面靥革靳靴靶鞅鞋鞍鞑鞘鞠鞣鞭韓韦韧韩韫韬韭音韵韶頂順頓頔頡頤頭頰題顏顔類顧顯页顶顷项顺须顽顾顿颁颂预颅领颇颈颉颊颌颍颐频颓颔颖颗题颚颛颜额颞颠颡颢颤颦颧風飄风飒飓飕飘飙飛飞食飨飬飮飯飲飼飾餅養餐餘餠館餮饃饅饕饥饨饪饬饭饮饯饰饱饲饴饵饶饷饸饹饺饼饽饿馁馄馅馆馈馊馋馍馏馒馕首馗香馥馨馬馮馴駕騰騷驗马驭驮驯驰驱驳驴驶驷驸驹驻驼驽驾驿骁骂骄骅骆骇骊骋验骏骐骑骓骗骚骛骜骝骞骠骡骤骥骧骨骰骶骷骸骺骼髁髂髅髋髌髓體高髙髦髪髮髯髻鬃鬓鬟鬣鬲鬼魁魂魄魅魇魉魏魔魚鮮鯉鯨鯽鱬鱸鱻鱼鱿鲁鲂鲅鲆鲇鲈鲍鲑鲛鲜鲟鲢鲤鲨鲩鲫鲮鲱鲲鲳鲵鲷鲸鲽鳃鳄鳅鳌鳍鳎鳐鳕鳖鳗鳙鳜鳝鳞鳟鳥鳯鳳鴨鴻鴿鵬鶏鷄鷗鷹鸟鸠鸡鸢鸣鸥鸦鸨鸪鸬鸭鸯鸳鸵鸽鸾鸿鹂鹃鹄鹅鹉鹊鹌鹏鹑鹗鹜鹞鹤鹦鹧鹫鹭鹰鹳鹽鹿麂麋麒麓麗麝麟麥麦麯麵麸麺麻麽麾黃黄黍黎黏黑黒黔默黛黜黝點黟黠黯鼎鼓鼙鼠鼬鼻鼽鼾齊齋齐齿龄龈龊龋龌龍龙龚龛龟龢︽︾﹏﹥﹪！＃％＆（）＋，－．／０１２３４５６７８９：；＝？＠ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ｜～￥"};
+/* ---------- label scanning: the network reader on the phone (runtime, models, scan flow) ----------
+   The runtime (ONNX Runtime Web) comes from a public CDN on the first scan and the model files from this site;
+   the service worker keeps all of them, so later scans work offline. Everything runs on the phone.
+   The accurate reader reads every piece of text twice, with two different recognition networks: they make different
+   mistakes, so a value both agree on can be trusted and the rest is marked for checking. The fast reader uses the
+   small pair of networks alone. */
+/* 1.19.0 is the runtime version this reader was tested with in a real browser; the later version is asked for only when
+   both sources of the first one fail */
+var ORT_BASES=['https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/','https://unpkg.com/onnxruntime-web@1.19.0/dist/','https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/'];
+var ORT_FILES=['ort.wasm.min.js','ort.min.js'];
+var NET_KINDS={
+  net:{label:'New reader, accurate',det:'ocr-det-v5.onnx',rec:'ocr-rec-latin-v5.onnx',dict:'latin',rec2:'ocr-rec-tiny.onnx',dict2:'tiny'},
+  fast:{label:'New reader, fast',det:'ocr-det-tiny.onnx',rec:'ocr-rec-tiny.onnx',dict:'tiny'}
+};
+var NET={ortLoading:null,sess:{},loading:{},stale:false,base:'',queue:Promise.resolve()};
+function readerKind(){if(!NR)return 'classic';var k=null;try{k=localStorage.getItem('cfl-reader');}catch(e){}return (k==='fast'||k==='classic'||k==='net')?k:'net';}
+/* the runtime's global object, whether the script declared it as a property of window or as a top-level constant */
+function ortGlobal(){
+  try{if(window.ort&&window.ort.InferenceSession)return window.ort;}catch(e){}
+  try{if(typeof ort!=='undefined'&&ort&&ort.InferenceSession)return ort;}catch(e){}
+  return null;
+}
+function loadOrt(){
+  /* after a failed scan the runtime is loaded afresh: one that could not start stays unusable for the rest of the page's life */
+  var have=NET.stale?null:ortGlobal();if(have)return Promise.resolve(have);
+  if(NET.ortLoading)return NET.ortLoading;
+  var list=[];ORT_BASES.forEach(function(b){ORT_FILES.forEach(function(f){list.push([b,f]);});});
+  var i=0,p=new Promise(function(res,rej){
+    function tryNext(){
+      if(i>=list.length)return rej(new Error('the reader files could not be downloaded'));
+      var it=list[i++],s=document.createElement('script');s.src=it[0]+it[1];s.async=true;s.crossOrigin='anonymous';
+      s.onload=function(){
+        var o=ortGlobal();if(!o){s.remove();return tryNext();}
+        /* one thread: more would need a cross-origin isolated page, which this site's host cannot provide */
+        try{o.env.wasm.wasmPaths=it[0];o.env.wasm.numThreads=1;o.env.logLevel='error';}catch(e){}
+        NET.stale=false;NET.base=it[0]+it[1];res(o);
+      };
+      s.onerror=function(){s.remove();tryNext();};
+      document.head.appendChild(s);
+    }
+    tryNext();
+  }).then(function(o){NET.ortLoading=null;return o;},function(e){NET.ortLoading=null;throw e;});
+  NET.ortLoading=p;return p;
+}
+function fetchBytes(url,onp){
+  return fetch(url).then(function(r){
+    if(!r.ok)throw new Error('the file '+url+' is missing on the site ('+r.status+')');
+    var total=+(r.headers.get('Content-Length')||0);
+    if(!r.body||!r.body.getReader)return r.arrayBuffer().then(function(b){return new Uint8Array(b);});
+    var rd=r.body.getReader(),chunks=[],got=0;
+    function pump(){return rd.read().then(function(x){if(x.done)return;chunks.push(x.value);got+=x.value.length;if(onp)onp(got,total);return pump();});}
+    return pump().then(function(){var u=new Uint8Array(got),o=0;chunks.forEach(function(c){u.set(c,o);o+=c.length;});return u;});
+  });
+}
+function getNet(kind,onStatus){
+  if(NET.sess[kind])return Promise.resolve(NET.sess[kind]);
+  if(NET.loading[kind])return NET.loading[kind];
+  var K=NET_KINDS[kind];function st(t,p){if(onStatus)onStatus(t,p);}
+  st('Downloading the reader (first time only)',null);
+  var p=loadOrt().then(function(ort){
+    var files=[K.det,K.rec].concat(K.rec2?[K.rec2]:[]),got=files.map(function(){return 0;}),tot=files.map(function(){return 0;});
+    function sum(a){return a.reduce(function(x,y){return x+y;},0);}
+    function prog(i){return function(g,t){got[i]=g;tot[i]=t;st('Downloading the reading models (first time only)',tot.every(function(x){return x>0;})?Math.min(1,sum(got)/sum(tot)):null);};}
+    /* without its second recognition model the accurate reader still reads, with one reading instead of two */
+    var out={ort:ort,kind:kind,chars:['<blank>'].concat(Array.from(NET_DICT[K.dict])),second:''};
+    return Promise.all(files.map(function(f,i){
+      var q=fetchBytes(f,prog(i));
+      return i<2?q:q.catch(function(e){out.second='not loaded: '+String((e&&e.message)||e).slice(0,200);tot[i]=1;return null;});
+    })).then(function(bufs){
+      st('Starting the reader',null);
+      var so={executionProviders:['wasm'],graphOptimizationLevel:'all'};
+      return ort.InferenceSession.create(bufs[0],so).then(function(det){out.det=det;return ort.InferenceSession.create(bufs[1],so);}).then(function(rec){
+        out.rec=rec;
+        if(!bufs[2])return out;
+        return ort.InferenceSession.create(bufs[2],so).then(function(rec2){out.rec2=rec2;out.chars2=['<blank>'].concat(Array.from(NET_DICT[K.dict2]));return out;},
+          function(e){out.second='not started: '+String((e&&e.message)||e).slice(0,200);return out;});
+      });
+    });
+  }).then(function(n){NET.sess[kind]=n;NET.loading[kind]=null;return n;},function(e){NET.loading[kind]=null;throw e;});
+  NET.loading[kind]=p;return p;
+}
+function netRun(n){
+  return function(which,data,dims){
+    var s=which==='det'?n.det:which==='rec2'?n.rec2:n.rec,feeds={};feeds[s.inputNames[0]]=new n.ort.Tensor('float32',data,dims);
+    return s.run(feeds).then(function(out){var t=out[s.outputNames[0]];return {data:t.data,dims:t.dims};});
+  };
+}
+/* the part of the photo inside the crop box, in photo pixels; the box was drawn on the photo as turned by rot */
+function cropSource(img,rect,rot){
+  var W=img.naturalWidth||img.width,H=img.naturalHeight||img.height,swap=rot===90||rot===270;
+  var DW=swap?H:W,DH=swap?W:H,u0=rect.x*DW,v0=rect.y*DH,u1=(rect.x+rect.w)*DW,v1=(rect.y+rect.h)*DH,ox,oy,ox1,oy1;
+  if(rot===90){ox=v0;ox1=v1;oy=H-u1;oy1=H-u0;}
+  else if(rot===180){ox=W-u1;ox1=W-u0;oy=H-v1;oy1=H-v0;}
+  else if(rot===270){ox=W-v1;ox1=W-v0;oy=u0;oy1=u1;}
+  else{ox=u0;ox1=u1;oy=v0;oy1=v1;}
+  var sx=Math.max(0,Math.round(ox)),sy=Math.max(0,Math.round(oy));
+  return [sx,sy,Math.max(1,Math.min(W-sx,Math.round(ox1-ox))),Math.max(1,Math.min(H-sy,Math.round(oy1-oy)))];
+}
+/* the crop as the network reader gets it: that part of the photo in colour, turned by rot, at the photo's own
+   resolution (reduced to 2400 px on its long side when larger, never enlarged) */
+function netCropOf(img,src,rot){
+  var sw=src[2],sh=src[3],swap=rot===90||rot===270,rw=swap?sh:sw,rh=swap?sw:sh,scale=Math.min(1,2400/Math.max(rw,rh));
+  var cw=Math.max(1,Math.round(rw*scale)),ch=Math.max(1,Math.round(rh*scale)),dw=Math.round(sw*scale),dh=Math.round(sh*scale);
+  var c=document.createElement('canvas');c.width=cw;c.height=ch;
+  var ctx=c.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,cw,ch);
+  ctx.translate(cw/2,ch/2);ctx.rotate(rot*Math.PI/180);ctx.drawImage(img,src[0],src[1],sw,sh,-dw/2,-dh/2,dw,dh);
+  return {canvas:c,ctx:ctx,w:cw,h:ch,scale:scale,rot:rot,src:src};
+}
+function netCrop(img,rect,rot){rot=rot||0;return netCropOf(img,cropSource(img,rect,rot),rot);}
+/* the crop encoded as a JPEG file and decoded again: resolves to the pixels, leaves the file in crop.blob */
+function jpegRoundTrip(crop){
+  return new Promise(function(res){
+    function plain(){res(crop.ctx.getImageData(0,0,crop.w,crop.h));}
+    if(!crop.canvas.toBlob||!window.createImageBitmap)return plain();
+    try{
+      crop.canvas.toBlob(function(b){
+        if(!b)return plain();
+        window.createImageBitmap(b,{colorSpaceConversion:'none'}).then(function(bm){
+          var c=document.createElement('canvas');c.width=bm.width;c.height=bm.height;
+          var x=c.getContext('2d',{willReadFrequently:true});x.drawImage(bm,0,0);if(bm.close)bm.close();
+          crop.blob=b;res(x.getImageData(0,0,c.width,c.height));
+        },plain);
+      },'image/jpeg',0.92);
+    }catch(e){plain();}
+  });
+}
+/* the note under a network scan: the calories against the macros, the parser's own remarks that still apply, then what
+   the two readings did not agree on. m is the result shown, P the parser's result it was built on. */
+function netWarn(m,P){
+  var parts=[],v=m.vals,notes=m.notes||[],noted={};
+  function name(k){var l=LABEL.filter(function(x){return x.k===k;})[0];return l?l.name:k;}
+  function amount(k,x){return x+(k==='kcal'?' kcal':' g');}
+  if(['kcal','p','c','f','fibre'].every(function(k){return v[k]===P.vals[k];})){
+    var cal=/^The calories do not match protein, carbs and fat \([^)]*\)\. Check those four against the label, or scan again from a sharper, closer photo\./.exec(P.warn||'');
+    if(cal)parts.push(cal[0]);
+  }else if(v.kcal!=null&&v.p!=null&&v.c!=null&&v.f!=null){
+    var e=4*v.p+4*v.c+9*v.f+2*(v.fibre||0);
+    if(Math.abs(e-v.kcal)>Math.max(40,v.kcal*0.15))parts.push('The calories do not match protein, carbs and fat ('+Math.round(e)+' kcal from the macros against '+v.kcal+' on the label). Check those four against the label, or scan again from a sharper, closer photo.');
+  }
+  notes.forEach(function(n){noted[n.key]=1;});
+  (m.flags||[]).forEach(function(k){var t=(m.why||{})[k];if(t&&!noted[k]&&v[k]!=null&&v[k]===P.vals[k])parts.push(name(k)+' ('+amount(k,v[k])+'): '+t+'. Check it.');});
+  var dif=notes.filter(function(n){return n.other!=null;}),one=notes.filter(function(n){return n.other==null;});
+  if(dif.length)parts.push('The two readings differ on '+dif.map(function(n){return name(n.key)+' ('+amount(n.key,n.kept)+' kept, the other reading was '+n.other+')';}).join(', ')+'.');
+  if(one.length)parts.push(one.length>4?'Only one of the two readings found '+one.length+' of the values.':'Only one of the two readings found '+one.map(function(n){return name(n.key)+' ('+amount(n.key,n.kept)+')';}).join(', ')+'.');
+  if(dif.length||one.length)parts.push('Check the marked values against the label.');
+  return parts.join(' ');
+}
+function runScanNet(job){
+  /* the photo's address is given back only when the scan is over: the photo is drawn again for every turn tried */
+  function release(){if(job.url){try{URL.revokeObjectURL(job.url);}catch(e){}job.url=null;}}
+  var f=UI.ingForm;if(!f){release();return;}
+  var mine=f.scan={busy:true,status:'Starting the reader',progress:0,err:'',text:'',found:[],foundMicros:[],showText:false};render();
+  var rec=SCANLOG.cur,T0=Date.now();
+  /* is this scan still the one on screen? (the form may have been closed, or another scan started, meanwhile) */
+  function live(){return UI.ingForm===f&&f.scan===mine&&mine.busy;}
+  function tick(){return new Promise(function(r){setTimeout(r,0);});}
+  function tryInfo(a){return {rot:a.rot,score:a.score,aborted:!!a.res.aborted,sideways:!!a.res.sideways,upsideDown:!!a.res.upsideDown,probe:a.res.info.probe==null?null:Math.round(a.res.info.probe*1000)/1000,crop:[a.crop.w,a.crop.h],info:a.res.info};}
+  /* one scan at a time: the networks cannot run two reads at once, so a scan waits for the one before it to stop */
+  NET.queue=NET.queue.then(work,work);
+  function work(){
+  if(!live()){release();return;}
+  return getNet(job.kind,function(t,p){if(live())setStatus(t,p);}).then(function(net){
+    var run=netRun(net),tLoad=Date.now()-T0,src=cropSource(job.img,job.rect,job.rot),nTry=0;
+    function attempt(rot,opts){
+      var crop=netCropOf(job.img,src,rot);
+      if(live())setStatus(nTry?'Turning the photo and finding the text':'Finding the text',null);
+      nTry++;
+      /* the reader gets the crop as it comes back from the JPEG file that goes into the scan report, so that a report
+         replays the scan with the very pixels the phone read */
+      return jpegRoundTrip(crop).then(function(im){
+        return NR.read({data:im.data,width:im.width,height:im.height},run,net.chars,net.chars2?Object.assign({},opts||{},{chars2:net.chars2}):opts,function(i,n){
+          /* an abandoned scan stops here, so that the next one can start */
+          if(!live())throw new Error('scan abandoned');
+          setStatus('Reading the label',n?i/n:null);return tick();});
+      }).then(function(r){
+        if(r.aborted)return {rot:rot,crop:crop,res:r,parsed:null,score:-1};
+        /* one reading, or two readings combined: values the two do not agree on are marked for checking */
+        var pa=parseLabel(r.text),parsed=pa,lead=pa,cf=r.conf||[];
+        if(r.text2!=null){var pb=parseLabel(r.text2);parsed=NR.merge(pa,pb);if(parsed.first){lead=pb;cf=r.conf2||[];}}
+        else{parsed.flags=NR.marks(pa);parsed.notes=[];parsed.first=0;}
+        /* a value whose digits the reader was unsure of is marked as well (on the test labels a confidence under 0.7
+           marked 2 of 7 wrong values and none of 315 right ones) */
+        cf.forEach(function(c){
+          if(!(c.conf<0.7))return;
+          matchesIn(cleanLine(c.name)).forEach(function(m){if(parsed.found.indexOf(m.key)>-1&&parsed.flags.indexOf(m.key)<0)parsed.flags.push(m.key);});
+        });
+        parsed.warn=netWarn(parsed,lead);
+        return {rot:rot,crop:crop,res:r,parsed:parsed,score:scanScore(parsed)};
+      });
+    }
+    /* The crop is read as it stands unless the text lies on its side (most boxes stand upright: a quarter turn) or
+       stands on its head (the first boxes read with low confidence: half a turn, kept only when it reads better). */
+    function go(rot,mode,minConf,backRot){
+      var o=mode==='plain'?null:{stopIfSideways:mode==='first',probe:true,probeMin:minConf==null?0.55:minConf};
+      return attempt(rot,o).then(function(a){
+        if(rec)rec.tries.push(tryInfo(a));
+        if(!a.res.aborted)return a;
+        if(a.res.sideways)return go((rot+90)%360,'turned');
+        if(mode==='flip')return go(backRot,'plain');
+        return go((rot+180)%360,'flip',a.res.info.probe,rot);
+      });
+    }
+    return go(job.rot,'first').then(function(a){
+      /* the form was closed or another scan started meanwhile: this result belongs nowhere */
+      if(!live())return;
+      if(rec){
+        rec.reader=job.kind;rec.runtime=NET.base;rec.rot=a.rot;rec.crop=[a.crop.w,a.crop.h];rec.scale=a.crop.scale;rec.src=a.crop.src;rec.info=a.res.info;rec.ms={total:Date.now()-T0,load:tLoad};
+        function pts(b){return [].concat.apply([],b.pts).map(function(v){return Math.round(v);});}
+        function r3c(x){return Math.round(x*1000)/1000;}
+        var m2=new Map();(a.res.boxes2||[]).forEach(function(b){m2.set(b.pts,b);});
+        rec.boxes=a.res.boxes.map(function(b){var o={t:b.text,c:r3c(b.conf),p:pts(b)},s2=m2.get(b.pts);if(s2){o.t2=s2.text;o.c2=r3c(s2.conf);m2.delete(b.pts);}return o;});
+        m2.forEach(function(b){rec.boxes.push({t:'',c:0,t2:b.text,c2:r3c(b.conf),p:pts(b)});});
+        if(a.res.text2!=null){rec.text1=a.res.text;rec.text2=a.res.text2;rec.notes=a.parsed.notes;rec.first=a.parsed.first;}
+        if(net.second)rec.second=net.second;
+        scanLogImage(rec,a.crop.blob||a.crop.canvas);
+      }
+      applyScan(a.parsed.first?a.res.text2:a.res.text,a.parsed);
+    });
+  }).catch(function(e){
+    if(!live())return;
+    try{console.error('network reader failed',e);}catch(x){}
+    var g=f;
+    var msg=String((e&&e.message)||e||'unknown error').slice(0,300);
+    /* a failed run can leave the runtime unusable: the next scan loads and starts it afresh */
+    NET.sess={};NET.stale=true;
+    if(rec){rec.netError=msg;rec.runtime=NET.base;rec.ms={total:Date.now()-T0};try{scanLogImage(rec,netCrop(job.img,job.rect,job.rot||0).canvas);}catch(x){}}
+    /* the classic reader takes over */
+    var prep;
+    try{prep=cropToCanvases(job.img,job.rect,job.rot||0);}catch(x){g.scan.busy=false;g.scan.status='';g.scan.err='Could not prepare that photo.';scanLogEnd({error:'could not prepare the photo'});render();return;}
+    SCANLOG.note='The new reader failed ('+msg+'), so the classic reader read this label. The scan report in Settings holds the details.';
+    if(rec)rec.reader='classic (after '+job.kind+' failed)';
+    runScan(prep);
+  }).then(release,release);
+  }
+}
+
+/* ---------- scan reports: what each scan was given and what it read, kept on this phone until sent to the developer ----------
+   A scan goes wrong on a phone in ways no test bench shows, so each scan keeps the picture exactly as the reader got it,
+   the text and values it read, the timings and, once the ingredient is saved, the values as corrected by hand. The last
+   12 scans are kept in a database of their own (not part of the backup); nothing leaves the phone unless the report file
+   is saved from Settings and sent. */
+var SCANLOG={max:12,cur:null,count:null,note:''};
+function scanTx(mode,fn){
+  return new Promise(function(res,rej){
+    var rq;try{rq=indexedDB.open('casian-fitness-log-scans',1);}catch(e){return rej(e);}
+    rq.onupgradeneeded=function(){rq.result.createObjectStore('scans',{keyPath:'id'});};
+    rq.onerror=function(){rej(rq.error);};
+    rq.onsuccess=function(){
+      var db=rq.result,tx,out;
+      try{tx=db.transaction('scans',mode);out=fn(tx.objectStore('scans'));}catch(e){db.close();return rej(e);}
+      tx.oncomplete=function(){db.close();res(out&&('result' in out)?out.result:out);};
+      tx.onerror=tx.onabort=function(){db.close();rej(tx.error);};
+    };
+  });
+}
+function scanCount(){return scanTx('readonly',function(st){return st.count();}).then(function(n){SCANLOG.count=n;if(UI.tab==='settings')requestRender();return n;},function(){SCANLOG.count=0;});}
+function scanLogBegin(img,rect,rot,kind){
+  SCANLOG.cur={id:Date.now(),ts:new Date().toISOString(),app:APP_VERSION,reader:kind,photo:[img.naturalWidth||img.width,img.naturalHeight||img.height],
+    rect:[rect.x,rect.y,rect.w,rect.h].map(function(v){return Math.round(v*10000)/10000;}),rotAsked:rot,tries:[],imageP:null};
+  return SCANLOG.cur;
+}
+/* the picture of a scan for its report: a JPEG file already made, or a canvas to make one from */
+function scanLogImage(rec,src){
+  if(!rec||rec.imageP)return;
+  rec.imageP=new Promise(function(res){
+    function keep(b){if(!b)return res();b.arrayBuffer().then(function(ab){rec.image=ab;res();},function(){res();});}
+    try{if(src&&src.arrayBuffer)keep(src);else src.toBlob(keep,'image/jpeg',0.9);}catch(e){res();}
+  });
+}
+function scanLogEnd(fields){
+  var rec=SCANLOG.cur;if(!rec)return null;
+  SCANLOG.cur=null;Object.keys(fields||{}).forEach(function(k){rec[k]=fields[k];});
+  Promise.resolve(rec.imageP).then(function(){
+    delete rec.imageP;
+    return scanTx('readwrite',function(st){st.put(rec);});
+  }).then(function(){
+    return scanTx('readwrite',function(st){var rq=st.getAllKeys();rq.onsuccess=function(){var ks=rq.result||[];for(var i=0;i<ks.length-SCANLOG.max;i++)st.delete(ks[i]);};});
+  }).then(scanCount,function(e){try{console.error('scan report not kept',e);}catch(x){}});
+  return rec.id;
+}
+function scanLogPatch(id,fields){
+  return scanTx('readwrite',function(st){var rq=st.get(id);rq.onsuccess=function(){var r=rq.result;if(!r)return;Object.keys(fields).forEach(function(k){r[k]=fields[k];});st.put(r);};}).catch(function(){});
+}
+var CRC_T=null;
+function crc32(u){
+  if(!CRC_T){CRC_T=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?(0xEDB88320^(c>>>1)):(c>>>1);CRC_T[n]=c>>>0;}}
+  var crc=0xFFFFFFFF;for(var i=0;i<u.length;i++)crc=CRC_T[(crc^u[i])&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+/* a zip archive of the given files, stored without compression */
+function zipStore(files){
+  var parts=[],central=[],off=0,enc=new TextEncoder();
+  files.forEach(function(f){
+    var nm=enc.encode(f.name),crc=crc32(f.data),n=f.data.length,lh=new DataView(new ArrayBuffer(30)),ch=new DataView(new ArrayBuffer(46));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(12,0x21,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,n,true);lh.setUint32(22,n,true);lh.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(lh.buffer),nm,f.data);
+    ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(14,0x21,true);
+    ch.setUint32(16,crc,true);ch.setUint32(20,n,true);ch.setUint32(24,n,true);ch.setUint16(28,nm.length,true);ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer),nm);
+    off+=30+nm.length+n;
+  });
+  var cs=0;central.forEach(function(c){cs+=c.length;});
+  var e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob(parts.concat(central,[new Uint8Array(e.buffer)]),{type:'application/zip'});
+}
+function scanReport(withImages){
+  return scanTx('readonly',function(st){return st.getAll();}).then(function(list){
+    list=list||[];if(!list.length)return null;
+    var files=[],scans=list.map(function(r){
+      var o={};Object.keys(r).forEach(function(k){if(k!=='image')o[k]=r[k];});
+      if(r.image){o.image='scan-'+r.id+'.jpg';if(withImages)files.push({name:o.image,data:new Uint8Array(r.image)});}
+      if(!withImages){
+        /* the text copy is for pasting: without the pictures the boxes' positions are of no use, so they stay out */
+        if(o.boxes){o.nboxes=o.boxes.length;delete o.boxes;}
+        if(o.tries)o.tries=o.tries.map(function(t){var u={};Object.keys(t).forEach(function(k){if(k!=='info')u[k]=t[k];});return u;});
+        if(o.info&&o.info.first){var i2={};Object.keys(o.info).forEach(function(k){if(k!=='first')i2[k]=o.info[k];});o.info=i2;}
+      }
+      return o;
+    });
+    var sc=window.screen||{},head={app:APP_ID,version:APP_VERSION,exportedAt:new Date().toISOString(),reader:readerKind(),
+      device:{ua:navigator.userAgent,cores:navigator.hardwareConcurrency||null,memoryGB:navigator.deviceMemory||null,screen:[sc.width||0,sc.height||0,window.devicePixelRatio||1],online:navigator.onLine,isolated:!!window.crossOriginIsolated},scans:scans};
+    var json=JSON.stringify(head);
+    if(!withImages)return {text:json,count:scans.length};
+    files.unshift({name:'report.json',data:new TextEncoder().encode(json)});
+    return {blob:zipStore(files),count:scans.length};
+  });
 }
 
 /* ---------- header and tabs ---------- */
@@ -2529,7 +3720,13 @@ function renderSettings(){
   h+='<div class="kv"><span>On this phone</span><b>'+esc(c)+'</b></div>';
   h+='<div class="row"><button class="btn primary" data-act="export">Save backup</button><button class="btn" data-act="import">Load backup</button></div><p class="hint">Loading a backup replaces what is on this phone.</p></section>';
   h+='<section class="card"><h3>Install</h3>'+installHtml()+'</section>';
-  h+='<section class="card"><h3>Label scanning</h3><p class="hint">The first scan downloads the text reader with its Romanian and English language files (c.20 MB) and needs an internet connection. After that, scanning works offline. The photo never leaves your phone. The reader straightens the photo, finds the column of values and reads it on its own, with a small digit recogniser trained for food labels built into the app, so a tight crop around the table still gives the best result. A photo taken sideways can be turned with Rotate in the crop view. Version numbers run 1.2.y, where y counts the scanner iterations since it first appeared in 1.2.</p></section>';
+  var rk=readerKind();
+  if(SCANLOG.count==null&&!SCANLOG.counting){SCANLOG.counting=true;scanCount();}
+  h+='<section class="card"><h3>Label scanning</h3><p class="hint">The reader finds every piece of text in the crop with one small network and reads each piece with two different ones, entirely on this phone. A value on which the two readings agree is filled in as read; the others are marked Check, with both readings in the note under the scan. The first scan downloads the model files (c.17 MB, or c.6 MB for the fast reader) and their runtime and needs an internet connection; after that, scanning works offline. The photo never leaves your phone. The crop box only has to hold the table: the reader finds the table inside it, and it turns a photo taken sideways or upside down by itself. The classic reader of 1.2.9 stays available here and takes over by itself if the new one cannot start. Version numbers run 1.2.y, where y counts the scanner iterations since it first appeared in 1.2.</p>';
+  h+='<label class="fld" for="set-reader"><span>Reader</span><select class="txt" id="set-reader" data-k="reader"><option value="net"'+(rk==='net'?' selected':'')+'>New reader, accurate (two readings)</option><option value="fast"'+(rk==='fast'?' selected':'')+'>New reader, fast (one reading)</option><option value="classic"'+(rk==='classic'?' selected':'')+'>Classic reader (1.2.9)</option></select></label>';
+  h+='<div class="kv"><span>Scan reports kept</span><b>'+(SCANLOG.count==null?'...':SCANLOG.count+' of '+SCANLOG.max)+'</b></div>';
+  h+='<p class="hint">Every scan keeps the picture the reader was given, what it read, how long it took and the values you saved afterwards. When scans go wrong, save the report file and send it in the chat, so the same scans can be replayed and fixed. Nothing is sent by the app itself.</p>';
+  h+='<div class="row"><button class="btn" data-act="report-save">Save report file</button><button class="btn" data-act="report-copy">Copy as text</button><button class="btn ghost" data-act="report-clear">Delete reports</button></div></section>';
   h+='<section class="card"><h3>Storage</h3><p class="hint">'+(S.storeState==='memory'?'Saving is not available in this browser.':(S.persisted?'Protected: the browser will not clear your log to free up space.':'The browser may clear site data if your phone runs very low on space, so keep a recent backup.'))+'</p></section>';
   h+='<p class="hint center">Casian Fitness Log, version '+APP_VERSION+'</p>';
   return h;
@@ -2998,6 +4195,7 @@ ACT['ing-save']=function(){
   LABEL.forEach(function(l){var v=num(f[l.k]);x[l.k]=l.k==='kcal'?kcal:(['p','c','f'].indexOf(l.k)>-1?(v==null?0:v):v);});
   Object.keys(f.micros||{}).forEach(function(m){var v=num(f.micros[m]);if(MICRO_BY[m]&&v!=null)x.micros[m]=v;});
   S.ingredients[id]=x;
+  if(f.scanRecId)scanLogPatch(f.scanRecId,{saved:clone(x),savedAt:new Date().toISOString()});
   save('ingredients/'+id,x,0);toast('Ingredient saved');
   var r=f.returnTo;UI.ingForm=null;
   if(r){UI.foodView='log';UI.foodDate=r.date;UI.addTo=r.meal;UI.pick=id;UI.grams='';render();focusLater('grams');return;}
@@ -3012,6 +4210,22 @@ ACT['crop-read']=function(){finishCrop(false);};
 ACT['crop-all']=function(){finishCrop(true);};
 ACT['crop-rotate']=function(){rotateCrop();};
 ACT['crop-cancel']=function(){var f=UI.ingForm;if(f&&f.crop){URL.revokeObjectURL(f.crop.url);f.crop=null;render();}};
+ACT['report-save']=function(){
+  scanReport(true).then(function(r){
+    if(!r){toast('No scans kept yet.',3000);return;}
+    var d=new Date(),p2=function(n){return (n<10?'0':'')+n;};
+    downloadBlob(r.blob,'scan-report-'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'-'+p2(d.getHours())+p2(d.getMinutes())+'.zip');
+    toast('Report with '+r.count+(r.count===1?' scan':' scans')+' saved to your downloads. Attach it in the chat.',4500);
+  },function(){toast('Could not build the report.',3500);});
+};
+ACT['report-copy']=function(){
+  scanReport(false).then(function(r){
+    if(!r){toast('No scans kept yet.',3000);return;}
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(r.text).then(function(){toast('Report text copied, without the pictures. Paste it into the chat.',4000);},function(){toast('Could not copy. Use Save report file.',3500);});
+    toast('Copying is not available here. Use Save report file.',3500);
+  },function(){toast('Could not build the report.',3500);});
+};
+ACT['report-clear']=function(){scanTx('readwrite',function(st){st.clear();}).then(function(){toast('Scan reports deleted');scanCount();},function(){});};
 ACT['scan-text']=function(){if(UI.ingForm&&UI.ingForm.scan){UI.ingForm.scan.showText=!UI.ingForm.scan.showText;render();}};
 ACT['scan-copy']=function(){
   var s=UI.ingForm&&UI.ingForm.scan;if(!s)return;
@@ -3047,6 +4261,7 @@ INPUT.tg=function(t){if(UI.targetsForm)UI.targetsForm[t.getAttribute('data-f')]=
 INPUT['if']=function(t){if(UI.ingForm)UI.ingForm[t.getAttribute('data-f')]=t.value;};
 INPUT.im=function(t){if(UI.ingForm){UI.ingForm.micros=UI.ingForm.micros||{};UI.ingForm.micros[t.getAttribute('data-f')]=t.value;}};
 INPUT.mealname=function(t){UI.mealName=t.value;};
+INPUT.reader=function(t){try{localStorage.setItem('cfl-reader',t.value);}catch(e){}toast(t.value==='classic'?'Classic reader selected':'New reader selected ('+(t.value==='fast'?'fast':'accurate')+')');};
 INPUT.blockdate=function(t){if(UI.blockForm)UI.blockForm.date=t.value;};
 INPUT.ingsearch=function(t){UI.ingSearch=t.value;var el=document.getElementById('inglist');if(el)el.innerHTML=ingOptions();};
 INPUT.ingfilter=function(t){UI.ingFilter=t.value;var el=document.getElementById('ingrows');if(el)el.innerHTML=ingRows();};
