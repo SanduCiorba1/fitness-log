@@ -284,6 +284,21 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
   .toast{animation:pop .18s ease-out}
   @keyframes pop{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
 }
+.cam{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:flex;flex-direction:column;align-items:stretch}
+.cam[hidden]{display:none}
+.cam video,.cam img{flex:1 1 auto;min-height:0;width:100%;object-fit:contain;background:#000}
+.cam[data-state="review"] video,.cam[data-state="error"] video,.cam:not([data-state="review"]) img{display:none}
+.cam-msg{position:absolute;left:16px;right:16px;top:calc(68px + env(safe-area-inset-top,0px));margin:0;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,.6);font:500 15px/1.4 var(--font-body);text-align:center}
+.cam[data-state="error"] .cam-msg{position:static;margin:auto 16px;background:none;font-size:16px}
+.cam-x{position:absolute;z-index:1;left:12px;top:calc(12px + env(safe-area-inset-top,0px));appearance:none;border:0;border-radius:999px;padding:10px 16px;background:rgba(0,0,0,.55);color:#fff;font:600 15px var(--font-body)}
+.cam-bar{display:none;flex:0 0 auto;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));background:#000}
+.cam[data-state="starting"] .cam-live,.cam[data-state="live"] .cam-live,.cam[data-state="taking"] .cam-live,.cam[data-state="review"] .cam-review,.cam[data-state="error"] .cam-error{display:flex}
+.cam-side{flex:1 1 0;min-width:0;appearance:none;border:0;background:none;color:#fff;font:600 15px var(--font-body);text-align:left;padding:14px 0}
+.cam-shutter{flex:0 0 auto;width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #000;appearance:none;padding:0}
+.cam[data-state="starting"] .cam-shutter,.cam[data-state="taking"] .cam-shutter{opacity:.4}
+.cam-btn{flex:1 1 0;min-width:0;appearance:none;border:1px solid rgba(255,255,255,.55);border-radius:12px;padding:16px 12px;background:transparent;color:#fff;font:600 17px var(--font-body)}
+.cam-btn.ok{background:#fff;color:#000;border-color:#fff}
+html.cam-on,html.cam-on body{overflow:hidden}
 </style>
 </head>
 <body>
@@ -292,6 +307,15 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <input type="file" id="import-file" accept="application/json,.json" hidden>
 <input type="file" id="scan-file" accept="image/*" hidden>
+<div class="cam" id="cam" role="dialog" aria-modal="true" aria-label="Camera" hidden>
+  <video id="cam-video" playsinline autoplay muted></video>
+  <img id="cam-shot" alt="The photo you took">
+  <p class="cam-msg" id="cam-msg" role="status" hidden></p>
+  <button class="cam-x" data-cam="close">Cancel</button>
+  <div class="cam-bar cam-live"><button class="cam-side" data-cam="gallery">Gallery</button><button class="cam-shutter" data-cam="shoot" aria-label="Take the photo"></button><span class="cam-side"></span></div>
+  <div class="cam-bar cam-review"><button class="cam-btn" data-cam="retry">Try again</button><button class="cam-btn ok" data-cam="ok">OK</button></div>
+  <div class="cam-bar cam-error"><button class="cam-btn" data-cam="gallery">Phone camera or gallery</button></div>
+</div>
 <nav class="tabbar gut" id="tabbar" aria-label="Sections">
   <div class="wrap">
     <button class="tab" data-act="tab" data-tab="train"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h20"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/></svg>Train</button>
@@ -303,7 +327,7 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.2.10';
+var APP_VERSION='1.2.11';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -443,6 +467,70 @@ sun:{title:'Long run',items:[
 ]}
 }};
 /*PLAN_V2_END*/
+/* The plan of 16-Nov-26: the Garmin v2.1 workouts from the training chat (vest block and one-arm work on Monday, one
+   max set before the weighted pull-ups on Tuesday, archer push-ups on Wednesday, pull-ups first on Thursday, both
+   morning runs as 60/30/10, HIIT with 5 rounds) */
+/*PLAN_V3_START*/
+var PLAN_V3={v:3,
+restNote:'Paired moves: one set of A, rest c.90 s, one set of B, rest c.90 s, repeat. Each move then gets c.3 min between its own sets. Moves done alone: max tests and weighted sets rest c.3 min, other main lifts c.2 min, warm-ups and light shoulder-blade moves 30 to 60 s.',
+days:{
+mon:{title:'Push and legs',note:'Warm up first: a few minutes of jump rope or jogging on the spot, arm circles, scapular pull-ups and bodyweight squats, then one light set of the first move in each pair. The vest goes on once, from the dips to the diamond push-ups (8 kg), and comes off once.',items:[
+  {id:'mon-jumpsq',name:'Jump squats',sets:3,note:'6 max-height jumps: land softly, pause, jump again. No vest',main:true,pairNext:true},
+  {id:'mon-onearm',name:'Incline one-arm push-ups',sets:3,note:'Per arm, hand on a bench or step, 5 to 8 reps. Start each set with 1 full rep on the floor. Lower the hand once you reach 8 clean reps per arm',main:true},
+  {id:'mon-dips',name:'Weighted dips',sets:3,note:'Vest on, 8 kg, 8 to 15 reps. Add 2 kg once all 3 sets reach 15',main:true,pairNext:true},
+  {id:'mon-bss',name:'Bulgarian split squats',sets:3,note:'Per leg, 8 kg. Add 2 kg when you pass 15 reps',main:true},
+  {id:'mon-pushups',name:'Weighted push-ups',sets:3,note:'Vest, 8 kg, 8 to 15 reps. Alone, c.2 min rest'},
+  {id:'mon-diamond',name:'Weighted diamond push-ups',sets:3,note:'Vest, 8 kg, 8 to 15 reps. Alone, c.2 min rest. Vest off after the last set'},
+  {id:'mon-nordic',name:'Nordic curls',sets:3,note:'3 slow reps',pairNext:true},
+  {id:'mon-sideplank',name:'Side plank',sets:3,note:'1 min per side'},
+  {id:'mon-hang',name:'Assisted one-arm hangs',sets:3,note:'Per arm, 10 to 20 s, the other hand helping lightly. Shoulder pulled down; stop at any finger or elbow pain',pairNext:true},
+  {id:'mon-abwheel',name:'Ab wheel',sets:3}
+]},
+tue:{title:'Run and pull',note:'Max test first and alone, then the weighted sets. The other pull moves pair with core or light shoulder-blade work.',items:[
+  {id:'tue-run',name:'60/30/10 run',type:'run',sets:1,note:'Morning. 60% easy (heart rate c.140 or below), 30% steady (145 to 155), last 10% comfortably hard (158 to 167)'},
+  {id:'tue-scap',name:'Scapular pull-ups',sets:3,note:'Warm-up',role:'warmup'},
+  {id:'tue-pullups',name:'Pull-ups',sets:1,note:'Your weekly strict max test: one set, full grip. Then rest 3 to 4 min before the weighted sets',main:true},
+  {id:'tue-weighted',name:'Weighted pull-ups',sets:3,note:'4 kg, c.6 reps. Alone, c.3 min rest. Drop them for a week if your elbows ache',main:true},
+  {id:'tue-lsit',name:'L-sit pull-ups',sets:3,note:'Archer pull-ups take their place once you reach 20 strict pull-ups',pairNext:true},
+  {id:'tue-y',name:'Y raises',sets:3,note:'Light and controlled'},
+  {id:'tue-rows',name:'Neutral-grip inverted rows',sets:3,note:'Palms facing each other',pairNext:true},
+  {id:'tue-hollow',name:'Hollow hold',sets:3,note:'Add hold time to progress'}
+]},
+wed:{title:'Push',note:'Max test first and alone. Dips pair with the plank; the other push moves stay single with 60 to 90 s rest, since two pushes never pair.',items:[
+  {id:'wed-scap',name:'Scapular push-ups',sets:3,note:'Warm-up',role:'warmup'},
+  {id:'wed-pushups',name:'Push-ups',sets:3,note:'Set 1 is your weekly test: max reps with 3 pauses of 5 s, on bars. Sets 2 and 3 stop one or two reps short. Alone, 2 to 3 min rest. If the test stalls for 3 or 4 weeks, add a fourth set',main:true},
+  {id:'wed-dips',name:'Dips',sets:3,note:'Bodyweight until all 3 sets reach 15 reps',main:true,pairNext:true},
+  {id:'wed-plank',name:'Extended plank',sets:3,note:'Add hold time to progress'},
+  {id:'wed-archer',name:'Archer push-ups',sets:3,note:'6 to 10 per side. Rest 60 to 90 s'},
+  {id:'wed-pike',name:'Pike push-ups',sets:3,note:'Kneeling pikes, each set starting with 1 or 2 full pikes. Rest 60 to 90 s'}
+]},
+thu:{title:'Run, pull and legs',note:'Every pull pairs with a leg or core move, so your arms get c.3 min between their own sets. A set ends when your chin cannot clear the bar with control.',items:[
+  {id:'thu-run',name:'60/30/10 run',type:'run',sets:1,note:'Morning. As on Tuesday, with the first 60% truly easy (c.140 or below). After a short night or with heavy legs, run it easy or skip it'},
+  {id:'thu-pullups',name:'Pull-ups',sets:3,note:'First, since they are the ones you test. Strict reps, stopping one or two short',main:true,pairNext:true},
+  {id:'thu-pistol',name:'Pistol squat progressions',sets:3,note:'Per leg, to a box or bench',main:true},
+  {id:'thu-chin',name:'Chin-ups',sets:3,main:true,pairNext:true},
+  {id:'thu-calf',name:'Single-leg calf raises',sets:3,note:'Per leg, on a step, c.15 reps'},
+  {id:'thu-wide',name:'Wide-grip pull-ups',sets:3,note:'Swap for overhand inverted rows if your arms die or sets drop below 5 clean reps',pairNext:true},
+  {id:'thu-backext',name:'Static back extensions',sets:3,note:'Hold time'},
+  {id:'thu-face',name:'Face pulls',sets:3,note:'Light and controlled',pairNext:true},
+  {id:'thu-legraise',name:'Leg raises',sets:3}
+]},
+fri:{title:'HIIT 4x4',items:[
+  {id:'fri-hiit',name:'HIIT 4x4',type:'rounds',sets:5,note:'5 min warm-up. Jump rope, high knees, mountain climbers, burpees: 1 min each, no rest. Then 3 min easy jog. 5 rounds, working at 158 to 167 bpm'}
+]},
+sat:{title:'Rest',items:[]},
+sun:{title:'Long run',items:[
+  {id:'sun-long',name:'Long run',type:'run',sets:1,role:'longrun'}
+]}
+}};
+/*PLAN_V3_END*/
+/* what a plan says, for telling a plan still as shipped from one edited in the app */
+function planSig(p){
+  return JSON.stringify(['mon','tue','wed','thu','fri','sat','sun'].map(function(k){
+    var d=(p&&p.days&&p.days[k])||{};
+    return [d.title||'',d.note||'',(d.items||[]).map(function(x){return [x.id,x.name,parseInt(x.sets,10)||0,x.note||'',!!x.main,!!x.pairNext,x.role||'',x.type||''];})];
+  }));
+}
 var LONGRUN_SEED={date:'2026-11-01',km:12,kind:'6030',step:1};
 
 /* ---------- state ---------- */
@@ -543,6 +631,23 @@ function migrate(){
       S.plan.v=2;
     }
     save('app/plan',S.plan,0);
+  }
+  /* Version 1.2.11: the plan of 16-Nov-26. A plan still as shipped is replaced; one edited in the app is kept and the
+     Train tab offers the new one */
+  if(S.plan&&S.plan.v===2&&!S.meta.planOffer){
+    if(planSig(S.plan)===planSig(PLAN_V2)){S.plan=clone(PLAN_V3);save('app/plan',S.plan,0);setMeta({planOffer:'auto'});}
+    else setMeta({planOffer:'v3'});
+  }
+  /* Version 1.2.11: records for the goals of the training chat, added once (not when a record of that kind exists) */
+  if(S.settings&&!S.meta.recs1211){
+    var have=Object.keys(S.prs).map(function(id){return String(S.prs[id].name||'').toLowerCase();});
+    [['One-arm push-ups','Clean reps per arm, chest to the floor','reps',/one.?(arm|hand(ed)?) push/],
+     ['One-arm pull-ups','Strict reps per arm from a dead hang','reps',/one.?(arm|hand(ed)?) (pull|chin)/],
+     ['Weighted pull-ups','Added weight for 5 strict reps','kg',/weighted (pull|chin)/]].forEach(function(r,i){
+      if(have.some(function(n){return r[3].test(n);}))return;
+      var id='pr-'+uid()+i;S.prs[id]={name:r[0],test:r[1],type:r[2],order:Date.now()+i,history:[]};save('prs/'+id,S.prs[id],0);
+    });
+    setMeta({recs1211:1});
   }
   if(S.plan&&hasLongRun()&&(!S.settings||!S.settings.longRun)){
     S.settings=S.settings||{blockStart:null,targets:{}};S.settings.longRun=clone(LONGRUN_SEED);save('app/settings',S.settings,0);
@@ -2296,12 +2401,124 @@ $scan.addEventListener('change',function(){
   if(!f||!UI.ingForm)return;
   showCrop(f);
 });
-/* Crop step: the reader works on the nutrition table only, at full resolution */
-function showCrop(file){
+/* ---------- label scanning: the camera inside the app ----------
+   Scan label opens the back camera in a full-screen view: a shutter button, then the photo with Try again and OK, then
+   the crop view. The photo is taken through the camera's still-photo path where the browser offers it
+   (ImageCapture.takePhoto, the sensor's full resolution) and from the live picture otherwise. When the camera cannot
+   open, the phone's own camera or gallery is offered through the file picker, as before 1.2.11.
+   States of the view: starting, live, taking, review, error (the style sheet shows the matching buttons). */
+var CAM={open:false,state:'',stream:null,blob:null,url:null,via:'',busy:false,seq:0,pushed:false};
+var $cam=document.getElementById('cam'),$camVideo=document.getElementById('cam-video'),$camShot=document.getElementById('cam-shot'),$camMsg=document.getElementById('cam-msg');
+function camSupported(){return !!($cam&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);}
+function camSet(state,msg){
+  CAM.state=state;$cam.setAttribute('data-state',state);
+  $camMsg.textContent=msg||'';$camMsg.hidden=!msg;
+}
+function camStop(){
+  var s=CAM.stream;CAM.stream=null;
+  if(s)try{s.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  try{$camVideo.srcObject=null;}catch(e){}
+}
+function camDrop(){
+  if(CAM.url)try{URL.revokeObjectURL(CAM.url);}catch(e){}
+  CAM.url=null;CAM.blob=null;CAM.via='';$camShot.removeAttribute('src');
+}
+function camStart(){
+  var seq=++CAM.seq;camStop();CAM.busy=false;camSet('starting','Opening the camera');
+  navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}}}).then(function(stream){
+    /* closed, or started again, while the phone asked for permission */
+    if(!CAM.open||seq!==CAM.seq){try{stream.getTracks().forEach(function(t){t.stop();});}catch(e){}return;}
+    CAM.stream=stream;$camVideo.srcObject=stream;
+    var p=$camVideo.play();if(p&&p.catch)p.catch(function(){});
+    camSet('live','');
+  }).catch(function(e){
+    if(!CAM.open||seq!==CAM.seq)return;
+    var n=(e&&e.name)||'';
+    camSet('error',(n==='NotAllowedError'||n==='SecurityError'?'The app is not allowed to use the camera. Allow the camera for this site in the browser settings to take photos here.':
+      n==='NotFoundError'||n==='OverconstrainedError'?'No camera was found.':'The camera could not be opened'+(n?' ('+n+')':'')+'.')+' You can use the phone\'s camera or a photo from the gallery instead.');
+  });
+}
+function camOpen(){
+  if(CAM.open)return;
+  CAM.open=true;camDrop();$cam.hidden=false;document.documentElement.classList.add('cam-on');
+  /* the phone's Back button closes the camera instead of leaving the app */
+  try{history.pushState({cfl:'cam'},'');CAM.pushed=true;}catch(e){CAM.pushed=false;}
+  camStart();
+}
+function camClose(fromBack){
+  if(!CAM.open)return;
+  CAM.open=false;CAM.seq++;CAM.busy=false;camStop();camDrop();$cam.hidden=true;document.documentElement.classList.remove('cam-on');camSet('','');
+  var pushed=CAM.pushed;CAM.pushed=false;
+  if(pushed&&!fromBack)try{history.back();}catch(e){}
+}
+/* the live picture as it is now */
+function camFrame(){
+  var w=$camVideo.videoWidth,h=$camVideo.videoHeight;
+  if(!w||!h)return Promise.reject(new Error('the camera gave no picture'));
+  var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage($camVideo,0,0,w,h);
+  return new Promise(function(res,rej){c.toBlob(function(b){if(b)res(b);else rej(new Error('the picture could not be saved'));},'image/jpeg',0.95);});
+}
+function camShoot(){
+  if(CAM.state!=='live'||CAM.busy||!CAM.stream)return;
+  CAM.busy=true;camSet('taking','Hold still');
+  var seq=CAM.seq,track=CAM.stream.getVideoTracks()[0],via='frame',p;
+  if(window.ImageCapture&&track){
+    p=new Promise(function(res,rej){
+      var t=setTimeout(function(){rej(new Error('timeout'));},5000);
+      try{new ImageCapture(track).takePhoto().then(function(b){clearTimeout(t);res(b);},function(e){clearTimeout(t);rej(e);});}catch(e){clearTimeout(t);rej(e);}
+    }).then(function(b){if(!b||b.size<20000)throw new Error('empty');via='photo';return b;}).catch(function(){return camFrame();});
+  }else p=camFrame();
+  p.then(function(blob){
+    if(!CAM.open||seq!==CAM.seq)return;
+    camDrop();CAM.blob=blob;CAM.via=via;CAM.url=URL.createObjectURL(blob);$camShot.src=CAM.url;
+    CAM.busy=false;camSet('review','');
+    try{$camVideo.pause();}catch(e){}
+  }).catch(function(){
+    if(!CAM.open||seq!==CAM.seq)return;
+    CAM.busy=false;camSet('live','The photo could not be taken. Try again.');
+  });
+}
+function camRetry(){
+  if(CAM.state!=='review')return;
+  camDrop();
+  var t=CAM.stream&&CAM.stream.getVideoTracks()[0];
+  /* some phones end the live picture after a still photo: then the camera is opened again */
+  if(t&&t.readyState==='live'){var p=$camVideo.play();if(p&&p.catch)p.catch(function(){});camSet('live','');}
+  else camStart();
+}
+function camOk(){
+  if(CAM.state!=='review'||!CAM.blob)return;
+  var blob=CAM.blob,via=CAM.via;
+  camClose();
+  if(UI.ingForm)showCrop(blob,'camera '+via);
+}
+if($cam){
+  $cam.addEventListener('click',function(e){
+    var b=e.target.closest('[data-cam]');if(!b)return;
+    var a=b.getAttribute('data-cam');
+    if(a==='shoot')camShoot();
+    else if(a==='retry')camRetry();
+    else if(a==='ok')camOk();
+    else if(a==='close')camClose();
+    else if(a==='gallery'){$scan.click();camClose();}
+  });
+  window.addEventListener('popstate',function(){if(CAM.open)camClose(true);});
+  /* the camera is given back while the app is in the background; the live view opens it again on return, and a photo
+     waiting for Try again or OK stays as it is */
+  document.addEventListener('visibilitychange',function(){
+    if(!CAM.open)return;
+    var still=CAM.state==='review'||CAM.state==='error';
+    if(document.hidden){if(!still)CAM.seq++;camStop();}
+    else if(!still)camStart();
+  });
+}
+/* Crop step: the reader works on the nutrition table only, at full resolution. via says where the photo came from
+   (the camera in the app, or a file from the phone's camera or gallery); it goes into the scan report */
+function showCrop(file,via){
   var form=UI.ingForm,url=URL.createObjectURL(file),img=new Image();
   img.onload=function(){
     if(UI.ingForm!==form){URL.revokeObjectURL(url);return;}
-    form.crop={url:url,img:img,rect:{x:0.03,y:0.03,w:0.94,h:0.94},rot:0,viewUrl:url};form.scan=null;render();
+    form.crop={url:url,img:img,rect:{x:0.03,y:0.03,w:0.94,h:0.94},rot:0,viewUrl:url,via:via||'file'};form.scan=null;render();
     setTimeout(function(){var el=document.getElementById('crop-stage');if(el)el.scrollIntoView({block:'start',behavior:'smooth'});},50);
   };
   img.onerror=function(){URL.revokeObjectURL(url);toast('Could not open that photo.',3500);};
@@ -2443,7 +2660,7 @@ function finishCrop(whole){
   var f=UI.ingForm;if(!f||!f.crop)return;
   var c=f.crop,rect=whole?{x:0,y:0,w:1,h:1}:c.rect,kind=readerKind(),rot=c.rot||0;
   f.crop=null;
-  var rec=scanLogBegin(c.img,rect,rot,kind);
+  var rec=scanLogBegin(c.img,rect,rot,kind);if(rec)rec.via=c.via||'file';
   /* the network reader works on the colour crop, the classic reader on its grey treatments */
   if(kind!=='classic'){runScanNet({img:c.img,rect:rect,rot:rot,kind:kind,url:c.url});return;}
   var prep;
@@ -3741,9 +3958,19 @@ function renderTrain(){
     h+='<button class="day'+(sel?' sel':'')+(y===tY?' today':'')+(rest?' rest':'')+'" data-act="day" data-day="'+k+'" aria-pressed="'+sel+'" aria-label="'+DAY_LONG[k]+' '+fmtDM(d)+(rest?', rest day':'')+'"><span class="d-name">'+DAY_SHORT[k]+'</span><span class="d-num">'+d.getDate()+'</span></button>';
   });
   h+='</div>';
+  h+=planOfferHtml();
   h+=UI.editDay?renderDayEdit():renderDay();
   h+=renderBlock();
   return h;
+}
+/* the hand-over of the plan of 16-Nov-26: a notice when it replaced the shipped plan, an offer when the plan in the app
+   had been edited */
+function planOfferHtml(){
+  var st=S.meta&&S.meta.planOffer;
+  if(!S.plan||(st!=='v3'&&st!=='auto'))return '';
+  var what='Monday has the vest block and the one-arm work, Tuesday one max set before the weighted pull-ups, Wednesday archer push-ups, Thursday pull-ups first. Both morning runs are 60/30/10 and the HIIT has 5 rounds.';
+  if(st==='auto')return '<section class="card"><h3>Training plan updated</h3><p class="hint">The plan now follows your Garmin v2.1 workouts of 16-Nov-26. '+what+'</p><div class="row"><button class="btn primary small" data-act="plan-seen">OK</button></div></section>';
+  return '<section class="card"><h3>New training plan</h3><p class="hint">The plan of 16-Nov-26 follows your Garmin v2.1 workouts. '+what+' Your plan in the app was edited by hand, so it was left as it is.</p><div class="row"><button class="btn primary" data-act="plan-use">Use the new plan</button><button class="btn ghost" data-act="plan-keep">Keep mine</button></div></section>';
 }
 function tagsHtml(ex){return (ex.main?' <span class="tag">Main</span>':'')+(ex.role==='warmup'?' <span class="tag soft">Warm-up</span>':'');}
 function exRow(ex,letter){
@@ -3835,6 +4062,7 @@ function renderBlock(){
   var h='<section class="block"><h3>Training block</h3><p class="hint">'+(bs?'Week 1 started on Monday '+fmtDate(bs)+'. After a major change to your plan, start a new block and the count restarts at week 1.':'Set the Monday your current plan started, and every week gets a number.')+'</p>';
   if(UI.blockForm)h+='<label class="fld" for="block-date"><span>Week 1 starts the week of</span><input class="txt" type="date" id="block-date" data-k="blockdate" value="'+esc(UI.blockForm.date)+'"></label><div class="row"><button class="btn primary" data-act="block-save">'+(bs?'Start new block':'Save')+'</button><button class="btn ghost" data-act="block-cancel">Cancel</button></div>';
   else h+='<div class="row"><button class="btn" data-act="block-open">'+(bs?'Start new block':'Set block start')+'</button></div>';
+  if(S.plan&&S.plan.v<3&&S.meta&&S.meta.planOffer==='kept')h+='<p class="hint">The plan of 16-Nov-26 (your Garmin v2.1 workouts) is still available.</p><div class="row"><button class="btn small" data-act="plan-again">Show the new plan</button></div>';
   return h+'</section>';
 }
 
@@ -3853,7 +4081,7 @@ function renderPRs(){
   return h;
 }
 function prCard(id,pr){
-  var hist=pr.history||[],b=prBest(pr),unit=pr.type==='secs'?'s':(pr.type==='run'?'km':'reps'),bestHtml;
+  var hist=pr.history||[],b=prBest(pr),unit=pr.type==='secs'?'s':(pr.type==='run'?'km':(pr.type==='kg'?'kg':'reps')),bestHtml;
   if(!b)bestHtml='<p class="hint">No result yet. Log your first test.</p>';
   else{
     var bv=prVal(pr,b),prev=hist.map(function(x){return prVal(pr,x);}).filter(function(v){return v<bv;}),pv=prev.length?Math.max.apply(null,prev):null;
@@ -3884,7 +4112,7 @@ function pfld(label,id,f,value,mode){
 function prLogForm(pr){
   var f=UI.prForm,vals;
   if(pr.type==='run')vals='<div class="run-grid">'+pfld('km','prf-km','km',f.km,'decimal')+pfld('min','prf-min','min',f.min,'numeric')+pfld('sec','prf-s','s',f.s,'numeric')+'</div>';
-  else vals='<div class="grams-row">'+pfld(pr.type==='secs'?'Seconds':'Reps','prf-value','value',f.value,'numeric')+'<div></div></div>';
+  else vals='<div class="grams-row">'+pfld(pr.type==='secs'?'Seconds':(pr.type==='kg'?'Kilograms':'Reps'),'prf-value','value',f.value,pr.type==='kg'?'decimal':'numeric')+'<div></div></div>';
   return '<div class="form-block">'+vals+
     '<div class="grid2"><label class="fld" for="prf-date"><span>Date</span><input class="txt" type="date" id="prf-date" data-k="prf" data-f="date" value="'+esc(f.date)+'"></label>'+
     '<label class="fld" for="prf-note"><span>Note</span><input class="txt" id="prf-note" data-k="prf" data-f="note" value="'+esc(f.note)+'" placeholder="Optional"></label></div>'+
@@ -3893,7 +4121,7 @@ function prLogForm(pr){
 }
 function newPrForm(){
   var f=UI.newPr;
-  var types=[['reps','Reps'],['secs','Seconds (holds)'],['run','Run distance and time']].map(function(t){return '<option value="'+t[0]+'"'+(f.type===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('');
+  var types=[['reps','Reps'],['secs','Seconds (holds)'],['kg','Kilograms (added weight)'],['run','Run distance and time']].map(function(t){return '<option value="'+t[0]+'"'+(f.type===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('');
   return '<section class="card"><h3>New record</h3>'+
     '<label class="fld" for="prn-name"><span>Name</span><input class="txt" id="prn-name" data-k="prn" data-f="name" value="'+esc(f.name)+'" placeholder="Dips, L-sit hold, 5 km run"></label>'+
     '<label class="fld" for="prn-test"><span>How you test it</span><input class="txt" id="prn-test" data-k="prn" data-f="test" value="'+esc(f.test)+'" placeholder="Max strict reps in one set"></label>'+
@@ -4011,7 +4239,7 @@ function scanHtml(f){
   if(s.busy){
     h+='<div class="scan-status" id="scan-status"><span class="spin"></span><span>'+esc(s.status||'Working')+'</span></div><div class="scan-bar"><span id="scan-bar" style="width:0%"></span></div>';
   }else{
-    h+='<div class="row between"><button class="btn" data-act="scan">'+(s.done?'Scan again':'Scan label')+'</button><span class="hint">Photo of the label, then crop to the table</span></div>';
+    h+='<div class="row between"><button class="btn" data-act="scan">'+(s.done?'Scan again':'Scan label')+'</button><span class="hint">Take the photo, then box the table</span></div>';
     if(s.err)h+='<p class="err">'+esc(s.err)+'</p>';
     if(s.done){
       var n=(s.found||[]).length+(s.foundMicros||[]).length;
@@ -4101,6 +4329,10 @@ ACT['lr-save']=function(){
   S.settings.longRun={date:ymd(sundayOf(parseYmd(f.date))),km:r2(km),kind:f.kind==='easy'?'easy':'6030',step:r2(step)};
   save('app/settings',S.settings,0);UI.lrForm=null;toast('Long run schedule updated');render();
 };
+ACT['plan-seen']=function(){setMeta({planOffer:'seen'});render();};
+ACT['plan-use']=function(){S.plan=clone(PLAN_V3);save('app/plan',S.plan,0);setMeta({planOffer:'used'});UI.editDay=false;toast('Training plan updated');render();};
+ACT['plan-keep']=function(){setMeta({planOffer:'kept'});toast('Your plan stays as it is');render();};
+ACT['plan-again']=function(){setMeta({planOffer:'v3'});render();window.scrollTo(0,0);};
 ACT['block-open']=function(){UI.blockForm={date:ymd(mondayOf(new Date()))};render();focusLater('block-date');};
 ACT['block-cancel']=function(){UI.blockForm=null;render();};
 ACT['block-save']=function(){
@@ -4115,7 +4347,7 @@ ACT['pr-log-save']=function(){
   var f=UI.prForm,pr=f&&S.prs[f.id];if(!pr)return;
   var d=f.date||todayY(),wk=weekNum(parseYmd(d)),entry;
   if(pr.type==='run'){var km=num(f.km);if(!(km>0)){f.err='Enter the distance in km.';render();return;}var sec=(num(f.min)||0)*60+(num(f.s)||0);entry={date:d,week:wk,km:km,sec:sec||null,note:f.note||''};}
-  else{var v=num(f.value);if(!(v>0)){f.err='Enter a number above 0.';render();return;}entry={date:d,week:wk,value:Math.round(v),note:f.note||''};}
+  else{var v=num(f.value);if(!(v>0)){f.err='Enter a number above 0.';render();return;}entry={date:d,week:wk,value:pr.type==='kg'?Math.round(v*10)/10:Math.round(v),note:f.note||''};}
   var before=prBest(pr),isNew=!before||prVal(pr,entry)>prVal(pr,before);
   pr.history=(pr.history||[]).concat([entry]);sortHist(pr);save('prs/'+f.id,pr,0);UI.prForm=null;toast(isNew?'New PR saved':'Result saved');render();
 };
@@ -4205,7 +4437,7 @@ ACT['ing-del']=function(){UI.ingForm.confirmDel=true;render();};
 ACT['ing-del-no']=function(){UI.ingForm.confirmDel=false;render();};
 ACT['ing-del-yes']=function(){var id=UI.ingForm.id;delete S.ingredients[id];removeDoc('ingredients/'+id);UI.ingForm=null;toast('Ingredient deleted');render();};
 ACT['micros-toggle']=function(){if(UI.ingForm){UI.ingForm.showMicros=!UI.ingForm.showMicros;render();}};
-ACT.scan=function(){if(!UI.ingForm||UI.ingForm.crop||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;$scan.click();};
+ACT.scan=function(){if(!UI.ingForm||UI.ingForm.crop||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;if(camSupported())camOpen();else $scan.click();};
 ACT['crop-read']=function(){finishCrop(false);};
 ACT['crop-all']=function(){finishCrop(true);};
 ACT['crop-rotate']=function(){rotateCrop();};
@@ -4288,7 +4520,7 @@ document.addEventListener('visibilitychange',function(){
 });
 
 /* ---------- start ---------- */
-window.CFL={parseLabel:parseLabel,PLAN_V2:PLAN_V2,version:APP_VERSION};
+window.CFL={parseLabel:parseLabel,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,version:APP_VERSION};
 render();
 openIdb().then(function(h){
   KV=h?idbKV(h):(lsWorks()?lsKV():memKV());
