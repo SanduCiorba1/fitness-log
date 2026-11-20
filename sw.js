@@ -1,9 +1,11 @@
 /* Casian Fitness Log service worker: keeps the app working offline.
    Bump CACHE when releasing a new version so phones pick it up. */
-var CACHE = 'cfl-app-v1.2.11';
+var CACHE = 'cfl-app-v1.3.0';
 var FONT_CACHE = 'cfl-fonts';
 var OCR_CACHE = 'cfl-ocr';
 var MODEL_CACHE = 'cfl-models';
+/* the Market food table (foods-v1.json): kept across app updates; a changed table gets a new file name */
+var DATA_CACHE = 'cfl-data';
 var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 var FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 /* The label readers' files are fetched on the first scan and kept for offline use: ONNX Runtime Web for the network
@@ -23,7 +25,7 @@ self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys()
       .then(function (keys) {
-        return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== FONT_CACHE && k !== OCR_CACHE && k !== MODEL_CACHE; })
+        return Promise.all(keys.filter(function (k) { return k !== CACHE && k !== FONT_CACHE && k !== OCR_CACHE && k !== MODEL_CACHE && k !== DATA_CACHE; })
           .map(function (k) { return caches.delete(k); }));
       })
       .then(function () { return self.clients.claim(); })
@@ -52,6 +54,7 @@ self.addEventListener('fetch', function (e) {
 
   if (url.origin !== self.location.origin) return;
   if (/\.onnx$/.test(url.pathname)) { e.respondWith(cacheFirst(MODEL_CACHE, req)); return; }
+  if (/foods-v\d+\.json$/.test(url.pathname)) { e.respondWith(cacheFirst(DATA_CACHE, req)); return; }
 
   // App files: serve from cache straight away, refresh the cache in the background.
   e.respondWith(caches.open(CACHE).then(function (c) {

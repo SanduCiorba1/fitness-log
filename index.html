@@ -94,10 +94,10 @@ button{cursor:pointer;touch-action:manipulation}
 /* Main + tab bar */
 main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabbar .wrap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.tabbar .wrap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
 .tab{appearance:none;border:0;background:transparent;color:var(--muted);padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:600 12px var(--font-body);letter-spacing:.07em;text-transform:uppercase}
 .tab[aria-current="page"]{color:var(--accent)}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:7;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font:600 14px var(--font-body);max-width:calc(100% - 32px);width:max-content;text-align:center;box-shadow:0 6px 20px var(--shadow)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font:600 14px var(--font-body);max-width:calc(100% - 32px);width:max-content;text-align:center;box-shadow:0 6px 20px var(--shadow)}
 
 /* Buttons and fields */
 .btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 14px;font:600 15px/1.2 var(--font-body);display:inline-flex;align-items:center;justify-content:center;gap:6px}
@@ -286,19 +286,58 @@ textarea.txt{min-height:76px;resize:vertical;line-height:1.4}
 }
 .cam{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:flex;flex-direction:column;align-items:stretch}
 .cam[hidden]{display:none}
-.cam video,.cam img{flex:1 1 auto;min-height:0;width:100%;object-fit:contain;background:#000}
-.cam[data-state="review"] video,.cam[data-state="error"] video,.cam:not([data-state="review"]) img{display:none}
-.cam-msg{position:absolute;left:16px;right:16px;top:calc(68px + env(safe-area-inset-top,0px));margin:0;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,.6);font:500 15px/1.4 var(--font-body);text-align:center}
-.cam[data-state="error"] .cam-msg{position:static;margin:auto 16px;background:none;font-size:16px}
+.cam img{flex:1 1 auto;min-height:0;width:100%;object-fit:contain;background:#000}
 .cam-x{position:absolute;z-index:1;left:12px;top:calc(12px + env(safe-area-inset-top,0px));appearance:none;border:0;border-radius:999px;padding:10px 16px;background:rgba(0,0,0,.55);color:#fff;font:600 15px var(--font-body)}
-.cam-bar{display:none;flex:0 0 auto;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));background:#000}
-.cam[data-state="starting"] .cam-live,.cam[data-state="live"] .cam-live,.cam[data-state="taking"] .cam-live,.cam[data-state="review"] .cam-review,.cam[data-state="error"] .cam-error{display:flex}
-.cam-side{flex:1 1 0;min-width:0;appearance:none;border:0;background:none;color:#fff;font:600 15px var(--font-body);text-align:left;padding:14px 0}
-.cam-shutter{flex:0 0 auto;width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #000;appearance:none;padding:0}
-.cam[data-state="starting"] .cam-shutter,.cam[data-state="taking"] .cam-shutter{opacity:.4}
+.cam-bar{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));background:#000}
 .cam-btn{flex:1 1 0;min-width:0;appearance:none;border:1px solid rgba(255,255,255,.55);border-radius:12px;padding:16px 12px;background:transparent;color:#fff;font:600 17px var(--font-body)}
 .cam-btn.ok{background:#fff;color:#000;border-color:#fff}
 html.cam-on,html.cam-on body{overflow:hidden}
+.seg.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.seg.three button{padding-inline:4px}
+.cook-typ{display:flex;flex-direction:column;gap:8px}
+.mk-head{margin-top:6px}
+.ph-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ph-grid.four{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ph-tile{appearance:none;border:0;background:none;padding:0;display:flex;flex-direction:column;gap:5px;text-align:left;color:var(--ink);font:600 13px/1.2 var(--font-body);min-width:0}
+.ph-tile img,.ph-tile i{display:block;width:100%;aspect-ratio:3/4;border-radius:10px;object-fit:cover;background:var(--sunk)}
+.ph-tile i{display:grid;place-items:center;font:400 30px/1 var(--font-body);font-style:normal;color:var(--muted);background:transparent;border:1.5px dashed var(--line)}
+.ph-tile span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ph-tile small{display:block;font-weight:400;color:var(--muted)}
+.ph-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.ph-chips::-webkit-scrollbar{display:none}
+.ph-chip{flex:none;appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 12px;font:600 14px var(--font-body)}
+.ph-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ph-tips summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ph-tips summary::-webkit-details-marker{display:none}
+.ph-tips summary::after{content:"+";font:400 26px/1 var(--font-body);color:var(--muted);transition:transform .15s}
+.ph-tips[open] summary::after{transform:rotate(45deg)}
+.ph-list{margin:12px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.phv{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:flex;flex-direction:column}
+.phv[hidden]{display:none}
+.phv-top{flex:none;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px}
+.phv-x{flex:none;appearance:none;border:0;border-radius:999px;padding:9px 15px;background:rgba(255,255,255,.16);color:#fff;font:600 15px var(--font-body)}
+.phv-t{min-width:0;display:flex;flex-direction:column;font-size:13px;color:rgba(255,255,255,.72)}
+.phv-t b{font:600 16px var(--font-body);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phv-imgs{flex:1 1 auto;min-height:0;display:flex;gap:4px;padding:0 4px}
+.phv-imgs figure{margin:0;flex:1 1 0;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.phv-imgs img{flex:1 1 auto;min-height:0;width:100%;object-fit:contain}
+.phv-imgs figcaption{flex:none;font:600 13px var(--font-body);color:rgba(255,255,255,.82)}
+.phv-bar{flex:none;display:flex;flex-direction:column;gap:10px;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px))}
+.phv-row{display:flex;gap:8px;align-items:center}
+.phv-mid{flex:1;min-width:0;text-align:center;font:600 14px var(--font-body);color:rgba(255,255,255,.82)}
+.phv-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.phv-b{flex:1 1 0;min-width:0;appearance:none;border:1px solid rgba(255,255,255,.45);border-radius:12px;padding:12px 8px;background:transparent;color:#fff;font:600 15px var(--font-body)}
+.phv-b[aria-pressed="true"]{background:#fff;color:#000;border-color:#fff}
+.phv-b.bad{border-color:#F2877F;color:#F2877F}
+.phv-a{flex:none;width:46px;height:44px;appearance:none;border:1px solid rgba(255,255,255,.45);border-radius:12px;background:transparent;color:#fff;display:grid;place-items:center}
+.phv-a[disabled]{opacity:.3}
+.phs{position:fixed;inset:0;z-index:55}
+.phs[hidden]{display:none}
+.phs-back{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.phs-panel{position:absolute;left:0;right:0;bottom:0;max-width:620px;margin:0 auto;background:var(--surface);color:var(--ink);border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.phs-panel h3{margin:0;font:700 22px/1.1 var(--font-display)}
+.phs-btns{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.phs-btns .btn{padding:13px 14px}
 </style>
 </head>
 <body>
@@ -307,27 +346,30 @@ html.cam-on,html.cam-on body{overflow:hidden}
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <input type="file" id="import-file" accept="application/json,.json" hidden>
 <input type="file" id="scan-file" accept="image/*" hidden>
-<div class="cam" id="cam" role="dialog" aria-modal="true" aria-label="Camera" hidden>
-  <video id="cam-video" playsinline autoplay muted></video>
+<input type="file" id="scan-cam" accept="image/*" capture="environment" hidden>
+<input type="file" id="ph-cam" accept="image/*" capture hidden>
+<input type="file" id="ph-file" accept="image/*" hidden>
+<input type="file" id="ph-zip" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+<div class="cam" id="cam" role="dialog" aria-modal="true" aria-label="Photo" hidden>
   <img id="cam-shot" alt="The photo you took">
-  <p class="cam-msg" id="cam-msg" role="status" hidden></p>
   <button class="cam-x" data-cam="close">Cancel</button>
-  <div class="cam-bar cam-live"><button class="cam-side" data-cam="gallery">Gallery</button><button class="cam-shutter" data-cam="shoot" aria-label="Take the photo"></button><span class="cam-side"></span></div>
-  <div class="cam-bar cam-review"><button class="cam-btn" data-cam="retry">Try again</button><button class="cam-btn ok" data-cam="ok">OK</button></div>
-  <div class="cam-bar cam-error"><button class="cam-btn" data-cam="gallery">Phone camera or gallery</button></div>
+  <div class="cam-bar"><button class="cam-btn" data-cam="retry">Try again</button><button class="cam-btn ok" data-cam="ok">OK</button></div>
 </div>
+<div class="phv" id="phv" role="dialog" aria-modal="true" aria-label="Progress photo" hidden></div>
+<div class="phs" id="phs" hidden></div>
 <nav class="tabbar gut" id="tabbar" aria-label="Sections">
   <div class="wrap">
     <button class="tab" data-act="tab" data-tab="train"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h20"/><rect x="5" y="7" width="3" height="10" rx="1"/><rect x="16" y="7" width="3" height="10" rx="1"/></svg>Train</button>
     <button class="tab" data-act="tab" data-tab="prs"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="15" r="5"/><path d="M8.5 3.5L12 10l3.5-6.5"/><path d="M12 13v4"/></svg>Records</button>
     <button class="tab" data-act="tab" data-tab="food"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M9 7.5c0-1.6 1.2-2 1.2-3.5M14 7.5c0-1.6 1.2-2 1.2-3.5"/></svg>Food</button>
+    <button class="tab" data-act="tab" data-tab="body"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2.5"/><path d="M6 9.5l6 1.5 6-1.5"/><path d="M12 11v4.5"/><path d="M8.5 21l3.5-5.5 3.5 5.5"/></svg>Body</button>
   </div>
 </nav>
 
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.2.11';
+var APP_VERSION='1.3.0';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -524,6 +566,61 @@ sun:{title:'Long run',items:[
 ]}
 }};
 /*PLAN_V3_END*/
+/*PLAN_V4_START*/
+var PLAN_V4={v:4,
+restNote:'Paired moves: one set of A, rest c.90 s, one set of B, rest c.90 s, repeat. Each move then gets c.3 min between its own sets. Moves done alone: max tests and weighted sets rest c.3 min, other main lifts c.2 min, warm-ups and light shoulder-blade moves 30 to 60 s.',
+days:{
+mon:{title:'Push and legs',note:'Warm up first: a few minutes of jump rope or jogging on the spot, arm circles, scapular pull-ups and bodyweight squats, then one light set of the first move in each pair. The vest goes on once, from the dips to the diamond push-ups (8 kg), and comes off once.',items:[
+  {id:'mon-jumpsq',name:'Jump squats',sets:3,note:'6 max-height jumps: land softly, pause, jump again. No vest',main:true,pairNext:true},
+  {id:'mon-onearm',name:'Incline one-arm push-ups',sets:3,note:'Per arm, hand on a bench or step, 5 to 8 reps. Start each set with 1 full rep on the floor. Lower the hand once you reach 8 clean reps per arm',main:true},
+  {id:'mon-dips',name:'Weighted dips',sets:3,note:'Vest on, 8 kg, 8 to 15 reps. Add 2 kg once all 3 sets reach 15',main:true,pairNext:true},
+  {id:'mon-bss',name:'Bulgarian split squats',sets:3,note:'Per leg, 8 kg. Add 2 kg when you pass 15 reps',main:true},
+  {id:'mon-pushups',name:'Weighted push-ups',sets:3,note:'Vest, 8 kg, 8 to 15 reps. Alone, c.2 min rest'},
+  {id:'mon-diamond',name:'Weighted diamond push-ups',sets:3,note:'Vest, 8 kg, 8 to 15 reps. Alone, c.2 min rest. Vest off after the last set'},
+  {id:'mon-nordic',name:'Nordic curls',sets:3,note:'3 slow reps',pairNext:true},
+  {id:'mon-sideplank',name:'Side plank',sets:3,note:'1 min per side'},
+  {id:'mon-hang',name:'Assisted one-arm hangs',sets:3,note:'Per arm, 10 to 20 s, the other hand helping lightly. Shoulder pulled down; stop at any finger or elbow pain',pairNext:true},
+  {id:'mon-abwheel',name:'Ab wheel',sets:3}
+]},
+tue:{title:'Run and pull',note:'Easy run in the morning. Max test first and alone, then the weighted sets. The other pull moves pair with core or light shoulder-blade work.',items:[
+  {id:'tue-run',name:'Easy run',type:'run',sets:1,note:'Morning, easy all the way: heart rate c.140 or below. After a night under 8 hours, keep it shorter or skip it'},
+  {id:'tue-scap',name:'Scapular pull-ups',sets:3,note:'Warm-up',role:'warmup'},
+  {id:'tue-snow',name:'Reverse snow angels',sets:1,note:'Warm-up: one light set, c.1 min, the arms moving through a full circle',role:'warmup'},
+  {id:'tue-pullups',name:'Pull-ups',sets:1,note:'Your weekly strict max test: one set, full grip. Then rest 3 to 4 min before the weighted sets',main:true},
+  {id:'tue-weighted',name:'Weighted pull-ups',sets:3,note:'8 kg, c.6 reps on the first set; sets 2 and 3 may drop by a rep or two. Add 2 kg when the first set gets light. Alone, c.3 min rest. Drop them for a week if your elbows ache',main:true},
+  {id:'tue-lsit',name:'L-sit pull-ups',sets:3,note:'Between 3 and 6 full-range reps: straight arms at the bottom, shoulders slightly engaged. When full reps run out (fewer than 4), finish the set with the knees tucked. Archer pull-ups take their place once you reach 20 strict pull-ups',pairNext:true},
+  {id:'tue-y',name:'Y raises',sets:3,note:'Light and controlled'},
+  {id:'tue-rows',name:'Neutral-grip inverted rows',sets:3,note:'Palms facing each other',pairNext:true},
+  {id:'tue-hollow',name:'Hollow hold',sets:3,note:'Add hold time to progress'}
+]},
+wed:{title:'HIIT 4x4',note:'No run today: the two morning runs are on Tuesday and Friday.',items:[
+  {id:'fri-hiit',name:'HIIT 4x4',type:'rounds',sets:5,note:'5 min warm-up. Jump rope, high knees, mountain climbers, burpees: 1 min each, no rest. Then 3 min easy jog. 5 rounds, working at 158 to 167 bpm'}
+]},
+thu:{title:'Pull and legs',note:'Every pull pairs with a leg or core move, so your arms get c.3 min between their own sets. A set ends when your chin cannot clear the bar with control.',items:[
+  {id:'thu-pullups',name:'Pull-ups',sets:3,note:'First, since they are the ones you test. Strict reps, stopping one or two short',main:true,pairNext:true},
+  {id:'thu-pistol',name:'Pistol squat progressions',sets:3,note:'Per leg, to a box or bench',main:true},
+  {id:'thu-chin',name:'Chin-ups',sets:3,main:true,pairNext:true},
+  {id:'thu-calf',name:'Single-leg calf raises',sets:3,note:'Per leg, on a step, c.15 reps'},
+  {id:'thu-wide',name:'Wide-grip pull-ups',sets:3,note:'Swap for overhand inverted rows if your arms die or sets drop below 5 clean reps',pairNext:true},
+  {id:'thu-backext',name:'Static back extensions',sets:3,note:'Hold time'},
+  {id:'thu-face',name:'Face pulls',sets:3,note:'Light and controlled',pairNext:true},
+  {id:'thu-legraise',name:'Leg raises',sets:3}
+]},
+fri:{title:'Run and push',note:'60/30/10 run in the morning. Max test first and alone. Dips pair with the plank; the other push moves stay single with 60 to 90 s rest, since two pushes never pair.',items:[
+  {id:'fri-run',name:'60/30/10 run',type:'run',sets:1,note:'Morning. 60% easy (heart rate c.140 or below), 30% steady (145 to 155), last 10% comfortably hard (158 to 167). After a night under 8 hours, keep it shorter or skip it'},
+  {id:'wed-scap',name:'Scapular push-ups',sets:3,note:'Warm-up',role:'warmup'},
+  {id:'wed-pushups',name:'Push-ups',sets:3,note:'Set 1 is your weekly test: max reps with 3 pauses of 5 s, on bars. Sets 2 and 3 stop one or two reps short. Alone, 2 to 3 min rest. If the test stalls for 3 or 4 weeks, add a fourth set',main:true},
+  {id:'wed-dips',name:'Dips',sets:3,note:'Bodyweight until all 3 sets reach 15 reps',main:true,pairNext:true},
+  {id:'wed-plank',name:'Extended plank',sets:3,note:'Add hold time to progress'},
+  {id:'wed-archer',name:'Archer push-ups',sets:3,note:'6 to 10 per side. Rest 60 to 90 s'},
+  {id:'wed-pike',name:'Pike push-ups',sets:3,note:'Kneeling pikes, each set starting with 1 or 2 full pikes. Rest 60 to 90 s'}
+]},
+sat:{title:'Rest',items:[]},
+sun:{title:'Long run',items:[
+  {id:'sun-long',name:'Long run',type:'run',sets:1,role:'longrun'}
+]}
+}};
+/*PLAN_V4_END*/
 /* what a plan says, for telling a plan still as shipped from one edited in the app */
 function planSig(p){
   return JSON.stringify(['mon','tue','wed','thu','fri','sat','sun'].map(function(k){
@@ -539,7 +636,7 @@ var UI={tab:'train',prevTab:'train',weekOffset:0,selDay:dayKeyOf(new Date()),edi
   prForm:null,prDel:null,newPr:null,prAll:{},
   foodView:'log',foodDate:todayY(),foodDetails:false,targetsForm:null,newMeal:false,mealName:'',addTo:null,pick:null,grams:'',ingSearch:'',delMeal:null,ingForm:null,ingFilter:'',
   importPending:null,updateReady:false,installDismissed:false};
-try{var savedTab=localStorage.getItem('cfl-tab');if(savedTab&&['train','prs','food'].indexOf(savedTab)>-1)UI.tab=UI.prevTab=savedTab;}catch(e){}
+try{var savedTab=localStorage.getItem('cfl-tab');if(savedTab&&['train','prs','food','body'].indexOf(savedTab)>-1)UI.tab=UI.prevTab=savedTab;}catch(e){}
 try{UI.installDismissed=localStorage.getItem('cfl-install-dismissed')==='1';}catch(e){}
 
 var $top=document.getElementById('top'),$app=document.getElementById('app'),$tabbar=document.getElementById('tabbar'),$toast=document.getElementById('toast'),$file=document.getElementById('import-file'),$scan=document.getElementById('scan-file');
@@ -637,6 +734,12 @@ function migrate(){
   if(S.plan&&S.plan.v===2&&!S.meta.planOffer){
     if(planSig(S.plan)===planSig(PLAN_V2)){S.plan=clone(PLAN_V3);save('app/plan',S.plan,0);setMeta({planOffer:'auto'});}
     else setMeta({planOffer:'v3'});
+  }
+  /* Version 1.2.12: the plan of 18-Nov-26 (the week reordered so that both runs fall on the upper-body days). A plan as
+     shipped in 1.2.10 or 1.2.11 is replaced; one edited in the app is kept and the Train tab offers the new one */
+  if(S.plan&&!S.meta.plan1212){
+    if(planSig(S.plan)===planSig(PLAN_V3)||planSig(S.plan)===planSig(PLAN_V2)){S.plan=clone(PLAN_V4);save('app/plan',S.plan,0);setMeta({plan1212:'auto'});}
+    else setMeta({plan1212:'offer'});
   }
   /* Version 1.2.11: records for the goals of the training chat, added once (not when a record of that kind exists) */
   if(S.settings&&!S.meta.recs1211){
@@ -870,7 +973,7 @@ function cleanLine(raw){
   var s=stripDia(String(raw)).toLowerCase().replace(/\|/g,' ');
   s=s.replace(/\d[o]|[o]\d/g,function(m){return m.replace('o','0');});
   s=s.replace(/\d[li]|[li]\d/g,function(m){return m.replace(/[li]/,'1');});
-  s=s.replace(/(\d[.,])[lio]/g,function(m,p){return p+(m.slice(-1)==='o'?'0':'1');});
+  s=s.replace(/(\d[.,])[lido]/g,function(m,p){var c=m.slice(-1);return p+(c==='o'||c==='d'?'0':'1');});
   s=s.replace(/(\d)\s*[.,]\s*(\d)/g,'$1.$2');
   s=s.replace(/(\d)\s*(µg|μg|ug|mcg|pg|yg)(?![a-z])/g,'$1 ug');
   s=s.replace(/(\d)\s*q(?![a-z])/g,'$1 g');
@@ -887,13 +990,15 @@ function ungluedGrams(tok){
 var TOK_RE=/(^|[^a-z0-9.])<?\s*(\d+(?:\.\d+)?)\s*(kcal|kj|mg|ug|ml|g|%)?(?![0-9])(?![a-z]{3})/g;
 /* A letter glued in front of a number is accepted for energy (A453 kcal) and for decimal gram values (s13.3g), never for bare integers */
 var TOK_GLUED_RE=/[a-z](\d+\.\d+)\s*(kcal|kj|g|mg|ug)(?![0-9])(?![a-z]{3})|[a-z](\d+)\s*(kcal|kj)(?![0-9])(?![a-z]{3})/g;
-function tokens(seg){
+function tokens(seg,keep100){
   var out=[],m;TOK_RE.lastIndex=0;
   function push(raw,unit,idx,lead){
     var val=parseFloat(raw),dec=raw.indexOf('.')>-1,orig=raw;
     if(!dec&&/^0\d+$/.test(raw)){raw='0.'+raw.slice(1);val=parseFloat(raw);dec=true;}
-    if(val===100&&(unit==='g'||unit==='ml'))return;
-    out.push({raw:raw,orig:orig,val:val,unit:unit,dec:dec,idx:idx,lead:lead||''});
+    /* 100 g or 100 ml is the heading of the column, not a value, unless written with decimals (100,00 g on a bag of
+       sugar); with keep100 the caller gets it, marked, to judge for itself */
+    var h100=val===100&&(unit==='g'||unit==='ml')&&!dec;
+    out.push({raw:raw,orig:orig,val:val,unit:unit,dec:dec,idx:idx,lead:lead||'',h100:h100});
   }
   while((m=TOK_RE.exec(seg))){
     push(m[2],m[3]||'',m.index+m[1].length);
@@ -906,7 +1011,7 @@ function tokens(seg){
     if(m.index===TOK_GLUED_RE.lastIndex)TOK_GLUED_RE.lastIndex++;
   }
   out.sort(function(x,y){return x.idx-y.idx;});
-  return out;
+  return keep100?out:out.filter(function(t){return !t.h100;});
 }
 function thousands(tok,big){
   if(/^\d{1,3}\.\d{3}$/.test(tok.raw)&&big)return parseInt(tok.raw.replace('.',''),10);
@@ -1009,7 +1114,7 @@ function parseLabel(text){
     var tail=/((?:\s*\|?\s*<?\d+(?:[.,]\d+)?\s*(?:g|mg|ug|kcal|kj|%|ml)?\s*\|?)+)\s*$/.exec(l.slice(i));
     return (l.slice(0,i)+(tail?' '+tail[1]:'')).trim();
   }).filter(function(l){return l&&!PROSE_RE.test(l)&&(l.match(/,/g)||[]).length<5;});
-  var vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},alts={},lineOf={},direct={},derived={},kcalCands=null,i,j;
+  var kcalFromKj=false,rawOf={},vals={},micros={},found=[],foundMicros=[],basis='g',portionFirst=false,consumed={},alts={},lineOf={},direct={},derived={},kcalCands=null,i,j;
   /* Header: which column is per 100 g, whether there is a per-portion column and how big the portion is */
   /* the table stage's canonical text ends at a "--- raw ---" separator; the raw first read after it repeats the header, so it is not read for the header again */
   var rawAt=lines.length;lines.forEach(function(l,idx){if(idx<rawAt&&/^-+ raw -+$/.test(l))rawAt=idx;});
@@ -1050,7 +1155,7 @@ function parseLabel(text){
         for(var di=0;di<ks.length;di++)for(var dd=0;dd<=9;dd++){var cand=parseInt(ks.slice(0,di)+dd+ks.slice(di+1),10);if(cand>0&&cand!==Math.round(v)&&Math.abs(cand-vj)<=0.04*vj&&kc2.indexOf(cand)<0)kc2.push(cand);}
         kcalCands={read:Math.round(v),kj:Math.round(vj),list:kc2};
       }
-      if(v==null&&vj!=null)v=vj;
+      if(v==null&&vj!=null){v=vj;kcalFromKj=true;}
       if(v==null)return false;
       vals.kcal=Math.round(v);found.push('kcal');if(line!=null)lineOf.kcal=line;return true;
     }
@@ -1088,11 +1193,12 @@ function parseLabel(text){
     for(var ci=0;ci<cands.length&&chosen==null;ci++){
       for(var ei=0;ei<ev.length;ei++){var rel=Math.abs(cands[ci]-ev[ei].v)/Math.max(ev[ei].v,0.3);if(rel<=(ev[ei].kind==='pct'?0.3:0.15)){chosen=cands[ci];break;}}
     }
-    direct[key]=cands[0];
+    direct[key]=cands[0];rawOf[key]={raw:tok.raw,dec:tok.dec};
     if(chosen!=null){vals[key]=chosen;alts[key]=[chosen];}
     else{
       var pick=cands.filter(function(g){return okMacro(key,g);})[0];if(pick==null)pick=cands[0];
       vals[key]=pick;alts[key]=cands.slice(0,4);
+      if(hasPortionCol&&portionSize&&portionSize!==100&&!tP&&vt.length===1&&(tok.dec||tok.unit)){var sv1=r2(tok.val*mul*100/portionSize);if(sv1<=100&&alts[key].indexOf(sv1)<0){alts[key].push(sv1);derived[key]={vals:[sv1],portion:tok.val,size:portionSize};}}
       /* A clean portion reading, scaled up, is a fallback the calorie check may prefer over a per-100 g reading that lost a digit */
       if(colC.length&&tP&&(tP.dec||tP.unit)){colC.slice(0,2).forEach(function(v){if(alts[key].indexOf(v)<0)alts[key].push(v);});derived[key]={vals:colC.slice(0,2),portion:tP.val,size:portionSize};}
     }
@@ -1104,7 +1210,12 @@ function parseLabel(text){
     for(var q=i+1;q<lines.length&&q<i+4;q++){
       if(consumed[q])return [];
       var ms=matchesIn(lines[q]);
-      if(ms.some(function(x){return x.key!==key;}))return [];
+      if(ms.some(function(x){return x.key!==key;})){
+        /* running text: the value opens the next line, ahead of the next nutrient's name (Grasimi: | 43,0 g, din care ...) */
+        var fst=Math.min.apply(null,ms.map(function(x){return x.idx;})),lead=tokens(lines[q].slice(0,fst)).filter(function(t){return t.unit||t.dec;});
+        if(lead.length&&/^\W*\d/.test(lines[q])){fwdAt=q;return lead.slice(0,1);}
+        return [];
+      }
       /* the value line of a wrapped name is spent: it is not a nameless row as well */
       var tk=tokens(lines[q]);if(tk.length){consumed[q]=1;fwdAt=q;return tk;}
     }
@@ -1139,6 +1250,9 @@ function parseLabel(text){
       var cutAt=line.length;
       for(var k=0;k<ms.length;k++){if(ms[k].key!==M.key&&ms[k].idx>=M.end&&ms[k].idx<cutAt)cutAt=ms[k].idx;}
       var toks=tokens(line.slice(M.end,cutAt));
+      /* a row whose only value is 100 g (the fat of an oil, the carbs and sugars of sugar) is taken, unless the 100 g
+         follows "per", "la" or a slash, which makes it the heading */
+      if(!toks.length&&M.key!=='kcal'&&!MICRO_BY[M.key]){var seg0=line.slice(M.end,cutAt),t100=tokens(seg0,true).filter(function(t){return t.h100&&!/(per|pro|la|for|in|je|\/)\s*$/.test(seg0.slice(0,t.idx));});if(t100.length===1)toks=t100;}
       /* a vitamin name that swallowed its own number (vitamina e 2 mg): read again from the name itself */
       if(!toks.length&&MICRO_BY[M.key])toks=tokens(line.slice(M.idx,cutAt)).filter(function(t){return t.unit;});
       var at=i;if(!toks.length&&cutAt===line.length){fwdAt=-1;toks=forward(i,M.key);if(fwdAt>-1)at=fwdAt;}
@@ -1207,10 +1321,10 @@ function parseLabel(text){
   }
   /* Choose between readings using the label calories (4, 4 and 9 kcal per g, fibre 2), the rule that saturates stay
      below fat and sugars below carbs, and a preference for the likelier readings */
-  var warn='',keys=['f','c','p','sat','sugar'].filter(function(k){return vals[k]!=null;});
+  var warn='',keys=['f','c','p','sat','sugar','fibre'].filter(function(k){return vals[k]!=null;});
   if(keys.length){
     var best=null;
-    function energyOf(v){var poly=Math.min(vals.polyol||0,v.c||0);return 4*(v.p||0)+4*((v.c||0)-poly)+2.4*poly+9*(v.f||0)+2*(vals.fibre||0);}
+    function energyOf(v){var poly=Math.min(vals.polyol||0,v.c||0);return 4*(v.p||0)+4*((v.c||0)-poly)+2.4*poly+9*(v.f||0)+2*(v.fibre!=null?v.fibre:(vals.fibre||0));}
     function score(v,rank){
       var sc=rank*5;
       if(vals.kcal!=null){var missing=['p','c','f'].some(function(k){return v[k]==null;}),r=vals.kcal-energyOf(v);sc+=missing?Math.max(0,-r-5):Math.abs(r);}
@@ -1228,6 +1342,17 @@ function parseLabel(text){
       vals[k]=best.v[k];
       if(derived[k]&&derived[k].vals.indexOf(vals[k])>-1&&vals[k]!==direct[k])flags.push({key:k,text:'taken from the per-portion column ('+derived[k].portion+' g per '+derived[k].size+' g); the direct reading was '+direct[k]+' g'});
     });
+    /* commas lost in the print: when the energy check gave two or more of fat, carbs, protein and fibre their decimal
+       comma back (18g read for 1,8 g, 725g for 72,5 g) and the label then adds up, its sugars, saturates and salt read as
+       whole numbers of two or three digits most likely lost theirs too: they get it back, marked for checking */
+    if(vals.kcal!=null&&vals.p!=null&&vals.c!=null&&vals.f!=null&&Math.abs(energyOf(vals)-vals.kcal)<=Math.max(12,0.05*vals.kcal)){
+      var lost=['f','c','p','fibre'].filter(function(k){var r0=rawOf[k];return r0&&!r0.dec&&/^\d{2,3}$/.test(r0.raw)&&vals[k]!=null&&Math.abs(vals[k]*10-parseFloat(r0.raw))<1e-6;}).length;
+      if(lost>=2)['sugar','sat','salt'].forEach(function(k){
+        var r0=rawOf[k];if(!r0||r0.dec||!/^\d{2,3}$/.test(r0.raw)||vals[k]!==parseFloat(r0.raw))return;
+        var nv=r1(vals[k]/10);if(!okMacro(k,nv))return;
+        flags.push({key:k,text:'read as '+r0.raw+' without its decimal comma, like other values on this label; taken as '+nv});vals[k]=nv;
+      });
+    }
     if(kcalCands&&vals.kcal!=null&&vals.p!=null&&vals.c!=null&&vals.f!=null){
       /* kcal and kJ disagreed by one digit: the candidate the macros account for wins */
       var mE=energyOf(vals),bestK=null,bestE=1e9;
@@ -1245,7 +1370,7 @@ function parseLabel(text){
   var seenFlag={};
   flags.forEach(function(fl){if(vals[fl.key]==null||seenFlag[fl.key])return;seenFlag[fl.key]=fl.text;var nm=LABEL.filter(function(l){return l.k===fl.key;})[0];warn+=(warn?' ':'')+(nm?nm.name:fl.key)+' ('+vals[fl.key]+(fl.key==='kcal'?' kcal':' g')+'): '+fl.text+'. Check it.';});
   Object.keys(UNSTORED).forEach(function(k){delete vals[k];});
-  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:Object.keys(seenFlag),why:seenFlag};
+  return {vals:vals,micros:micros,found:found,foundMicros:foundMicros,basis:basis,lines:lines,warn:warn,flags:Object.keys(seenFlag),why:seenFlag,kcalFromKj:kcalFromKj&&found.indexOf('kcal')>-1};
 }
 
 /* ---------- label scanning: table layout from the reader's word boxes ----------
@@ -2382,11 +2507,20 @@ function runScan(prep){
 }
 function applyScan(text,parsed){
   var f=UI.ingForm,p=parsed||parseLabel(text);
-  f.scanKeys=f.scanKeys||{};f.checkKeys={};
-  p.found.forEach(function(k){f[k]=String(p.vals[k]);f.scanKeys[k]=true;});
+  f.scanKeys=f.scanKeys||{};f.checkKeys={};f.micros=f.micros||{};
+  /* what an earlier scan in this form filled in is cleared first, unless it was changed by hand since, so that no value
+     of another label stays behind (1.2.11 left the almonds' magnesium on the walnuts) */
+  var sv=f.scanVals||{};
+  Object.keys(f.scanKeys).forEach(function(k){
+    var mk=k.indexOf('m:')===0,id=mk?k.slice(2):k,cur=mk?f.micros[id]:f[id];
+    if(sv[k]!=null&&String(cur==null?'':cur)!==sv[k])return;
+    if(mk)delete f.micros[id];else f[id]='';
+    delete f.scanKeys[k];
+  });
+  f.scanVals={};
+  p.found.forEach(function(k){f[k]=String(p.vals[k]);f.scanKeys[k]=true;f.scanVals[k]=f[k];});
   (p.flags||[]).forEach(function(k){f.checkKeys[k]=true;});
-  f.micros=f.micros||{};
-  p.foundMicros.forEach(function(id){f.micros[id]=String(p.micros[id]);f.scanKeys['m:'+id]=true;});
+  p.foundMicros.forEach(function(id){f.micros[id]=String(p.micros[id]);f.scanKeys['m:'+id]=true;f.scanVals['m:'+id]=f.micros[id];});
   if(p.foundMicros.length)f.showMicros=true;
   if(p.basis)f.basis=p.basis;
   var note=SCANLOG.note;SCANLOG.note='';
@@ -2397,121 +2531,85 @@ function applyScan(text,parsed){
   toast(n?'Found '+n+(n===1?' value':' values')+'. Check them against the label.':'No values recognised. Try a closer, sharper photo.',3500);
 }
 $scan.addEventListener('change',function(){
-  var f=$scan.files&&$scan.files[0];$scan.value='';
+  var f=$scan.files&&$scan.files[0];$scan.value='';pendClear();
   if(!f||!UI.ingForm)return;
-  showCrop(f);
+  showCrop(f,'gallery');
 });
-/* ---------- label scanning: the camera inside the app ----------
-   Scan label opens the back camera in a full-screen view: a shutter button, then the photo with Try again and OK, then
-   the crop view. The photo is taken through the camera's still-photo path where the browser offers it
-   (ImageCapture.takePhoto, the sensor's full resolution) and from the live picture otherwise. When the camera cannot
-   open, the phone's own camera or gallery is offered through the file picker, as before 1.2.11.
-   States of the view: starting, live, taking, review, error (the style sheet shows the matching buttons). */
-var CAM={open:false,state:'',stream:null,blob:null,url:null,via:'',busy:false,seq:0,pushed:false};
-var $cam=document.getElementById('cam'),$camVideo=document.getElementById('cam-video'),$camShot=document.getElementById('cam-shot'),$camMsg=document.getElementById('cam-msg');
-function camSupported(){return !!($cam&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);}
-function camSet(state,msg){
-  CAM.state=state;$cam.setAttribute('data-state',state);
-  $camMsg.textContent=msg||'';$camMsg.hidden=!msg;
+/* ---------- label scanning: the photo from the phone's camera app ----------
+   Scan label opens the phone's own camera app (a file input asking for the back camera), which focuses close up and
+   cleans the picture the way the phone's own photos are; the camera inside the app of 1.2.11 gave grainy pictures that
+   missed the focus on the text. Back in the app the photo shows full screen with Try again and OK; OK leads to the crop
+   box. Gallery takes a photo the phone already has straight to the crop box.
+   While the camera app is open Android may close the browser to free memory, and the page then starts again without the
+   photo: the open ingredient form is kept in the browser's storage until the photo is back, and brought back when the
+   app starts again within 30 minutes. */
+var CAM={open:false,blob:null,url:null,pushed:false};
+var $cam=document.getElementById('cam'),$camShot=document.getElementById('cam-shot'),$scanCam=document.getElementById('scan-cam');
+var PEND_KEY='cfl-scan-pending';
+function pendSave(){
+  var f=UI.ingForm;if(!f)return;
+  try{
+    var keep={};Object.keys(f).forEach(function(k){if(['scan','crop','err','confirmDel'].indexOf(k)<0)keep[k]=f[k];});
+    localStorage.setItem(PEND_KEY,JSON.stringify({at:Date.now(),form:keep,foodView:UI.foodView,foodDate:UI.foodDate}));
+  }catch(e){}
 }
-function camStop(){
-  var s=CAM.stream;CAM.stream=null;
-  if(s)try{s.getTracks().forEach(function(t){t.stop();});}catch(e){}
-  try{$camVideo.srcObject=null;}catch(e){}
+function pendClear(){try{localStorage.removeItem(PEND_KEY);}catch(e){}}
+/* at start: the form that was open when the browser was closed behind the camera app */
+function pendRestore(){
+  var p=null;try{p=JSON.parse(localStorage.getItem(PEND_KEY)||'null');}catch(e){}
+  pendClear();
+  if(!p||!p.form||!(Date.now()-p.at<30*60000))return false;
+  var f=blankIngForm();Object.keys(p.form).forEach(function(k){f[k]=p.form[k];});f.micros=f.micros||{};f.scanKeys=f.scanKeys||{};
+  UI.tab=UI.prevTab='food';UI.foodView='ingredients';if(p.foodDate)UI.foodDate=p.foodDate;UI.ingForm=f;
+  return true;
 }
+function camScan(){if(!UI.ingForm)return;pendSave();try{$scanCam.value='';}catch(e){}$scanCam.click();}
+function camGallery(){if(!UI.ingForm)return;pendSave();try{$scan.value='';}catch(e){}$scan.click();}
 function camDrop(){
   if(CAM.url)try{URL.revokeObjectURL(CAM.url);}catch(e){}
-  CAM.url=null;CAM.blob=null;CAM.via='';$camShot.removeAttribute('src');
+  CAM.url=null;CAM.blob=null;$camShot.removeAttribute('src');
 }
-function camStart(){
-  var seq=++CAM.seq;camStop();CAM.busy=false;camSet('starting','Opening the camera');
-  navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}}}).then(function(stream){
-    /* closed, or started again, while the phone asked for permission */
-    if(!CAM.open||seq!==CAM.seq){try{stream.getTracks().forEach(function(t){t.stop();});}catch(e){}return;}
-    CAM.stream=stream;$camVideo.srcObject=stream;
-    var p=$camVideo.play();if(p&&p.catch)p.catch(function(){});
-    camSet('live','');
-  }).catch(function(e){
-    if(!CAM.open||seq!==CAM.seq)return;
-    var n=(e&&e.name)||'';
-    camSet('error',(n==='NotAllowedError'||n==='SecurityError'?'The app is not allowed to use the camera. Allow the camera for this site in the browser settings to take photos here.':
-      n==='NotFoundError'||n==='OverconstrainedError'?'No camera was found.':'The camera could not be opened'+(n?' ('+n+')':'')+'.')+' You can use the phone\'s camera or a photo from the gallery instead.');
-  });
-}
-function camOpen(){
-  if(CAM.open)return;
-  CAM.open=true;camDrop();$cam.hidden=false;document.documentElement.classList.add('cam-on');
-  /* the phone's Back button closes the camera instead of leaving the app */
-  try{history.pushState({cfl:'cam'},'');CAM.pushed=true;}catch(e){CAM.pushed=false;}
-  camStart();
+/* the photo back from the camera app, shown with Try again and OK */
+function camReview(file){
+  if(!UI.ingForm)return;
+  camDrop();CAM.blob=file;CAM.url=URL.createObjectURL(file);$camShot.src=CAM.url;
+  if(!CAM.open){
+    CAM.open=true;$cam.hidden=false;document.documentElement.classList.add('cam-on');
+    /* the phone's Back button closes the photo instead of leaving the app */
+    try{history.pushState({cfl:'cam'},'');CAM.pushed=true;}catch(e){CAM.pushed=false;}
+  }
 }
 function camClose(fromBack){
   if(!CAM.open)return;
-  CAM.open=false;CAM.seq++;CAM.busy=false;camStop();camDrop();$cam.hidden=true;document.documentElement.classList.remove('cam-on');camSet('','');
+  CAM.open=false;camDrop();$cam.hidden=true;document.documentElement.classList.remove('cam-on');
   var pushed=CAM.pushed;CAM.pushed=false;
   if(pushed&&!fromBack)try{history.back();}catch(e){}
 }
-/* the live picture as it is now */
-function camFrame(){
-  var w=$camVideo.videoWidth,h=$camVideo.videoHeight;
-  if(!w||!h)return Promise.reject(new Error('the camera gave no picture'));
-  var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage($camVideo,0,0,w,h);
-  return new Promise(function(res,rej){c.toBlob(function(b){if(b)res(b);else rej(new Error('the picture could not be saved'));},'image/jpeg',0.95);});
-}
-function camShoot(){
-  if(CAM.state!=='live'||CAM.busy||!CAM.stream)return;
-  CAM.busy=true;camSet('taking','Hold still');
-  var seq=CAM.seq,track=CAM.stream.getVideoTracks()[0],via='frame',p;
-  if(window.ImageCapture&&track){
-    p=new Promise(function(res,rej){
-      var t=setTimeout(function(){rej(new Error('timeout'));},5000);
-      try{new ImageCapture(track).takePhoto().then(function(b){clearTimeout(t);res(b);},function(e){clearTimeout(t);rej(e);});}catch(e){clearTimeout(t);rej(e);}
-    }).then(function(b){if(!b||b.size<20000)throw new Error('empty');via='photo';return b;}).catch(function(){return camFrame();});
-  }else p=camFrame();
-  p.then(function(blob){
-    if(!CAM.open||seq!==CAM.seq)return;
-    camDrop();CAM.blob=blob;CAM.via=via;CAM.url=URL.createObjectURL(blob);$camShot.src=CAM.url;
-    CAM.busy=false;camSet('review','');
-    try{$camVideo.pause();}catch(e){}
-  }).catch(function(){
-    if(!CAM.open||seq!==CAM.seq)return;
-    CAM.busy=false;camSet('live','The photo could not be taken. Try again.');
-  });
-}
-function camRetry(){
-  if(CAM.state!=='review')return;
-  camDrop();
-  var t=CAM.stream&&CAM.stream.getVideoTracks()[0];
-  /* some phones end the live picture after a still photo: then the camera is opened again */
-  if(t&&t.readyState==='live'){var p=$camVideo.play();if(p&&p.catch)p.catch(function(){});camSet('live','');}
-  else camStart();
-}
 function camOk(){
-  if(CAM.state!=='review'||!CAM.blob)return;
-  var blob=CAM.blob,via=CAM.via;
+  if(!CAM.open||!CAM.blob)return;
+  var blob=CAM.blob;CAM.blob=null;
   camClose();
-  if(UI.ingForm)showCrop(blob,'camera '+via);
+  if(UI.ingForm)showCrop(blob,'camera app');
 }
+function camRetry(){camClose();camScan();}
 if($cam){
   $cam.addEventListener('click',function(e){
     var b=e.target.closest('[data-cam]');if(!b)return;
     var a=b.getAttribute('data-cam');
-    if(a==='shoot')camShoot();
-    else if(a==='retry')camRetry();
-    else if(a==='ok')camOk();
-    else if(a==='close')camClose();
-    else if(a==='gallery'){$scan.click();camClose();}
+    if(a==='retry')camRetry();else if(a==='ok')camOk();else if(a==='close')camClose();
   });
   window.addEventListener('popstate',function(){if(CAM.open)camClose(true);});
-  /* the camera is given back while the app is in the background; the live view opens it again on return, and a photo
-     waiting for Try again or OK stays as it is */
-  document.addEventListener('visibilitychange',function(){
-    if(!CAM.open)return;
-    var still=CAM.state==='review'||CAM.state==='error';
-    if(document.hidden){if(!still)CAM.seq++;camStop();}
-    else if(!still)camStart();
-  });
 }
+if($scanCam){
+  $scanCam.addEventListener('change',function(){
+    var f=$scanCam.files&&$scanCam.files[0];$scanCam.value='';pendClear();
+    if(!f||!UI.ingForm)return;
+    camReview(f);
+  });
+  $scanCam.addEventListener('cancel',pendClear);
+}
+/* back in the app without a photo (the camera app was closed): nothing to bring back after a later restart */
+document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(function(){if(!document.hidden)pendClear();},4000);});
 /* Crop step: the reader works on the nutrition table only, at full resolution. via says where the photo came from
    (the camera in the app, or a file from the phone's camera or gallery); it goes into the scan report */
 function showCrop(file,via){
@@ -2679,7 +2777,8 @@ function finishCrop(whole){
 var NR=null;
 try{NR=(function(){
 'use strict';
-var DEF={detLimit:960,thresh:0.3,boxThresh:0.6,unclip:1.6,stretch:2,stretchShort:1.5,blur:1.2,tight:true,tightDy:0.15,split:true,curves:true,register:true,cubic:false,normFrom:88,normTo:64,probe:false,probeMin:0.55,stopIfSideways:false,zoom:true,zoomAlways:false,noRedetect:false,tables:true};
+var DEF={detLimit:960,thresh:0.3,boxThresh:0.6,unclip:1.6,stretch:2,stretchShort:1.5,blur:1.2,tight:true,tightDy:0.15,split:true,curves:true,register:true,cubic:false,normFrom:88,normTo:64,probe:false,probeMin:0.55,stopIfSideways:false,zoom:true,zoomAlways:false,noRedetect:false,tables:true,
+  reread:true,rereadConf:0.8,rereadBlur:2.2,sideProbe:true,sideTurnA:270,sideTurnB:90};
 
 /* ----- small numeric helpers */
 function median(a){var s=Array.prototype.slice.call(a).sort(function(x,y){return x-y;}),n=s.length;if(!n)return 0;return n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2;}
@@ -2994,14 +3093,68 @@ function slotOf(b,dc){
     angle:Math.atan2(p[1][1]-p[0][1],p[1][0]-p[0][0])*180/Math.PI};
 }
 function now(){return (typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();}
+/* the cleaned copy of a weak value cell: grey, smoothed until a screen of dots melts into one even tone, then stretched
+   so that the darkest print turns black and the background (the lighter 30% of the cell) white. null when the cell has
+   no contrast to stretch. */
+function enhance(cut,o){
+  var w=cut.w,h=cut.h,n=w*h,a=cut.data,g=new Float32Array(n*3),i;
+  for(i=0;i<n;i++){var v=0.299*a[i*3]+0.587*a[i*3+1]+0.114*a[i*3+2];g[i*3]=g[i*3+1]=g[i*3+2]=v;}
+  g=gauss(g,w,h,Math.max(0.6,o.rereadBlur*h/48));
+  var lum=new Float32Array(n);for(i=0;i<n;i++)lum[i]=g[i*3];
+  lum.sort();var lo=lum[Math.floor(0.03*(n-1))],hi=lum[Math.floor(0.7*(n-1))];
+  if(!(hi-lo>=8))return null;
+  for(i=0;i<n*3;i++){var t=(g[i]-lo)*255/(hi-lo);g[i]=t<0?0:t>255?255:t;}
+  return {data:g,w:w,h:h};
+}
+/* is the reading of the cleaned copy (b) to be kept over the first one (a)? Only a reading that looks like a value (a
+   decimal, a unit or a "<" sign: 1,5g, <1%) is taken, since specks and letters can read as lone digits (on a whole photo
+   of the dark spread three of them made a column of their own); where the first read nothing it must also be sure;
+   otherwise the surer of the two */
+function betterRead(a,b,o){
+  if(!b.text.trim()||!/\d[.,]\d|\d\s*(g|mg|µg|ug|%|kcal|kj|ml)(?![a-z])|<\s*\d/i.test(b.text))return false;
+  if(!a.text.trim())return b.conf>=o.rereadConf;
+  /* a decimal comma the first reading saw is not given up (0,37 9 against 379) */
+  if(/\d[.,]\d/.test(a.text)&&!/\d[.,]\d/.test(b.text))return false;
+  return b.conf>a.conf+0.02;
+}
+/* which quarter turn makes a sideways photo upright: up to four of the longest upright boxes are read both ways round
+   (cutOut lays an upright box down one way; the other way is half a turn more), and the way that reads with the higher
+   confidence wins. Returns the turn of the crop in degrees clockwise (90 or 270), or null when nothing could be read. */
+async function sideTurn(img,boxes,run,chars,o,info){
+  var t0=now(),up=boxes.filter(function(b){var p=b.pts;return !b.curve&&hyp(p[0][0],p[0][1],p[3][0],p[3][1])>2.5*hyp(p[0][0],p[0][1],p[1][0],p[1][1]);});
+  function len(b){var p=b.pts;return Math.max(hyp(p[0][0],p[0][1],p[1][0],p[1][1]),hyp(p[0][0],p[0][1],p[3][0],p[3][1]));}
+  up.sort(function(a,b){return len(b)-len(a);});up=up.slice(0,4);
+  var s=[0,0],n=0;
+  for(var i=0;i<up.length;i++){
+    var full=cutOut(img,up[i],1,o.cubic);if(!full||full.h>full.w)continue;
+    /* the middle of the box, at most ten times as long as it is high, is enough to tell the way round */
+    var sw=Math.min(full.w,10*full.h),sx=Math.floor((full.w-sw)/2),cut={data:new Float32Array(sw*full.h*3),w:sw,h:full.h},y,x;
+    for(y=0;y<full.h;y++)cut.data.set(full.data.subarray((y*full.w+sx)*3,(y*full.w+sx+sw)*3),y*sw*3);
+    var m=sw*full.h,f=new Float32Array(m*3);
+    for(var j=0;j<m;j++){var src=(m-1-j)*3;f[j*3]=cut.data[src];f[j*3+1]=cut.data[src+1];f[j*3+2]=cut.data[src+2];}
+    var got=[];
+    for(var w2=0;w2<2;w2++){
+      var ri=recInput(w2?{data:f,w:sw,h:full.h}:cut,o),rr=await run('rec',ri.data,ri.dims);
+      got.push(decode(rr.data,rr.dims[rr.dims.length-2],rr.dims[rr.dims.length-1],chars));
+    }
+    if(got[0].text.trim().length<2&&got[1].text.trim().length<2)continue;
+    s[0]+=got[0].text.trim().length>=2?got[0].conf:0;s[1]+=got[1].text.trim().length>=2?got[1].conf:0;n++;
+    /* a clear difference after two boxes settles it */
+    if(n>=2&&Math.abs(s[0]-s[1])>=0.4*n)break;
+  }
+  info.ms.side=now()-t0;info.side={a:Math.round(s[0]*1000)/1000,b:Math.round(s[1]*1000)/1000,n:n};
+  if(!n||Math.abs(s[0]-s[1])<0.05*n)return null;
+  return s[0]>s[1]?o.sideTurnA:o.sideTurnB;
+}
 async function readBoxes(img,run,chars,opts,onProgress){
   var o=Object.assign({},DEF,opts||{}),info={w:img.width,h:img.height,ms:{}},t0=now(),t1;
   var di=detInput(img,o);t1=now();info.ms.detPrep=t1-t0;
   var dr=await run('det',di.data,di.dims);t0=now();info.ms.det=t0-t1;
   var boxes=detBoxes(dr.data,di.nw,di.nh,img.width,img.height,o,info);t1=now();info.ms.detPost=t1-t0;
   info.boxes=boxes.length;
-  /* text lying on its side reads as nothing: the caller may ask to stop here and turn the crop first */
-  if(o.stopIfSideways&&sideways(boxes))return {boxes:[],info:info,aborted:true,sideways:true};
+  /* text lying on its side reads as nothing: the caller may ask to stop here and turn the crop first, with the quarter
+     turn that reads better (turn: 90 or 270 degrees clockwise, null when the probe found nothing to read) */
+  if(o.stopIfSideways&&sideways(boxes)){var turn=o.sideProbe?await sideTurn(img,boxes,run,chars,o,info):null;return {boxes:[],info:info,aborted:true,sideways:true,turn:turn};}
   /* cut-outs are taken from a reduced copy when the print is large (a camera original), so that the recogniser sees
      every label at about the same scale and the work per box stays small */
   var hs=boxes.map(function(b){return b.curve?2*b.curve.hh*b.curve.sy:Math.min(hyp(b.pts[0][0],b.pts[0][1],b.pts[3][0],b.pts[3][1]),hyp(b.pts[0][0],b.pts[0][1],b.pts[1][0],b.pts[1][1]));});
@@ -3025,7 +3178,7 @@ async function readBoxes(img,run,chars,opts,onProgress){
     nShort=shortB.length;order=first.concat(shortB,order.filter(function(i2){return first.indexOf(i2)<0&&shortB.indexOf(i2)<0;}));
   }
   /* progress counts the second recogniser's pass as 0.4 of the first (it is the smaller network) */
-  var slots=new Array(boxes.length),pSum=0,pN=0,inputs=o.chars2?new Array(boxes.length):null,total=boxes.length*(o.chars2?1.4:1);
+  var slots=new Array(boxes.length),pSum=0,pN=0,inputs=o.chars2?new Array(boxes.length):null,alts=null,total=boxes.length*(o.chars2?1.4:1);
   for(var oi=0;oi<order.length;oi++){
     var bi=order[oi],b=boxes[bi];t0=now();
     var cut=cutOut(work,b,k,o.cubic);
@@ -3034,6 +3187,18 @@ async function readBoxes(img,run,chars,opts,onProgress){
       if(inputs)inputs[bi]=ri;
       var rr=await run('rec',ri.data,ri.dims);info.ms.rec+=now()-t1;
       var T=rr.dims[rr.dims.length-2],C=rr.dims[rr.dims.length-1],dc=decode(rr.data,T,C,chars);
+      /* a short box (a value cell) read as nothing or weakly, as on a shaded row printed as a screen of dots, is read
+         once more from a cleaned copy (see enhance); the cleaner reading is kept when it is more confident, and the
+         second recogniser then reads both copies and keeps its own better one */
+      if(o.reread&&lens[bi]<6*hs[bi]&&!(dc.text.trim()&&dc.conf>=o.rereadConf)){
+        var ce=enhance(cut,o);
+        if(ce){
+          t1=now();var re=recInput(ce,Object.assign({},o,{blur:0})),rr2=await run('rec',re.data,re.dims);info.ms.rec+=now()-t1;
+          var de=decode(rr2.data,rr2.dims[rr2.dims.length-2],rr2.dims[rr2.dims.length-1],chars);info.reread=(info.reread||0)+1;
+          if(betterRead(dc,de,o)){dc=de;info.rereadUsed=(info.rereadUsed||0)+1;}
+          if(inputs){alts=alts||new Array(boxes.length);alts[bi]=re;}
+        }
+      }
       if(oi<nProbe&&dc.text.trim().length>=2){pSum+=dc.conf;pN++;}
       if(dc.text.trim())slots[bi]=slotOf(b,dc);
     }
@@ -3064,6 +3229,14 @@ async function readBoxes(img,run,chars,opts,onProgress){
       if(inp){
         t1=now();var r2=await run('rec2',inp.data,inp.dims);info.ms.rec2+=now()-t1;
         var d2=decode(r2.data,r2.dims[r2.dims.length-2],r2.dims[r2.dims.length-1],o.chars2);
+        var alt=alts&&alts[order[oi]];
+        if(alt){
+          /* the cleaned copy of a weak value cell: the second recogniser keeps whichever of its two readings is surer */
+          t1=now();var r3=await run('rec2',alt.data,alt.dims);info.ms.rec2+=now()-t1;
+          var d3=decode(r3.data,r3.dims[r3.dims.length-2],r3.dims[r3.dims.length-1],o.chars2);
+          if(betterRead(d2,d3,o))d2=d3;
+          alts[order[oi]]=null;
+        }
         if(d2.text.trim())slots2[order[oi]]=slotOf(boxes[order[oi]],d2);
         inputs[order[oi]]=null;
       }
@@ -3336,6 +3509,14 @@ function assemble1(res,W,H,opts){
   var inUse=new Set();use.forEach(function(c){c.toks.forEach(function(t){inUse.add(t);});});
   rws.forEach(function(r){r.main.slice().forEach(function(t){
     toks.forEach(function(q){if(q.box===t.box&&q!==t&&!inUse.has(q)&&q.x1<=t.x0+1&&(isEnergy(q)||isEnergy(t))&&/^\d{1,4}\s*[a-zA-Z0-9]*$/.test(q.text)&&/^\d{1,4}\s*[a-zA-Z0-9]*$/.test(t.text)){r.main.push(q);inUse.add(q);}});
+    /* the kcal number right after "kJ/" in the same box when the reader lost the word kcal (1700 kJ/ 400): it joins the
+       row too, if it agrees with the kJ value divided by 4.184 within 5% */
+    var mj=/^(\d{2,4})\s*(kj|k3|k7)$/i.exec(t.text);
+    if(mj)toks.forEach(function(q){
+      var mq=/^(\d{1,4})$/.exec(q.text);if(!mq||q.box!==t.box||q===t||inUse.has(q)||q.x0<t.x1-1)return;
+      var pre=q.pre||'',between=pre.slice(pre.lastIndexOf(t.text)+t.text.length),kc=parseInt(mj[1],10)/4.184;
+      if(pre.lastIndexOf(t.text)>-1&&/^\s*\/\s*$/.test(between)&&Math.abs(parseInt(mq[1],10)-kc)<=0.05*kc){r.main.push(q);inUse.add(q);}
+    });
   });});
   /* ----- names: each non-numeric box goes to the row at the height its right end has along the text flow */
   var used=new Set();use.forEach(function(c){c.toks.forEach(function(t){if(!t.inline)used.add(t.box);});});
@@ -3430,7 +3611,7 @@ function subImage(img,r){
 }
 async function read(img,run,chars,opts,onProgress){
   var r=await readBoxes(img,run,chars,opts,onProgress),used=img,zoomed=null;
-  if(r.aborted)return {text:'',table:false,boxes:[],info:r.info,sideways:!!r.sideways,upsideDown:!!r.upsideDown,aborted:true};
+  if(r.aborted)return {text:'',table:false,boxes:[],info:r.info,sideways:!!r.sideways,turn:r.turn==null?null:r.turn,upsideDown:!!r.upsideDown,aborted:true};
   if(r.redetect){
     var lim=r.redetect,f0=r.info;
     r=await readBoxes(img,run,chars,Object.assign({},opts||{},{detLimit:lim,noRedetect:true,probe:false,stopIfSideways:false}),onProgress);
@@ -3473,10 +3654,21 @@ function marks(p){var why=p.why||{};return (p.flags||[]).filter(function(k){retu
 function merge(pa,pb){
   function cnt(p){return p.found.length+p.foundMicros.length;}
   var P=pa,S=pb,first=0;if(cnt(pb)>cnt(pa)){P=pb;S=pa;first=1;}
+  /* a row the lead reading took by its place in the table because its name was unreadable, which the other reading names
+     as another value with the same figure, is that other value: the lead reading's guess is dropped (cookies: protein
+     4,9 g taken for salt) */
+  var drop=P.found.filter(function(k){
+    if(!/name was unreadable/.test(String((P.why||{})[k]||''))||S.found.indexOf(k)>-1)return false;
+    return S.found.filter(function(k2){return k2!==k&&P.found.indexOf(k2)<0&&S.vals[k2]===P.vals[k];}).length===1;
+  });
+  if(drop.length){var pv={};Object.keys(P.vals).forEach(function(k){if(drop.indexOf(k)<0)pv[k]=P.vals[k];});P=Object.assign({},P,{vals:pv,found:P.found.filter(function(k){return drop.indexOf(k)<0;}),flags:(P.flags||[]).filter(function(k){return drop.indexOf(k)<0;})});}
   var keys=[],seen={},cand={},two=[],notes=[];
   P.found.concat(S.found).forEach(function(k){if(!seen[k]){seen[k]=1;keys.push(k);}});
   keys.forEach(function(k){
     var a=P.found.indexOf(k)>-1?P.vals[k]:null,b=S.found.indexOf(k)>-1?S.vals[k]:null;
+    /* one reading has the kcal figure as printed, the other only worked it out from the kJ figure (it lost the kcal):
+       the printed figure stands, without a mark, when the two are within 3% */
+    if(k==='kcal'&&a!=null&&b!=null&&Math.abs(a-b)>1&&!!P.kcalFromKj!==!!S.kcalFromKj&&Math.abs(a-b)<=Math.max(6,0.03*Math.max(a,b))){cand[k]=[P.kcalFromKj?b:a];return;}
     if(a!=null&&b!=null&&Math.abs(a-b)>(k==='kcal'?1:0.0011)){cand[k]=[a,b];two.push(k);}
     else cand[k]=[a!=null?a:b];
     if(a==null||b==null)notes.push({key:k,kept:cand[k][0],other:null});
@@ -3512,9 +3704,28 @@ function merge(pa,pb){
   two.forEach(function(k){notes.push({key:k,kept:vals[k],other:vals[k]===cand[k][0]?cand[k][1]:cand[k][0]});});
   var micros={},fm=[];
   P.foundMicros.concat(S.foundMicros).forEach(function(id){if(fm.indexOf(id)<0){fm.push(id);micros[id]=P.foundMicros.indexOf(id)>-1?P.micros[id]:S.micros[id];}});
-  var flags=marks(P).filter(function(k){return vals[k]!=null;});notes.forEach(function(n){if(flags.indexOf(n.key)<0)flags.push(n.key);});
+  var whyP=P.why||{},whyS=S.why||{},UNREAD=/name was unreadable/;
+  var flags=marks(P).filter(function(k){
+    if(vals[k]==null)return false;
+    /* the lead reading took the row by its place in the table because it could not read its name, and the other
+       reading named that row with the same value: nothing is left to check */
+    if(UNREAD.test(String(whyP[k]||''))&&S.found.indexOf(k)>-1&&S.vals[k]===vals[k]&&!UNREAD.test(String(whyS[k]||'')))return false;
+    return true;
+  });
+  /* a value only one reading found is not marked when the label confirms it: the calories, protein, carbs and fat add up
+     (4, 4 and 9 kcal per g, fibre 2, within 12 kcal or 5%) and it is the calories, or protein, carbs or fat large enough
+     that a misread would have broken the sum (its kcal at least the tolerance: fat 0,3 g against 0 cannot be told); or it
+     is saturates or sugars of 0 under fat or carbs of 0 */
+  var fin=state(vals),ok=[],tolE=vals.kcal!=null?Math.max(12,0.05*vals.kcal):0;
+  notes=notes.filter(function(n){
+    var big=n.key==='kcal'||(['p','c','f'].indexOf(n.key)>-1&&(n.key==='f'?9:4)*vals[n.key]>=tolE);
+    var conf=n.other==null&&((fin.en===1&&big)||(n.key==='sat'&&vals.sat===0&&vals.f===0)||(n.key==='sugar'&&vals.sugar===0&&vals.c===0));
+    if(conf)ok.push(n.key);
+    return !conf;
+  });
+  notes.forEach(function(n){if(flags.indexOf(n.key)<0)flags.push(n.key);});
   return {vals:vals,micros:micros,found:keys,foundMicros:fm,basis:(P.basis==='ml'||S.basis==='ml')?'ml':(P.basis||S.basis||'g'),
-    lines:P.lines,warn:P.warn||'',flags:flags,why:P.why||{},notes:notes,first:first};
+    lines:P.lines,warn:P.warn||'',flags:flags,why:P.why||{},notes:notes,confirmed:ok,first:first};
 }
 return {read:read,readBoxes:readBoxes,merge:merge,marks:marks,assemble:assemble,locateTable:locateTable,plainText:plainText,sideways:sideways,DEF:DEF,_t:{energyText:energyText,energyPair:energyPair,resize3:resize3,components:components,border:border,minAreaRect:minAreaRect,polyfit:polyfit,gauss:gauss,detInput:detInput,detBoxes:detBoxes,cutOut:cutOut,recInput:recInput,decode:decode,normNum:normNum,tokensOf:tokensOf}};
 })();}catch(e){NR=null;}
@@ -3679,7 +3890,7 @@ function runScanNet(job){
   /* is this scan still the one on screen? (the form may have been closed, or another scan started, meanwhile) */
   function live(){return UI.ingForm===f&&f.scan===mine&&mine.busy;}
   function tick(){return new Promise(function(r){setTimeout(r,0);});}
-  function tryInfo(a){return {rot:a.rot,score:a.score,aborted:!!a.res.aborted,sideways:!!a.res.sideways,upsideDown:!!a.res.upsideDown,probe:a.res.info.probe==null?null:Math.round(a.res.info.probe*1000)/1000,crop:[a.crop.w,a.crop.h],info:a.res.info};}
+  function tryInfo(a){return {rot:a.rot,score:a.score,aborted:!!a.res.aborted,sideways:!!a.res.sideways,turn:a.res.turn==null?null:a.res.turn,upsideDown:!!a.res.upsideDown,probe:a.res.info.probe==null?null:Math.round(a.res.info.probe*1000)/1000,crop:[a.crop.w,a.crop.h],info:a.res.info};}
   /* one scan at a time: the networks cannot run two reads at once, so a scan waits for the one before it to stop */
   NET.queue=NET.queue.then(work,work);
   function work(){
@@ -3713,14 +3924,15 @@ function runScanNet(job){
         return {rot:rot,crop:crop,res:r,parsed:parsed,score:scanScore(parsed)};
       });
     }
-    /* The crop is read as it stands unless the text lies on its side (most boxes stand upright: a quarter turn) or
-       stands on its head (the first boxes read with low confidence: half a turn, kept only when it reads better). */
+    /* The crop is read as it stands unless the text lies on its side (most boxes stand upright: a quarter turn, the way
+       round that the reader found reads better) or stands on its head (the first boxes read with low confidence: half a
+       turn, kept only when it reads better). */
     function go(rot,mode,minConf,backRot){
       var o=mode==='plain'?null:{stopIfSideways:mode==='first',probe:true,probeMin:minConf==null?0.55:minConf};
       return attempt(rot,o).then(function(a){
         if(rec)rec.tries.push(tryInfo(a));
         if(!a.res.aborted)return a;
-        if(a.res.sideways)return go((rot+90)%360,'turned');
+        if(a.res.sideways)return go((rot+(a.res.turn||90))%360,'turned');
         if(mode==='flip')return go(backRot,'plain');
         return go((rot+180)%360,'flip',a.res.info.probe,rot);
       });
@@ -3735,7 +3947,7 @@ function runScanNet(job){
         var m2=new Map();(a.res.boxes2||[]).forEach(function(b){m2.set(b.pts,b);});
         rec.boxes=a.res.boxes.map(function(b){var o={t:b.text,c:r3c(b.conf),p:pts(b)},s2=m2.get(b.pts);if(s2){o.t2=s2.text;o.c2=r3c(s2.conf);m2.delete(b.pts);}return o;});
         m2.forEach(function(b){rec.boxes.push({t:'',c:0,t2:b.text,c2:r3c(b.conf),p:pts(b)});});
-        if(a.res.text2!=null){rec.text1=a.res.text;rec.text2=a.res.text2;rec.notes=a.parsed.notes;rec.first=a.parsed.first;}
+        if(a.res.text2!=null){rec.text1=a.res.text;rec.text2=a.res.text2;rec.notes=a.parsed.notes;rec.confirmed=a.parsed.confirmed||[];rec.first=a.parsed.first;}
         if(net.second)rec.second=net.second;
         scanLogImage(rec,a.crop.blob||a.crop.canvas);
       }
@@ -3865,11 +4077,20 @@ function renderTop(){
   }else if(UI.tab==='prs'){
     eyebrow='Personal records';title='Records';
     var n=Object.keys(S.prs).length;sub=S.ready.prs?(n+(n===1?' record':' records')+' tracked'):'';
+  }else if(UI.tab==='body'){
+    eyebrow='Progress photos, beta';
+    if(UI.phMode==='pose'){title='By pose';sub=PH.list?PH.list.length+(PH.list.length===1?' photo':' photos'):'';}
+    else{
+      var pm=phViewMon();title=PH.list?phWeekName(ymd(pm)):'Photos';sub=fmtDM(pm)+' to '+fmtDM(addDays(pm,6));
+      nav=['ph-prev','Previous week','ph-next','Next week',UI.phWeek>=0];
+      if(UI.phWeek!==0)back=['ph-today','This week'];
+    }
   }else if(UI.tab==='settings'){
     eyebrow='App';title='Settings';sub='Backup and install';
   }else{
     eyebrow='Nutrition';
     if(UI.foodView==='ingredients'){title='Ingredients';sub='Values per 100 g or 100 ml';}
+    else if(UI.foodView==='market'){title='Market';sub='Foods without a label, per 100 g';}
     else{
       var d=parseYmd(UI.foodDate),isT=UI.foodDate===todayY(),w=weekNum(d);
       title=isT?'Today':DAY_SHORT[dayKeyOf(d)]+' '+fmtDM(d);
@@ -3882,7 +4103,7 @@ function renderTop(){
   t+='<div class="title-row'+(nav?'':' nonav')+'">';
   if(nav)t+='<button class="icon-btn" data-act="'+nav[0]+'" aria-label="'+nav[1]+'">'+ICON.left+'</button>';
   t+='<h1 class="h-title">'+esc(title)+'</h1>';
-  if(nav)t+='<button class="icon-btn" data-act="'+nav[2]+'" aria-label="'+nav[3]+'">'+ICON.right+'</button>';
+  if(nav)t+='<button class="icon-btn" data-act="'+nav[2]+'" aria-label="'+nav[3]+'"'+(nav[4]?' disabled':'')+'>'+ICON.right+'</button>';
   t+='</div><div class="sub"><span>'+esc(sub)+'</span>'+(back?'<button class="link" data-act="'+back[0]+'">'+back[1]+'</button>':'')+'</div></div>';
   t+='<div class="top-right"><div class="status" id="status" data-state="busy">Loading</div><button class="icon-btn" data-act="settings" aria-label="Settings and backup" aria-pressed="'+(UI.tab==='settings')+'">'+ICON.gear+'</button></div></div>';
   $top.innerHTML=t;updStatus();
@@ -3924,7 +4145,7 @@ function render(){
   else if(isEmpty()&&UI.tab!=='settings')h=noticesHtml(true)+welcomeHtml();
   else{
     h=noticesHtml();
-    if(UI.tab==='train')h+=renderTrain();else if(UI.tab==='prs')h+=renderPRs();else if(UI.tab==='settings')h+=renderSettings();else h+=renderFood();
+    if(UI.tab==='train')h+=renderTrain();else if(UI.tab==='prs')h+=renderPRs();else if(UI.tab==='settings')h+=renderSettings();else if(UI.tab==='body')h+=renderBody();else h+=renderFood();
   }
   $app.innerHTML='<div class="wrap stack">'+h+'</div>';
 }
@@ -3932,7 +4153,7 @@ function render(){
 /* ---------- Settings view ---------- */
 function renderSettings(){
   var lb=S.meta&&S.meta.lastBackup,c=countsText(allDocs())||'Nothing saved yet';
-  var h='<section class="card"><h3>Backup</h3><p class="hint">Your log is stored only on this phone. Save a backup every week or two and keep it somewhere safe, such as Files, iCloud Drive or Google Drive. A backup also moves your log to a new phone.</p>';
+  var h='<section class="card"><h3>Backup</h3><p class="hint">Your log is stored only on this phone. Save a backup every week or two and keep it somewhere safe, such as Files, iCloud Drive or Google Drive. A backup also moves your log to a new phone. Progress photos are not in it: save them from the Body tab (Save all photos).</p>';
   h+='<div class="kv"><span>Last backup</span><b>'+(lb?esc(fmtDate(new Date(lb))+', '+agoText(lb)):'Never')+'</b></div>';
   h+='<div class="kv"><span>On this phone</span><b>'+esc(c)+'</b></div>';
   h+='<div class="row"><button class="btn primary" data-act="export">Save backup</button><button class="btn" data-act="import">Load backup</button></div><p class="hint">Loading a backup replaces what is on this phone.</p></section>';
@@ -3966,11 +4187,11 @@ function renderTrain(){
 /* the hand-over of the plan of 16-Nov-26: a notice when it replaced the shipped plan, an offer when the plan in the app
    had been edited */
 function planOfferHtml(){
-  var st=S.meta&&S.meta.planOffer;
-  if(!S.plan||(st!=='v3'&&st!=='auto'))return '';
-  var what='Monday has the vest block and the one-arm work, Tuesday one max set before the weighted pull-ups, Wednesday archer push-ups, Thursday pull-ups first. Both morning runs are 60/30/10 and the HIIT has 5 rounds.';
-  if(st==='auto')return '<section class="card"><h3>Training plan updated</h3><p class="hint">The plan now follows your Garmin v2.1 workouts of 16-Nov-26. '+what+'</p><div class="row"><button class="btn primary small" data-act="plan-seen">OK</button></div></section>';
-  return '<section class="card"><h3>New training plan</h3><p class="hint">The plan of 16-Nov-26 follows your Garmin v2.1 workouts. '+what+' Your plan in the app was edited by hand, so it was left as it is.</p><div class="row"><button class="btn primary" data-act="plan-use">Use the new plan</button><button class="btn ghost" data-act="plan-keep">Keep mine</button></div></section>';
+  var st=S.meta&&S.meta.plan1212;
+  if(!S.plan||(st!=='offer'&&st!=='auto'))return '';
+  var what='Both morning runs are on the upper-body days, two days apart: an easy run on Tuesday before the pull-ups and the 60/30/10 on Friday before the push-ups, which move from Wednesday. The HIIT moves to Wednesday and Thursday has no run. Weighted pull-ups are at 8 kg, L-sit pull-ups between 3 and 6 full reps, and Tuesday\'s warm-up adds a light set of reverse snow angels.';
+  if(st==='auto')return '<section class="card"><h3>Training plan updated</h3><p class="hint">The plan now has the changes of 18-Nov-26 from the training chat. '+what+'</p><div class="row"><button class="btn primary small" data-act="plan-seen">OK</button></div></section>';
+  return '<section class="card"><h3>New training plan</h3><p class="hint">The plan of 18-Nov-26 has the changes from the training chat. '+what+' Your plan in the app was edited by hand, so it was left as it is.</p><div class="row"><button class="btn primary" data-act="plan-use">Use the new plan</button><button class="btn ghost" data-act="plan-keep">Keep mine</button></div></section>';
 }
 function tagsHtml(ex){return (ex.main?' <span class="tag">Main</span>':'')+(ex.role==='warmup'?' <span class="tag soft">Warm-up</span>':'');}
 function exRow(ex,letter){
@@ -4062,7 +4283,7 @@ function renderBlock(){
   var h='<section class="block"><h3>Training block</h3><p class="hint">'+(bs?'Week 1 started on Monday '+fmtDate(bs)+'. After a major change to your plan, start a new block and the count restarts at week 1.':'Set the Monday your current plan started, and every week gets a number.')+'</p>';
   if(UI.blockForm)h+='<label class="fld" for="block-date"><span>Week 1 starts the week of</span><input class="txt" type="date" id="block-date" data-k="blockdate" value="'+esc(UI.blockForm.date)+'"></label><div class="row"><button class="btn primary" data-act="block-save">'+(bs?'Start new block':'Save')+'</button><button class="btn ghost" data-act="block-cancel">Cancel</button></div>';
   else h+='<div class="row"><button class="btn" data-act="block-open">'+(bs?'Start new block':'Set block start')+'</button></div>';
-  if(S.plan&&S.plan.v<3&&S.meta&&S.meta.planOffer==='kept')h+='<p class="hint">The plan of 16-Nov-26 (your Garmin v2.1 workouts) is still available.</p><div class="row"><button class="btn small" data-act="plan-again">Show the new plan</button></div>';
+  if(S.plan&&S.meta&&S.meta.plan1212==='kept')h+='<p class="hint">The plan of 18-Nov-26 from the training chat is still available.</p><div class="row"><button class="btn small" data-act="plan-again">Show the new plan</button></div>';
   return h+'</section>';
 }
 
@@ -4133,9 +4354,10 @@ function newPrForm(){
 /* ---------- Food view ---------- */
 function renderFood(){
   var count=S.ready.ingredients?' ('+Object.keys(S.ingredients).length+')':'';
-  var seg='<div class="seg" role="group" aria-label="Food view"><button data-act="food-view" data-v="log" aria-pressed="'+(UI.foodView==='log')+'">Daily log</button><button data-act="food-view" data-v="ingredients" aria-pressed="'+(UI.foodView==='ingredients')+'">Ingredients'+count+'</button></div>';
+  var seg='<div class="seg three" role="group" aria-label="Food view"><button data-act="food-view" data-v="log" aria-pressed="'+(UI.foodView==='log')+'">Daily log</button><button data-act="food-view" data-v="ingredients" aria-pressed="'+(UI.foodView==='ingredients')+'">Ingredients'+count+'</button><button data-act="food-view" data-v="market" aria-pressed="'+(UI.foodView==='market')+'">Market</button></div>';
   if(!ready('meals','ingredients','settings'))return seg+loadingHtml('food log');
-  return seg+(UI.foodView==='ingredients'?renderIngredients():renderFoodLog());
+  mkLoad();
+  return seg+(UI.foodView==='ingredients'?renderIngredients():UI.foodView==='market'?renderMarket():renderFoodLog());
 }
 function macroHtml(name,v,t,color){
   return '<div class="min0"><div class="m-name">'+name+'</div><div class="m-val">'+fmtInt(v)+'<small> '+(t?'/ '+fmtInt(t)+' g':'g')+'</small></div>'+(t?barHtml(v,t,color):'')+'</div>';
@@ -4192,24 +4414,42 @@ function mealCard(m){
   return '<section class="card"><div class="meal-head"><h3>'+esc(m.name)+'</h3><span class="meal-tot">'+fmtInt(t.kcal)+' kcal, '+fmtG(t.p)+' g protein</span></div>'+(items?'<ul class="items">'+items+'</ul>':'')+body+'</section>';
 }
 function previewHtml(ing){
-  var g=num(UI.grams);
+  var g=num(UI.grams),cr=null;
   if(!ing)return '';
+  if(UI.cook&&UI.cook.mode==='cooked'&&ing.basis!=='ml'){
+    cr=cookRatio(UI.pick);if(!cr)return 'Enter the batch weights first.';
+    ing=cookedVals(ing,cr.r);
+  }
   if(!(g>0))return 'Enter the weight to see the values.';
   var v=scale(ing,g);
-  return '<b>'+fmtInt(v.kcal)+'</b> kcal<br>P '+fmtG(v.p)+' g, C '+fmtG(v.c)+' g, F '+fmtG(v.f)+' g';
+  return '<b>'+fmtInt(v.kcal)+'</b> kcal<br>P '+fmtG(v.p)+' g, C '+fmtG(v.c)+' g, F '+fmtG(v.f)+' g'+(cr?'<br>'+(cr.approx?'c.':'')+fmtG(g/cr.r)+' g raw':'');
 }
 function ingOptions(){
-  if(!Object.keys(S.ingredients).length)return '<p class="hint">Your ingredient list is empty. Add one with the values from its nutrition label, or scan the label.</p>';
-  var list=ingSorted(UI.ingSearch,false);
-  if(!list.length)return '<p class="hint">No match. Add it as a new ingredient.</p>';
-  return list.slice(0,40).map(function(p){return '<button class="ing-opt" data-act="pick-ing" data-id="'+esc(p[0])+'"><span class="n">'+esc(p[1].name)+'</span><span class="m">'+fmtInt(p[1].kcal)+' kcal, P '+fmtG(p[1].p)+'</span></button>';}).join('');
+  var q=(UI.ingSearch||'').trim(),has=Object.keys(S.ingredients).length,own=has?ingSorted(UI.ingSearch,false):[],h='';
+  if(!has&&!q)h+='<p class="hint">Your ingredient list is empty. Search the Market foods, add one with the values from its label, or scan the label.</p>';
+  else if(has&&!own.length&&q.length<2)h+='<p class="hint">No match. Add it as a new ingredient.</p>';
+  h+=own.slice(0,40).map(function(p){return '<button class="ing-opt" data-act="pick-ing" data-id="'+esc(p[0])+'"><span class="n">'+esc(p[1].name)+'</span><span class="m">'+fmtInt(p[1].kcal)+' kcal, P '+fmtG(p[1].p)+'</span></button>';}).join('');
+  if(q.length>=2){
+    if(!MK.data){mkLoad();h+='<p class="hint">'+(MK.err?'The Market foods could not be loaded.':'Looking in the Market foods.')+'</p>';}
+    else{
+      var mk=mkSearch(q,null,12);
+      if(mk.length)h+='<div class="eyebrow mk-head">Market</div>'+mk.map(function(f){return '<button class="ing-opt" data-act="pick-mk" data-id="'+esc(f.id)+'"><span class="n">'+esc(f.n)+' <span class="chip accent">Market</span></span><span class="m">'+fmtInt(f.v[0])+' kcal, P '+fmtG(f.v[1])+'</span></button>';}).join('');
+      else if(!own.length)h+='<p class="hint">No match here or in the Market foods. Add it as a new ingredient.</p>';
+    }
+  }
+  return h;
 }
 function pickerHtml(m){
-  var ing=UI.pick&&S.ingredients[UI.pick];
+  var ing=pickIng(UI.pick);
   if(ing){
-    return '<div class="picker"><div class="pick-sel"><div class="min0"><div class="it-name">'+esc(ing.name)+'</div><div class="it-mac">Per 100 '+(ing.basis==='ml'?'ml':'g')+': '+per100(ing)+'</div></div><button class="btn ghost small" data-act="pick-back">Change</button></div>'+
-      '<div class="grams-row"><label class="fld" for="grams"><span>'+(ing.basis==='ml'?'Amount (ml)':'Weight (g)')+'</span><input class="num" id="grams" type="text" inputmode="decimal" autocomplete="off" data-k="grams" value="'+esc(UI.grams)+'" placeholder=" "></label><div class="preview" id="preview">'+previewHtml(ing)+'</div></div>'+
-      '<div class="row"><button class="btn primary" data-act="pick-add">Add to '+esc(m.name)+'</button><button class="btn ghost" data-act="pick-close">Done</button></div></div>';
+    var isMk=UI.pick.indexOf('mk:')===0,f=isMk?MK.byId[UI.pick.slice(3)]:null,byW=ing.basis!=='ml';
+    if(!UI.cook)UI.cook=cookStart(UI.pick);
+    var cooked=byW&&UI.cook.mode==='cooked';
+    var h='<div class="picker"><div class="pick-sel"><div class="min0"><div class="it-name">'+esc(ing.name)+(isMk?' <span class="chip accent">Market</span>':'')+'</div><div class="it-mac">Per 100 '+(ing.basis==='ml'?'ml':'g')+(cooked?' raw':'')+': '+per100(ing)+'</div>'+(f&&f.pc?'<div class="it-mac">'+esc(f.pc)+'</div>':'')+'</div><button class="btn ghost small" data-act="pick-back">Change</button></div>';
+    if(byW)h+='<div class="seg" role="group" aria-label="Weighed"><button data-act="cook-mode" data-v="raw" aria-pressed="'+!cooked+'">Raw</button><button data-act="cook-mode" data-v="cooked" aria-pressed="'+cooked+'">Cooked</button></div>';
+    if(cooked)h+=cookPanelHtml(ing);
+    h+='<div class="grams-row"><label class="fld" for="grams"><span>'+(ing.basis==='ml'?'Amount (ml)':(cooked?'On the plate (g)':'Weight (g)'))+'</span><input class="num" id="grams" type="text" inputmode="decimal" autocomplete="off" data-k="grams" value="'+esc(UI.grams)+'" placeholder=" "></label><div class="preview" id="preview">'+previewHtml(ing)+'</div></div>';
+    return h+'<div class="row"><button class="btn primary" data-act="pick-add">Add to '+esc(m.name)+'</button><button class="btn ghost" data-act="pick-close">Done</button></div></div>';
   }
   return '<div class="picker"><label class="fld" for="ingsearch"><span>Add to '+esc(m.name)+'</span><input class="txt" id="ingsearch" type="search" data-k="ingsearch" value="'+esc(UI.ingSearch)+'" placeholder="Search your ingredients" autocomplete="off"></label>'+
     '<div class="ing-list" id="inglist">'+ingOptions()+'</div>'+
@@ -4224,7 +4464,7 @@ function ingRows(){
   if(!Object.keys(S.ingredients).length)return '<div class="empty"><strong>No ingredients yet</strong>Add the foods you eat often, typed from the label or scanned. Logging a meal then takes a few taps.</div>';
   var list=ingSorted(UI.ingFilter,true);
   if(!list.length)return '<div class="empty">No ingredient matches that search.</div>';
-  return list.map(function(p){var x=p[1],ex=extrasText(x);return '<button class="ing-row'+(UI.ingForm&&UI.ingForm.id===p[0]?' sel':'')+'" data-act="ing-edit" data-id="'+esc(p[0])+'"><span class="n">'+esc(x.name)+(x.example?' <span class="chip">Example</span>':'')+(x.source==='scan'?' <span class="chip gold">Scanned</span>':'')+'</span><span class="m">Per 100 '+(x.basis==='ml'?'ml':'g')+': '+per100(x)+(ex?'. Plus '+ex:'')+'</span></button>';}).join('');
+  return list.map(function(p){var x=p[1],ex=extrasText(x);return '<button class="ing-row'+(UI.ingForm&&UI.ingForm.id===p[0]?' sel':'')+'" data-act="ing-edit" data-id="'+esc(p[0])+'"><span class="n">'+esc(x.name)+(x.example?' <span class="chip">Example</span>':'')+(x.source==='scan'?' <span class="chip gold">Scanned</span>':'')+(x.source==='market'?' <span class="chip accent">Market</span>':'')+(x.cook&&x.cook.raw>0&&x.cook.cooked>0?' <span class="chip">Cooked x'+fmtR(x.cook.cooked/x.cook.raw)+'</span>':'')+'</span><span class="m">Per 100 '+(x.basis==='ml'?'ml':'g')+': '+per100(x)+(ex?'. Plus '+ex:'')+'</span></button>';}).join('');
 }
 function ifld(label,id,f,v,scanned,check){
   return '<label class="fld" for="'+id+'"><span>'+esc(label)+(check?' <span class="chip danger">Check</span>':(scanned?' <span class="chip gold">Scan</span>':''))+'</span><input class="txt'+(check?' from-check':(scanned?' from-scan':''))+'" id="'+id+'" inputmode="decimal" autocomplete="off" data-k="if" data-f="'+f+'" value="'+esc(v==null?'':v)+'"></label>';
@@ -4239,7 +4479,7 @@ function scanHtml(f){
   if(s.busy){
     h+='<div class="scan-status" id="scan-status"><span class="spin"></span><span>'+esc(s.status||'Working')+'</span></div><div class="scan-bar"><span id="scan-bar" style="width:0%"></span></div>';
   }else{
-    h+='<div class="row between"><button class="btn" data-act="scan">'+(s.done?'Scan again':'Scan label')+'</button><span class="hint">Take the photo, then box the table</span></div>';
+    h+='<div class="row between"><div class="row"><button class="btn" data-act="scan">'+(s.done?'Scan again':'Scan label')+'</button><button class="btn ghost" data-act="scan-gallery">Gallery</button></div><span class="hint">Take the photo, then box the table</span></div>';
     if(s.err)h+='<p class="err">'+esc(s.err)+'</p>';
     if(s.done){
       var n=(s.found||[]).length+(s.foundMicros||[]).length;
@@ -4269,6 +4509,7 @@ function ingFormHtml(){
     h+='<div class="panel"><p class="hint">Only fill what the label lists. Units match the label: mg or µg.</p><div class="eyebrow">Vitamins</div><div class="grid2">'+MICROS.filter(function(m){return m.g==='v';}).map(function(m){return mfld(m,f);}).join('')+'</div>';
     h+='<div class="eyebrow">Minerals</div><div class="grid2">'+MICROS.filter(function(m){return m.g==='m';}).map(function(m){return mfld(m,f);}).join('')+'</div></div>';
   }
+  h+=cookFormHtml(f);
   h+=(f.err?'<p class="err">'+esc(f.err)+'</p>':'')+actions+'</section>';
   return h;
 }
@@ -4279,11 +4520,12 @@ function renderIngredients(){
   h+='<div class="sheet" id="ingrows">'+ingRows()+'</div>';
   return h;
 }
-function blankIngForm(){return {id:null,name:'',basis:'g',kcal:'',p:'',c:'',f:'',sat:'',sugar:'',fibre:'',salt:'',micros:{},showMicros:false,scan:null,scanKeys:{},err:''};}
+function blankIngForm(){return {id:null,name:'',basis:'g',kcal:'',p:'',c:'',f:'',sat:'',sugar:'',fibre:'',salt:'',micros:{},showMicros:false,scan:null,scanKeys:{},err:'',craw:'',ccooked:'',ckind:''};}
 function ingFormFrom(id){
   var x=S.ingredients[id],f=blankIngForm();f.id=id;f.name=x.name||'';f.basis=x.basis==='ml'?'ml':'g';
   LABEL.forEach(function(l){f[l.k]=x[l.k]==null?'':String(x[l.k]);});
   Object.keys(x.micros||{}).forEach(function(m){if(MICRO_BY[m]&&x.micros[m]!=null)f.micros[m]=String(x.micros[m]);});
+  if(x.cook){f.craw=x.cook.raw?String(x.cook.raw):'';f.ccooked=x.cook.cooked?String(x.cook.cooked):'';f.ckind=x.cook.kind||'';}
   return f;
 }
 
@@ -4329,10 +4571,10 @@ ACT['lr-save']=function(){
   S.settings.longRun={date:ymd(sundayOf(parseYmd(f.date))),km:r2(km),kind:f.kind==='easy'?'easy':'6030',step:r2(step)};
   save('app/settings',S.settings,0);UI.lrForm=null;toast('Long run schedule updated');render();
 };
-ACT['plan-seen']=function(){setMeta({planOffer:'seen'});render();};
-ACT['plan-use']=function(){S.plan=clone(PLAN_V3);save('app/plan',S.plan,0);setMeta({planOffer:'used'});UI.editDay=false;toast('Training plan updated');render();};
-ACT['plan-keep']=function(){setMeta({planOffer:'kept'});toast('Your plan stays as it is');render();};
-ACT['plan-again']=function(){setMeta({planOffer:'v3'});render();window.scrollTo(0,0);};
+ACT['plan-seen']=function(){setMeta({plan1212:'seen'});render();};
+ACT['plan-use']=function(){S.plan=clone(PLAN_V4);save('app/plan',S.plan,0);setMeta({plan1212:'used'});UI.editDay=false;toast('Training plan updated');render();};
+ACT['plan-keep']=function(){setMeta({plan1212:'kept'});toast('Your plan stays as it is');render();};
+ACT['plan-again']=function(){setMeta({plan1212:'offer'});render();window.scrollTo(0,0);};
 ACT['block-open']=function(){UI.blockForm={date:ymd(mondayOf(new Date()))};render();focusLater('block-date');};
 ACT['block-cancel']=function(){UI.blockForm=null;render();};
 ACT['block-save']=function(){
@@ -4385,17 +4627,28 @@ function addMeal(name){
 ACT['meal-add']=function(b){addMeal(b.getAttribute('data-name'));};
 ACT['meal-add-custom']=function(){addMeal(UI.mealName);};
 ACT['pick-open']=function(b){UI.addTo=b.getAttribute('data-meal');UI.pick=null;UI.grams='';UI.ingSearch='';UI.delMeal=null;render();focusLater('ingsearch');};
-ACT['pick-close']=function(){UI.addTo=null;UI.pick=null;UI.grams='';render();};
-ACT['pick-ing']=function(b){UI.pick=b.getAttribute('data-id');UI.grams='';render();focusLater('grams');};
-ACT['pick-back']=function(){UI.pick=null;UI.grams='';render();focusLater('ingsearch');};
+ACT['pick-close']=function(){UI.addTo=null;UI.pick=null;UI.grams='';UI.cook=null;render();};
+ACT['pick-ing']=function(b){UI.pick=b.getAttribute('data-id');UI.grams='';UI.cook=cookStart(UI.pick);render();focusLater('grams');};
+ACT['pick-back']=function(){UI.pick=null;UI.grams='';UI.cook=null;render();focusLater('ingsearch');};
 ACT['pick-add']=function(){
-  var ing=S.ingredients[UI.pick],g=num(UI.grams);if(!ing)return;
+  var ing=pickIng(UI.pick),g=num(UI.grams);if(!ing)return;
   if(!(g>0)){toast('Enter the amount in grams');focusLater('grams');return;}
   var md=mealsDoc(UI.foodDate,true),m=md.meals.filter(function(x){return x.id===UI.addTo;})[0];if(!m)return;
-  var v=scale(ing,g);m.items=m.items||[];
-  var it={ing:UI.pick,name:ing.name,g:r1(g)};LABEL.forEach(function(l){it[l.k]=v[l.k];});if(Object.keys(v.micros).length)it.micros=v.micros;
+  var ck=UI.cook,cr=null,name=ing.name,base=ing,isMk=UI.pick.indexOf('mk:')===0;
+  if(ck&&ck.mode==='cooked'&&ing.basis!=='ml'){
+    cr=cookRatio(UI.pick);
+    if(!cr){toast('Enter the batch weights, raw and cooked',3000);focusLater('cook-raw');return;}
+    if(cr.src==='batch')cookSave(UI.pick,{raw:num(ck.braw),cooked:num(ck.bcooked),at:UI.foodDate});
+    if(cr.src==='typical'&&!isMk&&ck.kind)cookSaveKind(UI.pick,ck.kind);
+    base=cookedVals(ing,cr.r);name=ing.name.replace(/,\s*raw$/i,'')+(cr.approx?', cooked (approx.)':', cooked');
+  }
+  var v=scale(base,g);m.items=m.items||[];
+  var it={name:name,g:r1(g)};
+  if(isMk)it.mk=UI.pick.slice(3);else it.ing=UI.pick;
+  if(cr)it.cook={r:r3(cr.r),approx:!!cr.approx,raw:r1(g/cr.r)};
+  LABEL.forEach(function(l){it[l.k]=v[l.k];});if(Object.keys(v.micros).length)it.micros=v.micros;
   m.items.push(it);
-  save('meals/'+UI.foodDate,md,0);toast('Added '+fmtG(g)+' '+(ing.basis==='ml'?'ml':'g')+' '+ing.name);UI.pick=null;UI.grams='';UI.ingSearch='';render();
+  save('meals/'+UI.foodDate,md,0);toast('Added '+fmtG(g)+' '+(ing.basis==='ml'?'ml':'g')+' '+name);UI.pick=null;UI.grams='';UI.ingSearch='';UI.cook=null;render();
 };
 ACT['rm-item']=function(b){
   var md=mealsDoc(UI.foodDate,false);if(!md)return;
@@ -4414,7 +4667,7 @@ ACT['ing-new-from-pick']=function(){var f=blankIngForm();f.name=UI.ingSearch||''
 ACT['ing-edit']=function(b){var id=b.getAttribute('data-id');if(!S.ingredients[id])return;UI.ingForm=ingFormFrom(id);render();window.scrollTo(0,0);};
 ACT['ing-cancel']=function(){
   if(UI.ingForm&&UI.ingForm.crop)URL.revokeObjectURL(UI.ingForm.crop.url);
-  var r=UI.ingForm&&UI.ingForm.returnTo;UI.ingForm=null;
+  pendClear();var r=UI.ingForm&&UI.ingForm.returnTo;UI.ingForm=null;
   if(r){UI.foodView='log';UI.foodDate=r.date;UI.addTo=r.meal;UI.pick=null;}
   render();
 };
@@ -4423,13 +4676,20 @@ ACT['ing-save']=function(){
   if(!name){f.err='Give the ingredient a name.';render();return;}
   if(kcal==null){f.err='Enter the calories per 100 g.';render();return;}
   var id=f.id||('ing-'+uid()),old=S.ingredients[f.id]||{};
-  var x={name:name,basis:f.basis==='ml'?'ml':'g',example:false,updated:Date.now(),source:(f.scan&&f.scan.done)?'scan':(old.source==='scan'?'scan':'label'),micros:{}};
+  var x={name:name,basis:f.basis==='ml'?'ml':'g',example:false,updated:Date.now(),source:(f.scan&&f.scan.done)?'scan':(old.source==='scan'||old.source==='market'?old.source:'label'),micros:{}};
   LABEL.forEach(function(l){var v=num(f[l.k]);x[l.k]=l.k==='kcal'?kcal:(['p','c','f'].indexOf(l.k)>-1?(v==null?0:v):v);});
   Object.keys(f.micros||{}).forEach(function(m){var v=num(f.micros[m]);if(MICRO_BY[m]&&v!=null)x.micros[m]=v;});
+  if(old.market)x.market=old.market;
+  var cr=num(f.craw),cc=num(f.ccooked),oc=old.cook||{};
+  if(f.basis!=='ml'&&((cr>0&&cc>0)||f.ckind)){
+    x.cook={};
+    if(cr>0&&cc>0){x.cook.raw=cr;x.cook.cooked=cc;x.cook.at=(oc.raw===cr&&oc.cooked===cc&&oc.at)||todayY();}
+    if(f.ckind&&COOK_KIND[f.ckind])x.cook.kind=f.ckind;
+  }
   S.ingredients[id]=x;
   if(f.scanRecId)scanLogPatch(f.scanRecId,{saved:clone(x),savedAt:new Date().toISOString()});
   save('ingredients/'+id,x,0);toast('Ingredient saved');
-  var r=f.returnTo;UI.ingForm=null;
+  pendClear();var r=f.returnTo;UI.ingForm=null;
   if(r){UI.foodView='log';UI.foodDate=r.date;UI.addTo=r.meal;UI.pick=id;UI.grams='';render();focusLater('grams');return;}
   render();
 };
@@ -4437,7 +4697,8 @@ ACT['ing-del']=function(){UI.ingForm.confirmDel=true;render();};
 ACT['ing-del-no']=function(){UI.ingForm.confirmDel=false;render();};
 ACT['ing-del-yes']=function(){var id=UI.ingForm.id;delete S.ingredients[id];removeDoc('ingredients/'+id);UI.ingForm=null;toast('Ingredient deleted');render();};
 ACT['micros-toggle']=function(){if(UI.ingForm){UI.ingForm.showMicros=!UI.ingForm.showMicros;render();}};
-ACT.scan=function(){if(!UI.ingForm||UI.ingForm.crop||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;if(camSupported())camOpen();else $scan.click();};
+ACT.scan=function(){if(!UI.ingForm||UI.ingForm.crop||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;camScan();};
+ACT['scan-gallery']=function(){if(!UI.ingForm||UI.ingForm.crop||(UI.ingForm.scan&&UI.ingForm.scan.busy))return;camGallery();};
 ACT['crop-read']=function(){finishCrop(false);};
 ACT['crop-all']=function(){finishCrop(true);};
 ACT['crop-rotate']=function(){rotateCrop();};
@@ -4497,7 +4758,7 @@ INPUT.reader=function(t){try{localStorage.setItem('cfl-reader',t.value);}catch(e
 INPUT.blockdate=function(t){if(UI.blockForm)UI.blockForm.date=t.value;};
 INPUT.ingsearch=function(t){UI.ingSearch=t.value;var el=document.getElementById('inglist');if(el)el.innerHTML=ingOptions();};
 INPUT.ingfilter=function(t){UI.ingFilter=t.value;var el=document.getElementById('ingrows');if(el)el.innerHTML=ingRows();};
-INPUT.grams=function(t){UI.grams=t.value;var el=document.getElementById('preview');if(el)el.innerHTML=previewHtml(S.ingredients[UI.pick]);};
+INPUT.grams=function(t){UI.grams=t.value;var el=document.getElementById('preview');if(el)el.innerHTML=previewHtml(pickIng(UI.pick));};
 
 function handleInput(t){var k=t.getAttribute&&t.getAttribute('data-k');if(k&&INPUT[k])INPUT[k](t);}
 document.addEventListener('input',function(e){var t=e.target;if(t.type==='checkbox'||t.tagName==='SELECT'||t.type==='file')return;handleInput(t);});
@@ -4519,14 +4780,728 @@ document.addEventListener('visibilitychange',function(){
   var t=todayY();if(t!==lastDay){lastDay=t;UI.weekOffset=0;UI.selDay=dayKeyOf(new Date());UI.foodDate=t;requestRender();}
 });
 
+/* ---------- progress photos (beta, 1.2.13) ----------
+   Weekly albums: each week holds one photo per pose (the six of a classic progress set: front, both sides and back
+   relaxed, front and back flexed) and any number of Unorganized ones. Week 1 is the week of the earliest photo, so the
+   weeks count from the first photos taken; with no photo yet, this week is Week 1. A photo goes to the week on screen.
+   The photos live in a database of their own on this phone (casian-fitness-log-photos: 'photos' holds each photo's week,
+   pose, dates, size and a thumbnail of 360 pixels; 'files' holds the photo, at up to 1920 pixels on its long side). They
+   are not in the backup file, which would grow too large to keep: Save all photos makes a zip of the JPEG files with
+   photos.json (week, pose and dates of each) and Load photos brings such a zip back. Nothing leaves the phone otherwise.
+   While the camera app is open Android may close the browser; the pose being taken is then kept for 30 minutes, so the
+   app opens again on that week with a note. */
+var PH_POSES=[
+  {id:'front',name:'Front, relaxed',file:'Front relaxed',how:'Face the camera, arms by your sides, standing tall without flexing'},
+  {id:'front-flex',name:'Front, flexed',file:'Front flexed',how:'Front double biceps: arms up and bent, abs tight'},
+  {id:'side-l',name:'Left side',file:'Left side',how:'Left side to the camera, arms straight forward at shoulder height, relaxed'},
+  {id:'side-r',name:'Right side',file:'Right side',how:'Right side to the camera, arms straight forward at shoulder height, relaxed'},
+  {id:'back',name:'Back, relaxed',file:'Back relaxed',how:'Back to the camera, arms by your sides'},
+  {id:'back-flex',name:'Back, flexed',file:'Back flexed',how:'Back double biceps: arms up and bent, shoulder blades spread'}
+];
+var PH_UNORG={id:'unorg',name:'Unorganized',file:'Unorganized',how:'Any other photo of the week'};
+var PH_CATS=PH_POSES.concat([PH_UNORG]),PH_CAT={};
+PH_CATS.forEach(function(c,i){c.n=i+1;PH_CAT[c.id]=c;});
+var PH_DB='casian-fitness-log-photos',PH_PEND='cfl-photo-pending',PH_FULL=1920,PH_THUMB=360;
+var PH={list:null,loading:false,err:null,thumbs:{},target:null,sheet:null,view:null,busy:false};
+var PHV={open:false,urls:{}},PHO={pushed:false};
+var $phCam=document.getElementById('ph-cam'),$phFile=document.getElementById('ph-file'),$phZip=document.getElementById('ph-zip'),
+    $phv=document.getElementById('phv'),$phs=document.getElementById('phs');
+UI.phWeek=0;UI.phMode='week';UI.phPose='front';
+
+/* the photos' own database: one transaction per call, closed when done */
+function phTx(stores,mode,fn){
+  return new Promise(function(res,rej){
+    if(!window.indexedDB)return rej(new Error('this browser has no database'));
+    var rq;try{rq=indexedDB.open(PH_DB,1);}catch(e){return rej(e);}
+    rq.onupgradeneeded=function(){
+      var db=rq.result;
+      if(!db.objectStoreNames.contains('photos'))db.createObjectStore('photos',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('files'))db.createObjectStore('files');
+    };
+    rq.onerror=function(){rej(rq.error);};
+    rq.onblocked=function(){rej(new Error('the database is busy'));};
+    rq.onsuccess=function(){
+      var db=rq.result,tx,out;
+      try{tx=db.transaction(stores,mode);out=fn(tx);}catch(e){db.close();return rej(e);}
+      tx.oncomplete=function(){db.close();res(out&&typeof out==='object'&&('result' in out)?out.result:out);};
+      tx.onerror=tx.onabort=function(){db.close();rej(tx.error||new Error('not saved'));};
+    };
+  });
+}
+function phLoad(){
+  if(PH.loading)return;
+  PH.loading=true;
+  phTx(['photos'],'readonly',function(tx){return tx.objectStore('photos').getAll();}).then(function(l){PH.list=l||[];PH.err=null;},function(e){PH.list=[];PH.err=(e&&e.message)||String(e);})
+    .then(function(){PH.loading=false;if(UI.tab==='body')requestRender();});
+}
+
+/* weeks: Monday dates; Week 1 is the week of the earliest photo */
+function phThisMon(){return mondayOf(new Date());}
+function phViewMon(){return addDays(phThisMon(),UI.phWeek*7);}
+function phStartMon(){var m=null;(PH.list||[]).forEach(function(r){if(!m||r.week<m)m=r.week;});return m?parseYmd(m):phThisMon();}
+function phWeekNo(week){return Math.round((parseYmd(week)-phStartMon())/(7*86400000))+1;}
+function phWeekName(week){var n=phWeekNo(week);return n>=1?'Week '+n:'Before week 1';}
+function phOrder(a,b){
+  if(a.week!==b.week)return a.week<b.week?-1:1;
+  var d=(PH_CAT[a.pose]||PH_UNORG).n-(PH_CAT[b.pose]||PH_UNORG).n;if(d)return d;
+  return a.added<b.added?-1:a.added>b.added?1:0;
+}
+function phOf(week,pose){return (PH.list||[]).filter(function(r){return r.week===week&&r.pose===pose;}).sort(phOrder);}
+function phGet(id){return (PH.list||[]).filter(function(r){return r.id===id;})[0]||null;}
+function phThumb(r){if(!PH.thumbs[r.id]&&r.thumb)try{PH.thumbs[r.id]=URL.createObjectURL(r.thumb);}catch(e){}return PH.thumbs[r.id]||'';}
+function phDateText(r){var t=Date.parse(r.taken||r.added);return isFinite(t)?'Taken '+fmtDate(new Date(t)):'';}
+function phNewId(){return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+
+/* a photo is kept at up to 1920 pixels on its long side (c.0.4 MB), with a thumbnail of 360 */
+function phDecode(blob){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(blob),img=new Image();
+    img.onload=function(){res({img:img,url:url});};
+    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('This photo cannot be opened here. HEIC photos are not supported: set the camera to save JPEG.'));};
+    img.src=url;
+  });
+}
+function phEncode(img,max,q){
+  var w=img.naturalWidth,h=img.naturalHeight,s=Math.min(1,max/Math.max(w,h)),cw=Math.max(1,Math.round(w*s)),ch=Math.max(1,Math.round(h*s));
+  var c=document.createElement('canvas');c.width=cw;c.height=ch;
+  var g=c.getContext('2d');g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(img,0,0,cw,ch);
+  return new Promise(function(res,rej){
+    c.toBlob(function(b){c.width=c.height=1;if(b)res({blob:b,w:cw,h:ch});else rej(new Error('The photo could not be saved: the phone may be short of memory.'));},'image/jpeg',q);
+  });
+}
+/* keep: the file is stored as it is (a photo of this app's own zip) and only the thumbnail is made */
+function phPrepare(file,keep){
+  return phDecode(file).then(function(d){
+    var full=keep?Promise.resolve({blob:file,w:d.img.naturalWidth,h:d.img.naturalHeight}):phEncode(d.img,PH_FULL,0.86);
+    return full.then(function(f){
+      return phEncode(d.img,PH_THUMB,0.75).then(function(t){return {blob:f.blob,w:f.w,h:f.h,thumb:t.blob};});
+    }).then(function(r){URL.revokeObjectURL(d.url);return r;},function(e){URL.revokeObjectURL(d.url);throw e;});
+  });
+}
+/* a pose holds one photo a week: a new one sends the earlier one to Unorganized, so no photo is ever lost by mistake */
+function phAdd(file,week,pose){
+  return phPrepare(file).then(function(p){
+    var rec={id:phNewId(),week:week,pose:pose,added:new Date().toISOString(),taken:file.lastModified?new Date(file.lastModified).toISOString():null,w:p.w,h:p.h,size:p.blob.size,thumb:p.thumb};
+    var old=pose==='unorg'?null:(phOf(week,pose)[0]||null);
+    return phTx(['photos','files'],'readwrite',function(tx){
+      tx.objectStore('files').put(p.blob,rec.id);tx.objectStore('photos').put(rec);
+      if(old)tx.objectStore('photos').put(Object.assign({},old,{pose:'unorg'}));
+    }).then(function(){if(old)old.pose='unorg';PH.list.push(rec);return {rec:rec,old:old};});
+  });
+}
+/* to a pose that already has a photo that week: the two swap places */
+function phMove(id,pose){
+  var r=phGet(id);if(!r||r.pose===pose)return Promise.resolve();
+  var from=r.pose,other=pose==='unorg'?null:(phOf(r.week,pose)[0]||null);
+  return phTx(['photos'],'readwrite',function(tx){
+    var st=tx.objectStore('photos');
+    st.put(Object.assign({},r,{pose:pose}));
+    if(other)st.put(Object.assign({},other,{pose:from}));
+  }).then(function(){r.pose=pose;if(other)other.pose=from;return other;});
+}
+function phDelete(id){
+  return phTx(['photos','files'],'readwrite',function(tx){tx.objectStore('photos').delete(id);tx.objectStore('files').delete(id);}).then(function(){
+    PH.list=PH.list.filter(function(r){return r.id!==id;});
+    if(PH.thumbs[id]){try{URL.revokeObjectURL(PH.thumbs[id]);}catch(e){}delete PH.thumbs[id];}
+  });
+}
+function phFile(id){return phTx(['files'],'readonly',function(tx){return tx.objectStore('files').get(id);});}
+
+/* taking or picking a photo for the pose chosen in the sheet */
+function phPendSave(t){try{localStorage.setItem(PH_PEND,JSON.stringify({at:Date.now(),week:t.week,pose:t.pose}));}catch(e){}}
+function phPendClear(){try{localStorage.removeItem(PH_PEND);}catch(e){}}
+function phPendRestore(){
+  var p=null;try{p=JSON.parse(localStorage.getItem(PH_PEND)||'null');}catch(e){}
+  phPendClear();
+  if(!p||!PH_CAT[p.pose]||!/^\d{4}-\d{2}-\d{2}$/.test(p.week||'')||!(Date.now()-p.at<30*60000))return null;
+  UI.tab=UI.prevTab='body';UI.phMode='week';
+  UI.phWeek=Math.min(0,Math.round((parseYmd(p.week)-phThisMon())/(7*86400000)));
+  return p;
+}
+function phPick(kind){
+  var t=PH.target;if(!t)return;
+  if(kind==='cam'){phPendSave(t);try{$phCam.value='';}catch(e){}$phCam.click();}
+  else{try{$phFile.value='';}catch(e){}$phFile.multiple=t.pose==='unorg';$phFile.click();}
+}
+function phGot(files){
+  var t=PH.target;PH.target=null;phSheet(null);
+  if(!t||!files.length)return;
+  if(PH.list===null||PH.busy){toast('Photos are still loading. Try again in a moment.',3000);return;}
+  PH.busy=true;
+  var n=files.length,i=0,ok=0,moved=0,err=null;
+  function next(){
+    if(i>=n){
+      PH.busy=false;requestPersist();render();
+      var m=ok?(ok===1?'Photo saved':ok+' photos saved'):'';
+      if(moved)m+='. The earlier photo of this pose is now in Unorganized';
+      if(err)m=(m?m+'. ':'')+(n>1&&ok?(n-ok)+' could not be saved: ':'')+err;
+      toast(m||'No photo saved',moved||err?6000:2200);
+      return;
+    }
+    var f=files[i++];
+    if(n>1)toast('Saving photo '+i+' of '+n,60000);
+    phAdd(f,t.week,t.pose).then(function(r){ok++;if(r.old)moved++;},function(e){err=(e&&e.message)||'The photo could not be saved.';}).then(next);
+  }
+  next();
+}
+
+/* history: the Back button closes the sheet or the photo instead of leaving the app */
+function phPush(){if(!PHO.pushed){try{history.pushState({cfl:'ph'},'');PHO.pushed=true;}catch(e){}}}
+function phPop(fromBack){if(PHO.pushed){PHO.pushed=false;if(!fromBack)try{history.back();}catch(e){}}}
+function phSheet(s,fromBack){
+  PH.sheet=s||null;
+  if(!$phs)return;
+  if(!s){$phs.hidden=true;$phs.innerHTML='';if(!PHV.open)phPop(fromBack);return;}
+  var c=PH_CAT[s.pose]||PH_UNORG;
+  $phs.innerHTML='<div class="phs-back" data-ph="sheet-close"></div><div class="phs-panel" role="dialog" aria-modal="true" aria-label="Add a photo">'+
+    '<div class="eyebrow">'+esc(phWeekName(s.week)+', '+fmtDM(parseYmd(s.week))+' to '+fmtDM(addDays(parseYmd(s.week),6)))+'</div><h3>'+esc(c.name)+'</h3><p class="hint">'+esc(c.how)+'.</p>'+
+    '<div class="phs-btns"><button class="btn primary" data-ph="take">Take photo</button><button class="btn" data-ph="gallery">'+(s.pose==='unorg'?'From gallery (one or more)':'From gallery')+'</button><button class="btn ghost" data-ph="sheet-close">Cancel</button></div></div>';
+  $phs.hidden=false;phPush();
+}
+
+/* the photo full screen: step through the weeks of its pose, compare two weeks side by side, move, replace, delete */
+function phFullUrl(id){
+  if(PHV.urls[id])return Promise.resolve(PHV.urls[id]);
+  return phFile(id).then(function(b){if(!b)throw new Error('missing');PHV.urls[id]=URL.createObjectURL(b);return PHV.urls[id];});
+}
+function phNavList(r){
+  if(r.pose==='unorg')return phOf(r.week,'unorg').map(function(x){return x.id;});
+  return (PH.list||[]).filter(function(x){return x.pose===r.pose;}).sort(phOrder).map(function(x){return x.id;});
+}
+function phDefaultCmp(r){
+  if(!r||r.pose==='unorg')return null;
+  var o=phNavList(r).filter(function(x){return x!==r.id;});
+  if(!o.length)return null;
+  var first=phGet(o[0]);return first.week<r.week?o[0]:o[o.length-1];
+}
+function phOpen(id,cmp){
+  if(!phGet(id))return;
+  PH.view={id:id,cmp:cmp||null,mode:null};
+  if(!PHV.open){PHV.open=true;$phv.hidden=false;document.documentElement.classList.add('cam-on');}
+  phPush();phvRender();
+}
+function phClose(fromBack,keepHistory){
+  if(!PHV.open)return;
+  PHV.open=false;PH.view=null;$phv.hidden=true;$phv.innerHTML='';document.documentElement.classList.remove('cam-on');
+  Object.keys(PHV.urls).forEach(function(k){try{URL.revokeObjectURL(PHV.urls[k]);}catch(e){}});PHV.urls={};
+  if(!keepHistory)phPop(fromBack);
+  render();
+}
+function phvRender(){
+  var v=PH.view;if(!v)return;
+  var r=phGet(v.id);if(!r){phClose();return;}
+  var c=PH_CAT[r.pose]||PH_UNORG,nav=phNavList(r),i=nav.indexOf(r.id),others=r.pose==='unorg'?[]:nav.filter(function(x){return x!==r.id;});
+  if(v.cmp&&others.indexOf(v.cmp)<0)v.cmp=null;
+  var o=v.cmp?phGet(v.cmp):null;
+  var h='<div class="phv-top"><button class="phv-x" data-ph="close">Close</button><div class="phv-t"><b>'+esc(phWeekName(r.week)+', '+c.name)+'</b><span>'+esc(phDateText(r))+'</span></div></div>';
+  h+='<div class="phv-imgs">';
+  if(o)h+='<figure><img id="phv-a" alt="'+esc(phWeekName(o.week))+'"><figcaption>'+esc(phWeekName(o.week))+'</figcaption></figure>';
+  h+='<figure><img id="phv-b" alt="'+esc(c.name)+'">'+(o?'<figcaption>'+esc(phWeekName(r.week))+'</figcaption>':'')+'</figure></div><div class="phv-bar">';
+  if(v.mode==='move'){
+    h+='<div class="phv-mid">Move to</div><div class="phv-grid">';
+    PH_CATS.forEach(function(x){
+      if(x.id===r.pose)return;
+      var taken=x.id!=='unorg'&&phOf(r.week,x.id).length;
+      h+='<button class="phv-b" data-ph="move-to" data-pose="'+x.id+'">'+esc(x.name)+(taken?' (swap)':'')+'</button>';
+    });
+    h+='</div><div class="phv-row"><button class="phv-b" data-ph="mode-none">Cancel</button></div>';
+  }else if(v.mode==='del'){
+    h+='<div class="phv-mid">Delete this photo for good?</div><div class="phv-row"><button class="phv-b bad" data-ph="del-yes">Delete</button><button class="phv-b" data-ph="mode-none">Keep it</button></div>';
+  }else{
+    if(o){
+      var k=others.indexOf(o.id);
+      h+='<div class="phv-row"><button class="phv-a" data-ph="cmp-prev" aria-label="Compare with an earlier photo"'+(k>0?'':' disabled')+'>'+ICON.left+'</button><div class="phv-mid">Left: '+esc(phWeekName(o.week))+'</div><button class="phv-a" data-ph="cmp-next" aria-label="Compare with a later photo"'+(k<others.length-1?'':' disabled')+'>'+ICON.right+'</button></div>';
+    }else if(nav.length>1){
+      h+='<div class="phv-row"><button class="phv-a" data-ph="prev" aria-label="Previous photo"'+(i>0?'':' disabled')+'>'+ICON.left+'</button><div class="phv-mid">'+(i+1)+' of '+nav.length+(r.pose==='unorg'?' this week':'')+'</div><button class="phv-a" data-ph="next" aria-label="Next photo"'+(i<nav.length-1?'':' disabled')+'>'+ICON.right+'</button></div>';
+    }
+    h+='<div class="phv-row">'+(others.length?'<button class="phv-b" data-ph="cmp" aria-pressed="'+(!!o)+'">'+(o?'Single':'Compare')+'</button>':'')+
+      '<button class="phv-b" data-ph="move">Move</button>'+(r.pose!=='unorg'?'<button class="phv-b" data-ph="replace">Replace</button>':'')+'<button class="phv-b bad" data-ph="del">Delete</button></div>';
+  }
+  $phv.innerHTML=h+'</div>';
+  function show(elId,pid){
+    phFullUrl(pid).then(function(u){var el=document.getElementById(elId);if(el)el.src=u;},function(){var el=document.getElementById(elId);if(el)el.alt='This photo could not be opened';});
+  }
+  show('phv-b',r.id);if(o)show('phv-a',o.id);
+}
+
+/* the Body tab */
+function renderBody(){
+  var seg='<div class="seg" role="group" aria-label="Photos view"><button data-act="ph-mode" data-v="week" aria-pressed="'+(UI.phMode!=='pose')+'">Weeks</button><button data-act="ph-mode" data-v="pose" aria-pressed="'+(UI.phMode==='pose')+'">Poses</button></div>';
+  if(PH.list===null){phLoad();return seg+loadingHtml('photos');}
+  var h=seg;
+  if(PH.err)h+='<div class="notice"><p class="hint">Photos cannot be kept in this browser ('+esc(PH.err)+'). Open the app from its home-screen icon.</p></div>';
+  h+=UI.phMode==='pose'?phPoseHtml():phWeekHtml();
+  return h+phTipsHtml()+phStoreHtml();
+}
+function phTile(r,label,small){
+  return '<button class="ph-tile" data-act="ph-open" data-id="'+esc(r.id)+'"><img src="'+phThumb(r)+'" alt=""><span>'+esc(label)+(small?'<small>'+esc(small)+'</small>':'')+'</span></button>';
+}
+function phWeekHtml(){
+  var wk=ymd(phViewMon()),n=0,h='';
+  var g='';
+  PH_POSES.forEach(function(p){
+    var r=phOf(wk,p.id)[0];
+    if(r){n++;g+=phTile(r,p.name);}
+    else g+='<button class="ph-tile" data-act="ph-add" data-pose="'+p.id+'"><i aria-hidden="true">+</i><span>'+esc(p.name)+'</span></button>';
+  });
+  h+='<section class="card"><div class="row between"><h3>Poses</h3><span class="dim">'+n+' of '+PH_POSES.length+'</span></div><div class="ph-grid">'+g+'</div></section>';
+  var un=phOf(wk,'unorg');
+  h+='<section class="card"><div class="row between"><h3>Unorganized</h3><span class="dim">'+un.length+'</span></div><p class="hint">Any other photo of this week. Open one and tap Move to put it in a pose.</p><div class="ph-grid four">';
+  un.forEach(function(r){h+=phTile(r,'');});
+  h+='<button class="ph-tile" data-act="ph-add" data-pose="unorg"><i aria-hidden="true">+</i><span>Add</span></button></div></section>';
+  return h;
+}
+function phPoseHtml(){
+  var c=PH_CAT[UI.phPose]||PH_POSES[0];
+  var h='<div class="ph-chips" role="group" aria-label="Pose">'+PH_CATS.map(function(x){return '<button class="ph-chip" data-act="ph-pose" data-pose="'+x.id+'" aria-pressed="'+(x.id===c.id)+'">'+esc(x.name)+'</button>';}).join('')+'</div>';
+  var l=(PH.list||[]).filter(function(r){return r.pose===c.id;}).sort(phOrder).reverse();
+  h+='<section class="card"><div class="row between"><h3>'+esc(c.name)+'</h3><span class="dim">'+l.length+(l.length===1?' photo':' photos')+'</span></div><p class="hint">'+esc(c.how)+'.</p>';
+  if(!l.length)h+='<p class="hint">No photos of this pose yet. They go in from the Weeks view.</p>';
+  else{
+    if(l.length>1&&c.id!=='unorg')h+='<div class="row"><button class="btn small" data-act="ph-first-last">Compare first and latest</button></div>';
+    h+='<div class="ph-grid">'+l.map(function(r){return phTile(r,phWeekName(r.week),fmtDM(parseYmd(r.week)));}).join('')+'</div>';
+  }
+  return h+'</section>';
+}
+function phTipsHtml(){
+  var h='<section class="card"><details class="ph-tips"><summary><h3>How to take them</h3></summary><ul class="ph-list">'+
+    '<li>Once a week, on the same day, in the morning before eating</li><li>The same place, light, clothes and distance from the camera</li>'+
+    '<li>Camera at chest height, your whole body in the frame; a timer or someone else taking them keeps the pose the same</li>';
+  PH_POSES.forEach(function(p){h+='<li><b>'+esc(p.name)+':</b> '+esc(p.how.charAt(0).toLowerCase()+p.how.slice(1))+'</li>';});
+  return h+'</ul></details></section>';
+}
+function phStoreHtml(){
+  var l=PH.list||[],b=0,lz=S.meta&&S.meta.lastPhotoZip;
+  l.forEach(function(r){b+=(r.size||0)+((r.thumb&&r.thumb.size)||0);});
+  var mb=b/1e6,size=mb<0.1?'c.0.1':'c.'+(mb<10?mb.toFixed(1):Math.round(mb));
+  return '<section class="card"><h3>Keep a copy</h3><p class="hint">'+(l.length?l.length+(l.length===1?' photo, ':' photos, ')+size+' MB on this phone. ':'')+
+    'The photos stay on this phone and are not in the backup file. Save them all as a zip now and then and keep it in Google Drive or on a computer; Load photos brings a zip back, on this phone or a new one.</p>'+
+    (lz?'<div class="kv"><span>Last zip</span><b>'+esc(fmtDate(new Date(lz))+', '+agoText(lz))+'</b></div>':'')+
+    '<div class="row"><button class="btn" data-act="ph-zip-save"'+(l.length?'':' disabled')+'>Save all photos</button><button class="btn" data-act="ph-zip-load">Load photos</button></div></section>';
+}
+
+/* the zip: photos.json and one folder a week, "Week 01 (23-Nov-26)/1 Front relaxed.jpg" */
+function phFileName(r,k){
+  var c=PH_CAT[r.pose]||PH_UNORG,w=phWeekNo(r.week);
+  return 'Week '+(w>=1?pad(w):'00')+' ('+fmtDate(parseYmd(r.week))+')/'+c.n+' '+c.file+(r.pose==='unorg'?' '+k:'')+'.jpg';
+}
+function phZipSave(){
+  var list=(PH.list||[]).slice().sort(phOrder);
+  if(!list.length){toast('No photos yet.');return;}
+  if(PH.busy)return;
+  PH.busy=true;toast('Making the zip',60000);
+  var files=[],man={app:APP_ID,kind:'photos',version:APP_VERSION,exportedAt:new Date().toISOString(),photos:[]},un={},i=0;
+  function next(){
+    if(i>=list.length)return Promise.resolve();
+    var r=list[i++];
+    return phFile(r.id).then(function(b){
+      if(!b)return;
+      if(r.pose==='unorg')un[r.week]=(un[r.week]||0)+1;
+      var name=phFileName(r,un[r.week]||0);
+      return b.arrayBuffer().then(function(ab){
+        files.push({name:name,data:new Uint8Array(ab)});
+        man.photos.push({id:r.id,file:name,week:r.week,pose:r.pose,added:r.added,taken:r.taken||null,w:r.w,h:r.h});
+      });
+    }).then(next);
+  }
+  next().then(function(){
+    files.unshift({name:'photos.json',data:new TextEncoder().encode(JSON.stringify(man,null,1))});
+    downloadBlob(zipStore(files),'progress-photos-'+todayY()+'.zip');
+    setMeta({lastPhotoZip:man.exportedAt});
+    toast('Zip saved with '+man.photos.length+(man.photos.length===1?' photo':' photos'),3000);
+  },function(e){toast('Could not make the zip: '+((e&&e.message)||e),5000);}).then(function(){PH.busy=false;render();});
+}
+/* the entries of a zip: stored ones as they are, deflated ones through the browser's own decompressor */
+function phUnzip(buf){
+  var dv=new DataView(buf),u=new Uint8Array(buf),out={},dec=new TextDecoder(),e=-1;
+  for(var i=u.length-22;i>=Math.max(0,u.length-65557);i--){if(dv.getUint32(i,true)===0x06054b50){e=i;break;}}
+  if(e<0)throw new Error('That file is not a zip.');
+  var n=dv.getUint16(e+10,true),off=dv.getUint32(e+16,true);
+  for(var k=0;k<n;k++){
+    if(off+46>u.length||dv.getUint32(off,true)!==0x02014b50)throw new Error('The zip is damaged.');
+    var method=dv.getUint16(off+10,true),csz=dv.getUint32(off+20,true),nl=dv.getUint16(off+28,true),xl=dv.getUint16(off+30,true),cl=dv.getUint16(off+32,true),lo=dv.getUint32(off+42,true);
+    var name=dec.decode(u.subarray(off+46,off+46+nl));
+    if(lo+30<=u.length&&dv.getUint32(lo,true)===0x04034b50){
+      var st=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);
+      out[name]={method:method,data:u.subarray(st,st+csz)};
+    }
+    off+=46+nl+xl+cl;
+  }
+  return out;
+}
+function phInflate(ent){
+  if(ent.method===0)return Promise.resolve(ent.data);
+  if(ent.method===8&&window.DecompressionStream){
+    return new Response(new Blob([ent.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function(ab){return new Uint8Array(ab);});
+  }
+  return Promise.reject(new Error('The zip is packed in a way this phone cannot open.'));
+}
+function phZipLoad(file){
+  if(PH.list===null||PH.busy){toast('Photos are still loading. Try again in a moment.',3000);return;}
+  PH.busy=true;toast('Reading the zip',60000);
+  file.arrayBuffer().then(function(buf){
+    var ents=phUnzip(buf),mf=ents['photos.json'];
+    if(!mf)throw new Error('This zip has no photos.json, so it was not saved by this app.');
+    return phInflate(mf).then(function(u){
+      var man=null;try{man=JSON.parse(new TextDecoder().decode(u));}catch(x){}
+      if(!man||man.kind!=='photos'||!Array.isArray(man.photos))throw new Error('This zip was not saved by this app.');
+      var have={},s={added:0,skipped:0,unorg:0,bad:0},i=0,list=man.photos;
+      PH.list.forEach(function(r){have[r.id]=1;});
+      function next(){
+        if(i>=list.length)return s;
+        var p=list[i++];
+        if(list.length>1)toast('Loading photo '+i+' of '+list.length,60000);
+        if(!p||typeof p.id!=='string'||!/^[A-Za-z0-9_-]{1,40}$/.test(p.id)||!/^\d{4}-\d{2}-\d{2}$/.test(p.week||'')||!PH_CAT[p.pose]||!ents[p.file]){s.bad++;return next();}
+        if(have[p.id]){s.skipped++;return next();}
+        return phInflate(ents[p.file]).then(function(data){
+          var week=ymd(mondayOf(parseYmd(p.week))),pose=p.pose;
+          if(pose!=='unorg'&&phOf(week,pose).length){pose='unorg';s.unorg++;}
+          return phPrepare(new Blob([data],{type:'image/jpeg'}),true).then(function(q){
+            var rec={id:p.id,week:week,pose:pose,added:typeof p.added==='string'?p.added:new Date().toISOString(),taken:typeof p.taken==='string'?p.taken:null,w:q.w,h:q.h,size:q.blob.size,thumb:q.thumb};
+            return phTx(['photos','files'],'readwrite',function(tx){tx.objectStore('files').put(q.blob,rec.id);tx.objectStore('photos').put(rec);}).then(function(){PH.list.push(rec);have[rec.id]=1;s.added++;});
+          });
+        }).catch(function(){s.bad++;}).then(next);
+      }
+      return next();
+    });
+  }).then(function(s){
+    requestPersist();
+    var m=s.added+(s.added===1?' photo loaded':' photos loaded');
+    if(s.skipped)m+=', '+s.skipped+' already here';
+    if(s.unorg)m+=', '+s.unorg+' put in Unorganized because the pose already had a photo that week';
+    if(s.bad)m+=', '+s.bad+' could not be read';
+    toast(m,6000);
+  },function(e){toast((e&&e.message)||'Could not read the zip.',5000);}).then(function(){PH.busy=false;render();});
+}
+
+ACT['ph-mode']=function(b){UI.phMode=b.getAttribute('data-v')==='pose'?'pose':'week';render();window.scrollTo(0,0);};
+ACT['ph-pose']=function(b){UI.phPose=b.getAttribute('data-pose');render();};
+ACT['ph-prev']=function(){UI.phWeek=Math.max(-520,UI.phWeek-1);render();};
+ACT['ph-next']=function(){if(UI.phWeek<0){UI.phWeek++;render();}};
+ACT['ph-today']=function(){UI.phWeek=0;render();};
+ACT['ph-add']=function(b){if(PH.busy||PH.list===null)return;PH.target={week:ymd(phViewMon()),pose:b.getAttribute('data-pose')};phSheet(PH.target);};
+ACT['ph-open']=function(b){phOpen(b.getAttribute('data-id'));};
+ACT['ph-first-last']=function(){
+  var l=(PH.list||[]).filter(function(r){return r.pose===UI.phPose;}).sort(phOrder);
+  if(l.length>1)phOpen(l[l.length-1].id,l[0].id);
+};
+ACT['ph-zip-save']=function(){phZipSave();};
+ACT['ph-zip-load']=function(){try{$phZip.value='';}catch(e){}$phZip.click();};
+
+if($phs)$phs.addEventListener('click',function(e){
+  var b=e.target.closest('[data-ph]');if(!b)return;
+  var a=b.getAttribute('data-ph');
+  if(a==='take')phPick('cam');else if(a==='gallery')phPick('file');else if(a==='sheet-close'){PH.target=null;phSheet(null);}
+});
+if($phv)$phv.addEventListener('click',function(e){
+  var b=e.target.closest('[data-ph]');if(!b||b.disabled)return;
+  var a=b.getAttribute('data-ph'),v=PH.view;if(!v)return;
+  var r=phGet(v.id);if(!r){phClose();return;}
+  if(a==='close')phClose();
+  else if(a==='prev'||a==='next'){
+    var nav=phNavList(r),i=nav.indexOf(r.id)+(a==='next'?1:-1);
+    if(i>=0&&i<nav.length){v.id=nav[i];v.mode=null;phvRender();}
+  }else if(a==='cmp'){v.cmp=v.cmp?null:phDefaultCmp(r);phvRender();}
+  else if(a==='cmp-prev'||a==='cmp-next'){
+    var o=phNavList(r).filter(function(x){return x!==r.id;}),j=o.indexOf(v.cmp)+(a==='cmp-next'?1:-1);
+    if(j>=0&&j<o.length){v.cmp=o[j];phvRender();}
+  }else if(a==='move'||a==='del'){v.mode=a;phvRender();}
+  else if(a==='mode-none'){v.mode=null;phvRender();}
+  else if(a==='move-to'){
+    var to=b.getAttribute('data-pose');
+    phMove(r.id,to).then(function(other){v.mode=null;v.cmp=null;toast('Moved to '+PH_CAT[to].name+(other?'; the photo that was there went to '+(PH_CAT[other.pose]||PH_UNORG).name:''),other?4000:2200);phvRender();},function(){toast('Could not move the photo.',4000);});
+  }else if(a==='del-yes'){
+    phDelete(r.id).then(function(){toast('Photo deleted');phClose();},function(){toast('Could not delete the photo.',4000);});
+  }else if(a==='replace'){
+    var t={week:r.week,pose:r.pose};phClose(false,true);PH.target=t;phSheet(t);
+  }
+});
+window.addEventListener('popstate',function(){PHO.pushed=false;if(PH.sheet){PH.target=null;phSheet(null,true);}else if(PHV.open)phClose(true);});
+if($phCam){
+  $phCam.addEventListener('change',function(){var f=$phCam.files&&$phCam.files[0];$phCam.value='';phPendClear();if(f)phGot([f]);});
+  $phCam.addEventListener('cancel',phPendClear);
+}
+if($phFile)$phFile.addEventListener('change',function(){var fs=Array.prototype.slice.call($phFile.files||[]);$phFile.value='';if(fs.length)phGot(fs);});
+if($phZip)$phZip.addEventListener('change',function(){var f=$phZip.files&&$phZip.files[0];$phZip.value='';if(f)phZipLoad(f);});
+/* back in the app without a photo (the camera app was closed): nothing to bring back after a later restart */
+document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(function(){if(!document.hidden)phPendClear();},4000);});
+
+/* ---------- Market: the food table, and cooked weights (1.3.0) ----------
+   foods-v1.json (next to index.html, kept by the service worker in a cache of its own, cfl-data) holds c.1,000 everyday
+   foods bought without a label: c.900 from the French national food table (ANSES Ciqual 2025, values per 100 g) and the
+   131 products of the Lidl Romania bakery sheet (Mar-25). Each food has English and Romanian search words; raw meat and
+   fish have a kind, for a typical cooked ratio. A changed table gets a new file name (foods-v2.json), as the models do.
+   The Market view (third view of the Food tab) browses and searches them; Copy to Ingredients makes an editable copy;
+   Add ingredient in a meal finds them below Casian's own ingredients, marked Market.
+   Cooked weights: ratio = cooked weight / raw weight of a batch, weighed once (100 g raw pasta giving 250 g: x2.50);
+   every value per 100 g cooked is the raw value divided by the ratio, since cooking water adds weight but no nutrients.
+   The batch is saved with the ingredient (cook: raw, cooked, at, and kind for meat or fish) or, for a Market food, in
+   the settings (cookM); a new batch replaces it. Meat and fish never weighed raw can use a typical ratio for their kind
+   and the way they were cooked, marked approximate: the ratios come from the protein kept between raw and cooked forms
+   of the same cuts in Ciqual 2025 (claude/app/data/cook_ratios.py), and can easily be off by 10% (cut, fat, doneness). */
+var MK={data:null,loading:false,err:null,byId:{},grpName:{},tok:[],ntok:[],htok:[]},MK_FILE='foods-v1.json';
+UI.mkQ='';UI.mkGrp=null;UI.mkSel=null;UI.cook=null;
+var COOK_METHODS=[{id:'pan',name:'Pan or grill'},{id:'oven',name:'Oven'},{id:'boil',name:'Boiled or steamed'},{id:'braise',name:'Stewed or braised'}];
+var COOK_KINDS=[
+  {id:'chicken-breast',name:'Chicken breast',r:{pan:0.78,oven:0.70,boil:0.78,braise:0.70}},
+  {id:'chicken-leg',name:'Chicken leg or thigh',r:{pan:0.72,oven:0.72,boil:0.72,braise:0.70}},
+  {id:'turkey-breast',name:'Turkey breast',r:{pan:0.83,oven:0.78,boil:0.78,braise:0.72}},
+  {id:'beef-minced',name:'Minced beef',r:{pan:0.81,oven:0.78,boil:0.80,braise:0.78}},
+  {id:'beef-steak',name:'Beef or veal steak',r:{pan:0.80,oven:0.78,boil:0.70,braise:0.62}},
+  {id:'beef-stew',name:'Beef or veal for stew',r:{pan:0.75,oven:0.70,boil:0.62,braise:0.58}},
+  {id:'pork-chop',name:'Pork chop or loin',r:{pan:0.67,oven:0.73,boil:0.70,braise:0.65}},
+  {id:'pork-shoulder',name:'Pork shoulder or belly',r:{pan:0.68,oven:0.63,boil:0.63,braise:0.60}},
+  {id:'pork-minced',name:'Minced pork and mici',r:{pan:0.75,oven:0.73,boil:0.75,braise:0.73}},
+  {id:'lamb',name:'Lamb',r:{pan:0.72,oven:0.77,boil:0.62,braise:0.57}},
+  {id:'fish-fat',name:'Oily fish (salmon, trout, mackerel)',r:{pan:0.80,oven:0.86,boil:0.86,braise:0.85}},
+  {id:'fish-white',name:'White fish (cod, hake, pollock)',r:{pan:0.81,oven:0.81,boil:0.79,braise:0.83}}
+];
+var COOK_KIND={},COOK_METHOD={};
+COOK_KINDS.forEach(function(k){COOK_KIND[k.id]=k;});COOK_METHODS.forEach(function(m){COOK_METHOD[m.id]=m;});
+
+function mkNorm(s){return stripDia(String(s||'')).toLowerCase();}
+function mkWords(s){return mkNorm(s).split(/[^a-z0-9%]+/).filter(Boolean);}
+function mkLoad(){
+  if(MK.data||MK.loading)return;
+  MK.loading=true;MK.err=null;
+  fetch(MK_FILE).then(function(r){if(!r.ok)throw new Error('the file '+MK_FILE+' is missing ('+r.status+')');return r.json();}).then(function(d){
+    MK.byId={};MK.grpName={};
+    d.groups.forEach(function(g){MK.grpName[g.id]=g.name;});
+    MK.tok=d.foods.map(function(f){MK.byId[f.id]=f;return mkWords(f.n+' '+(f.k||'')+' '+(f.like||''));});
+    MK.ntok=d.foods.map(function(f){return mkWords(f.n);});
+    /* head words: the English first part of the name (Lidl: its first word) and the first word of each Romanian
+       translation of it count most; the other words of those translations next */
+    MK.htok=d.foods.map(function(f){
+      var a=mkWords(f.g==='lidl'?f.n.split(/\s+/)[0]:f.n.split(',')[0]),b=[];
+      (f.h||'').split(';').forEach(function(v){var w=mkWords(v);if(w.length){a.push(w[0]);b=b.concat(w.slice(1));}});
+      return [a,b];
+    });
+    MK.data=d;
+  },function(e){MK.err=(e&&e.message)||String(e);}).then(function(){
+    MK.loading=false;
+    var a=document.getElementById('inglist'),b=document.getElementById('mkrows');
+    if(a)a.innerHTML=ingOptions();
+    if(UI.tab==='food'&&UI.foodView==='market'&&!b)requestRender();else if(b)b.innerHTML=mkRowsHtml();
+  });
+}
+/* every word typed must start a word of the food's name, its Romanian words or its similar product */
+function mkSearch(q,grp,limit){
+  if(!MK.data)return [];
+  var ws=mkWords(q),F=MK.data.foods,out=[];
+  for(var i=0;i<F.length;i++){
+    var f=F[i];if(grp&&f.g!==grp)continue;
+    if(!ws.length){out.push([0,f]);continue;}
+    var tk=MK.tok[i],ok=true;
+    for(var j=0;j<ws.length&&ok;j++){var hit=false;for(var t=0;t<tk.length;t++){if(tk[t].indexOf(ws[j])===0){hit=true;break;}}ok=hit;}
+    if(!ok)continue;
+    var nt=MK.ntok[i],ha=MK.htok[i][0],hb=MK.htok[i][1],sc=0,w0=ws[0];
+    if(ha.some(function(t){return t.indexOf(w0)===0;}))sc+=4;else if(hb.some(function(t){return t.indexOf(w0)===0;}))sc+=3;
+    if(ha.some(function(t){return t===w0;})||hb.some(function(t){return t===w0;}))sc+=1;
+    ws.forEach(function(w){if(nt.some(function(t){return t.indexOf(w)===0;}))sc+=1;});
+    if(/, raw\b|\(average\)/.test(f.n))sc+=0.5;
+    out.push([sc-f.n.length/200,f]);
+  }
+  if(ws.length)out.sort(function(a,b){return b[0]-a[0];});else out.sort(function(a,b){return a[1].n.localeCompare(b[1].n);});
+  return out.slice(0,limit||out.length).map(function(x){return x[1];});
+}
+/* a Market food as an ingredient (values per 100 g; missing values stay empty) */
+function mkIng(f){
+  var v=f.v;
+  return {name:f.n,basis:'g',kcal:v[0],p:v[1],c:v[2],f:v[3],sat:v[4],sugar:v[5],fibre:v[6],salt:v[7],micros:f.m||{},market:f.id,kind:f.kind||null};
+}
+function pickIng(id){
+  if(!id)return null;
+  if(id.indexOf('mk:')===0){var f=MK.byId[id.slice(3)];return f?mkIng(f):null;}
+  return S.ingredients[id]||null;
+}
+function per100v(v){return fmtInt(v[0])+' kcal, P '+fmtG(v[1])+', C '+fmtG(v[2])+', F '+fmtG(v[3]);}
+function fmtR(r){return (Math.round(r*100)/100).toFixed(2);}
+
+/* cooked weights */
+function cookMeasured(id){
+  var c=null;
+  if(id&&id.indexOf('mk:')===0)c=S.settings&&S.settings.cookM&&S.settings.cookM[id.slice(3)];
+  else if(id&&S.ingredients[id])c=S.ingredients[id].cook;
+  return c&&c.raw>0&&c.cooked>0?c:null;
+}
+function cookKindOf(id){
+  if(!id)return null;
+  if(id.indexOf('mk:')===0){var f=MK.byId[id.slice(3)];return (f&&f.kind)||null;}
+  var x=S.ingredients[id];return (x&&x.cook&&x.cook.kind)||null;
+}
+function cookedVals(ing,r){
+  var o={name:ing.name,basis:ing.basis,micros:{}};
+  LABEL.forEach(function(l){var v=ing[l.k];o[l.k]=(v==null||v==='')?null:(+v)/r;});
+  Object.keys(ing.micros||{}).forEach(function(m){o.micros[m]=(+ing.micros[m])/r;});
+  return o;
+}
+/* the ratio the picker uses now: a batch being entered, the saved batch, or a typical ratio for meat and fish */
+function cookRatio(id){
+  var c=UI.cook||{},br=num(c.braw),bc=num(c.bcooked);
+  if(br>0&&bc>0)return {r:bc/br,src:'batch',approx:false};
+  var m=cookMeasured(id);
+  if(m&&!c.batch)return {r:m.cooked/m.raw,src:'saved',approx:false};
+  var k=c.kind||cookKindOf(id);
+  if(!m&&k&&COOK_KIND[k]&&c.method)return {r:COOK_KIND[k].r[c.method],src:'typical',approx:true,kind:k,method:c.method};
+  return null;
+}
+function cookRatioText(id){
+  var cr=cookRatio(id),k=(UI.cook&&UI.cook.kind)||cookKindOf(id);
+  if(!cr)return 'Enter the batch weights'+(k&&!cookMeasured(id)?', or tap how it was cooked':'')+'.';
+  return (cr.approx?'Typical ratio for '+COOK_KIND[cr.kind].name.toLowerCase()+', '+COOK_METHOD[cr.method].name.toLowerCase()+': x'+fmtR(cr.r)+', approximate':'Ratio x'+fmtR(cr.r))+'. 100 g raw makes '+fmtG(100*cr.r)+' g cooked.';
+}
+function cookSave(id,c){
+  if(id.indexOf('mk:')===0){
+    S.settings=S.settings||{blockStart:null,targets:{}};S.settings.cookM=S.settings.cookM||{};
+    S.settings.cookM[id.slice(3)]={raw:c.raw,cooked:c.cooked,at:c.at};save('app/settings',S.settings,0);return;
+  }
+  var x=S.ingredients[id];if(!x)return;
+  var k=x.cook&&x.cook.kind;x.cook={raw:c.raw,cooked:c.cooked,at:c.at};if(k)x.cook.kind=k;
+  save('ingredients/'+id,x,0);
+}
+function cookSaveKind(id,k){var x=S.ingredients[id];if(!x||!k)return;x.cook=x.cook||{};x.cook.kind=k;save('ingredients/'+id,x,0);}
+function cookStart(id){var ing=pickIng(id);return {mode:(ing&&ing.basis!=='ml'&&cookMeasured(id))?'cooked':'raw',braw:'',bcooked:'',method:null,kind:'',batch:false};}
+function cookPanelHtml(ing){
+  var id=UI.pick,ck=UI.cook,m=cookMeasured(id),k=ck.kind||cookKindOf(id),h='<div class="panel cook">';
+  if(m&&!ck.batch){
+    h+='<p class="hint">Your batch: '+fmtG(m.raw)+' g raw gave '+fmtG(m.cooked)+' g cooked'+(m.at?' ('+fmtDate(parseYmd(m.at))+')':'')+'. <button class="link" data-act="cook-batch">New batch</button></p>';
+  }else{
+    h+='<p class="hint">Weigh the batch once, raw and then cooked. The cooked values are worked out from the raw ones and the batch is saved for next time.</p>';
+    h+='<div class="grid2"><label class="fld" for="cook-raw"><span>Batch raw (g)</span><input class="txt" id="cook-raw" inputmode="decimal" autocomplete="off" data-k="cook" data-f="braw" value="'+esc(ck.braw||'')+'"></label>'+
+      '<label class="fld" for="cook-cooked"><span>Batch cooked (g)</span><input class="txt" id="cook-cooked" inputmode="decimal" autocomplete="off" data-k="cook" data-f="bcooked" value="'+esc(ck.bcooked||'')+'"></label></div>';
+    if(m)h+='<p class="hint"><button class="link" data-act="cook-batch-keep">Keep the saved batch</button></p>';
+  }
+  if(!m&&(id.indexOf('mk:')!==0||k)){   /* a Market food without a kind is not raw meat or fish */
+    h+='<div class="cook-typ"><div class="eyebrow">Not weighed raw?</div>';
+    if(cookKindOf(id))h+='<p class="hint">'+esc(COOK_KIND[k].name)+': a typical ratio for how it was cooked, marked approximate.</p>';
+    else h+='<label class="fld" for="cook-kind"><span>Meat or fish: a typical ratio, marked approximate</span><select class="txt" id="cook-kind" data-k="cook" data-f="kind"><option value="">Not meat or fish</option>'+
+      COOK_KINDS.map(function(x){return '<option value="'+x.id+'"'+(x.id===k?' selected':'')+'>'+esc(x.name)+'</option>';}).join('')+'</select></label>';
+    if(k)h+='<div class="row">'+COOK_METHODS.map(function(x){return '<button class="btn small'+(ck.method===x.id?' primary':'')+'" data-act="cook-method" data-v="'+x.id+'" aria-pressed="'+(ck.method===x.id)+'">'+esc(x.name)+'</button>';}).join('')+'</div>';
+    h+='</div>';
+  }
+  return h+'<p class="hint" id="cook-ratio">'+cookRatioText(id)+'</p></div>';
+}
+
+/* the Market view */
+function renderMarket(){
+  if(!MK.data){
+    mkLoad();
+    if(MK.err)return '<div class="notice"><p class="hint">The Market foods could not be loaded: '+esc(MK.err)+'. They load once with an internet connection and then work offline.</p><div class="row"><button class="btn small" data-act="mk-retry">Try again</button></div></div>';
+    return loadingHtml('Market foods');
+  }
+  var h='';
+  if(UI.mkSel&&MK.byId[UI.mkSel])h+=mkDetailHtml(MK.byId[UI.mkSel]);
+  h+='<input class="txt" type="search" id="mksearch" data-k="mksearch" value="'+esc(UI.mkQ)+'" placeholder="Search '+fmtInt(MK.data.foods.length)+' foods, English or Romanian" autocomplete="off" aria-label="Search the Market foods">';
+  h+='<div class="ph-chips" role="group" aria-label="Group"><button class="ph-chip" data-act="mk-grp" data-v="" aria-pressed="'+!UI.mkGrp+'">All</button>'+
+    MK.data.groups.map(function(g){return '<button class="ph-chip" data-act="mk-grp" data-v="'+g.id+'" aria-pressed="'+(UI.mkGrp===g.id)+'">'+esc(g.name)+'</button>';}).join('')+'</div>';
+  h+='<div class="sheet" id="mkrows">'+mkRowsHtml()+'</div>';
+  h+='<p class="hint">Values per 100 g from the French national food table (ANSES Ciqual 2025) and, for the Lidl bakery, from Lidl Romania\'s own sheet (Mar-25). Add ingredient in a meal finds these foods too; Copy to Ingredients makes a copy you can change.</p>';
+  return h;
+}
+function mkRowsHtml(){
+  if(!MK.data)return '<div class="empty">'+(MK.err?'The Market foods could not be loaded.':'Loading the Market foods.')+'</div>';
+  var q=(UI.mkQ||'').trim();
+  if(!q&&!UI.mkGrp)return MK.data.groups.map(function(g){
+    var n=MK.data.foods.filter(function(f){return f.g===g.id;}).length;
+    return '<button class="ing-row" data-act="mk-grp" data-v="'+g.id+'"><span class="n">'+esc(g.name)+'</span><span class="m">'+n+' foods</span></button>';
+  }).join('');
+  var l=mkSearch(q,UI.mkGrp,q?80:400);
+  if(!l.length)return '<div class="empty">No food matches that search'+(UI.mkGrp?' in '+esc(MK.grpName[UI.mkGrp]):'')+'.</div>';
+  return l.map(function(f){
+    return '<button class="ing-row'+(UI.mkSel===f.id?' sel':'')+'" data-act="mk-open" data-id="'+esc(f.id)+'"><span class="n">'+esc(f.n)+(f.g==='lidl'?' <span class="chip gold">Lidl</span>':'')+(f.like?' <span class="chip">'+esc(f.like)+'</span>':'')+'</span><span class="m">'+per100v(f.v)+'</span></button>';
+  }).join('');
+}
+function mkValuesHtml(x){
+  var h='<ul class="details">';
+  EXTRA_KEYS.forEach(function(k){
+    var l=LABEL.filter(function(y){return y.k===k;})[0],v=x[k];
+    h+='<li><span>'+esc(l.name)+'</span><span><b>'+(v==null?'not given':fmtV(v)+' g')+'</b>'+(l.ri&&v!=null?'<small>'+pct(v,l.ri)+' of '+l.ri+' g</small>':'')+'</span></li>';
+  });
+  var ids=MICROS.filter(function(m){return x.micros[m.id]>0;});
+  if(ids.length){
+    var lastG='';
+    ids.forEach(function(m){
+      if(m.g!==lastG){lastG=m.g;h+='<li class="head"><span>'+(m.g==='v'?'Vitamins':'Minerals')+'</span></li>';}
+      h+='<li><span>'+esc(m.name)+'</span><span><b>'+fmtV(x.micros[m.id])+' '+m.unit+'</b><small>'+pct(x.micros[m.id],m.nrv)+' of '+m.nrv+' '+m.unit+'</small></span></li>';
+    });
+  }else h+='<li><span class="dim">No vitamins or minerals in the source.</span><span></span></li>';
+  return h+'</ul>';
+}
+function mkDetailHtml(f){
+  var x=mkIng(f),cm=S.settings&&S.settings.cookM&&S.settings.cookM[f.id];
+  var h='<section class="card"><div class="row between"><div class="eyebrow">'+esc(MK.grpName[f.g]||'')+'</div><button class="icon-btn sm" data-act="mk-close" aria-label="Close">'+ICON.x+'</button></div><h3>'+esc(f.n)+'</h3>';
+  if(f.like)h+='<p class="hint">Similar to <b>'+esc(f.like)+'</b>; the Romanian product\'s own values may differ.</p>';
+  h+='<div class="kcal-row"><span class="big">'+fmtInt(x.kcal)+'</span><span class="unit">kcal per 100 g</span></div><div class="macros">'+[['Protein',x.p],['Carbs',x.c],['Fat',x.f]].map(function(a){return '<div class="min0"><div class="m-name">'+a[0]+'</div><div class="m-val">'+fmtG(a[1])+'<small> g</small></div></div>';}).join('')+'</div>';
+  h+=mkValuesHtml(x);
+  if(f.pc)h+='<p class="hint">'+esc(f.pc)+'</p>';
+  if(cm||f.kind){
+    h+='<div class="panel"><div class="eyebrow">Cooked, per 100 g</div>';
+    if(cm){var r=cm.cooked/cm.raw,c=cookedVals(x,r);h+='<p class="hint">Your batch (x'+fmtR(r)+'): <b>'+per100(c)+'</b></p>';}
+    else COOK_METHODS.forEach(function(m){var r=COOK_KIND[f.kind].r[m.id],c=cookedVals(x,r);h+='<p class="hint">'+esc(m.name)+' (x'+fmtR(r)+', approximate): '+per100(c)+'</p>';});
+    h+='</div>';
+  }
+  h+='<p class="hint">'+esc(f.src||('Ciqual 2025, food '+f.id.slice(1)))+(f.st?' ('+esc(f.st)+')':'')+(f.note?'. '+esc(f.note):'')+'</p>';
+  h+='<div class="row"><button class="btn primary" data-act="mk-copy" data-id="'+esc(f.id)+'">Copy to Ingredients</button><button class="btn ghost" data-act="mk-close">Close</button></div></section>';
+  return h;
+}
+
+/* the ingredient form's cooked weight */
+function cookFormHtml(f){
+  if(f.basis==='ml')return '';
+  var h='<h4>Cooked weight</h4><p class="hint">For food you weigh raw and eat cooked (pasta, rice, meat): weigh a batch raw, then cooked, once. A meal can then be logged by the weight on the plate.</p>';
+  h+='<div class="grid2"><label class="fld" for="if-craw"><span>Batch raw (g)</span><input class="txt" id="if-craw" inputmode="decimal" autocomplete="off" data-k="ifc" data-f="craw" value="'+esc(f.craw||'')+'"></label>'+
+    '<label class="fld" for="if-ccooked"><span>Batch cooked (g)</span><input class="txt" id="if-ccooked" inputmode="decimal" autocomplete="off" data-k="ifc" data-f="ccooked" value="'+esc(f.ccooked||'')+'"></label></div>';
+  h+='<label class="fld" for="if-ckind"><span>Meat or fish (a typical ratio when not weighed raw)</span><select class="txt" id="if-ckind" data-k="if" data-f="ckind"><option value="">Not meat or fish</option>'+
+    COOK_KINDS.map(function(x){return '<option value="'+x.id+'"'+(x.id===f.ckind?' selected':'')+'>'+esc(x.name)+'</option>';}).join('')+'</select></label>';
+  return h+'<p class="hint" id="cook-form-prev">'+cookFormPrev(f)+'</p>';
+}
+function cookFormPrev(f){
+  var cr=num(f.craw),cc=num(f.ccooked);if(!(cr>0&&cc>0))return '';
+  var r=cc/cr;
+  return 'Ratio x'+fmtR(r)+'. Per 100 g cooked: '+fmtInt((num(f.kcal)||0)/r)+' kcal, P '+fmtG((num(f.p)||0)/r)+', C '+fmtG((num(f.c)||0)/r)+', F '+fmtG((num(f.f)||0)/r)+'.';
+}
+
+ACT['mk-grp']=function(b){UI.mkGrp=b.getAttribute('data-v')||null;render();};
+ACT['mk-open']=function(b){UI.mkSel=b.getAttribute('data-id');render();window.scrollTo(0,0);};
+ACT['mk-close']=function(){UI.mkSel=null;render();};
+ACT['mk-retry']=function(){MK.err=null;mkLoad();render();};
+ACT['mk-copy']=function(b){
+  var f=MK.byId[b.getAttribute('data-id')];if(!f)return;
+  var x=mkIng(f),id='ing-'+uid(),doc={name:f.n,basis:'g',example:false,updated:Date.now(),source:'market',market:f.id,micros:{}};
+  LABEL.forEach(function(l){doc[l.k]=x[l.k]==null?null:x[l.k];});
+  Object.keys(x.micros).forEach(function(m){if(MICRO_BY[m])doc.micros[m]=x.micros[m];});
+  var cm=S.settings&&S.settings.cookM&&S.settings.cookM[f.id];
+  if(cm||f.kind){doc.cook={};if(cm){doc.cook.raw=cm.raw;doc.cook.cooked=cm.cooked;doc.cook.at=cm.at;}if(f.kind)doc.cook.kind=f.kind;}
+  S.ingredients[id]=doc;save('ingredients/'+id,doc,0);
+  UI.mkSel=null;UI.foodView='ingredients';UI.ingForm=ingFormFrom(id);
+  toast('Copied to Ingredients. Change anything you like, then Save.',3500);render();window.scrollTo(0,0);
+};
+ACT['pick-mk']=function(b){UI.pick='mk:'+b.getAttribute('data-id');UI.grams='';UI.cook=cookStart(UI.pick);render();focusLater('grams');};
+ACT['cook-mode']=function(b){if(!UI.cook)UI.cook=cookStart(UI.pick);UI.cook.mode=b.getAttribute('data-v')==='cooked'?'cooked':'raw';render();focusLater(UI.cook.mode==='cooked'&&!cookRatio(UI.pick)&&!cookKindOf(UI.pick)?'cook-raw':'grams');};
+ACT['cook-method']=function(b){if(UI.cook){UI.cook.method=b.getAttribute('data-v');render();focusLater('grams');}};
+ACT['cook-batch']=function(){if(UI.cook){UI.cook.batch=true;render();focusLater('cook-raw');}};
+ACT['cook-batch-keep']=function(){if(UI.cook){UI.cook.batch=false;UI.cook.braw='';UI.cook.bcooked='';render();}};
+INPUT.mksearch=function(t){UI.mkQ=t.value;var el=document.getElementById('mkrows');if(el)el.innerHTML=mkRowsHtml();};
+INPUT.cook=function(t){
+  if(!UI.cook)return;
+  var f=t.getAttribute('data-f');UI.cook[f]=t.value;
+  if(f==='kind'){UI.cook.method=null;render();return;}
+  var el=document.getElementById('cook-ratio');if(el)el.innerHTML=cookRatioText(UI.pick);
+  var p=document.getElementById('preview');if(p)p.innerHTML=previewHtml(pickIng(UI.pick));
+};
+INPUT.ifc=function(t){if(UI.ingForm){UI.ingForm[t.getAttribute('data-f')]=t.value;var el=document.getElementById('cook-form-prev');if(el)el.innerHTML=cookFormPrev(UI.ingForm);}};
+
 /* ---------- start ---------- */
-window.CFL={parseLabel:parseLabel,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,version:APP_VERSION};
+window.CFL={parseLabel:parseLabel,mkSearch:function(q,g,n){return mkSearch(q,g,n).map(function(f){return f.n;});},mkReady:function(){return !!MK.data;},cookKinds:COOK_KINDS,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,PLAN_V4:PLAN_V4,version:APP_VERSION,
+  photos:function(){return (PH.list||[]).slice().sort(phOrder).map(function(r){return {id:r.id,week:r.week,pose:r.pose,w:r.w,h:r.h,size:r.size,thumb:r.thumb?r.thumb.size:0,weekName:phWeekName(r.week)};});}};
 render();
 openIdb().then(function(h){
   KV=h?idbKV(h):(lsWorks()?lsKV():memKV());
   return KV.all();
 }).then(function(all){
-  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();render();requestPersist();
+  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();var back=pendRestore(),phBack=back?(phPendClear(),null):phPendRestore();render();requestPersist();
+  if(phBack)toast('The phone closed the app while the camera was open, so the photo did not arrive. Tap '+(PH_CAT[phBack.pose]||PH_UNORG).name+' to take it again.',7000);
+  if(back)toast('The phone closed the app while the camera was open. Your ingredient is back: tap Scan label to take the photo again.',7000);
 }).catch(function(){
   KV=memKV();S.storeState='memory';loadDocs({});render();
 });
