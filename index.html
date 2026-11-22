@@ -325,6 +325,10 @@ html.cam-on,html.cam-on body{overflow:hidden}
 .gm-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .gm-status p{margin:0;font-size:14px}
 .gm-status .btn{flex:none}
+.gm-run{display:flex;flex-direction:column;gap:6px}
+.gm-run-sub{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted)}
+.gm-sw{flex:none;font:600 13px/1.2 var(--font-body);padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.gm-sw[aria-pressed="true"]{background:var(--gold-soft);border-color:var(--gold);color:var(--ink)}
 .rc-item .txt{padding:8px 10px;text-align:right}
 .rc-res:empty{display:none}
 a.btn{text-decoration:none}
@@ -415,7 +419,7 @@ a.btn{text-decoration:none}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.3.3';
+var APP_VERSION='1.3.4';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -5788,7 +5792,7 @@ INPUT.rc=function(t){var f=UI.rcForm;if(!f)return;f[t.getAttribute('data-f')]=t.
 INPUT.rcg=function(t){var f=UI.rcForm;if(!f)return;var it=f.items[+t.getAttribute('data-i')];if(it)it.g=t.value;var el=document.getElementById('rc-sum');if(el)el.innerHTML=rcSumHtml(f);};
 INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.getElementById('rc-res');if(el)el.innerHTML=rcResHtml(f);};
 
-/* ---------- Garmin tab (1.3.2, 1.3.3): the watch's data through intervals.icu, synced only on Wi-Fi ----------
+/* ---------- Garmin tab (1.3.2 to 1.3.4): the watch's data through intervals.icu, synced only on Wi-Fi ----------
    Garmin's own personal API refuses calls from web apps (1.3.1: the browser blocked the first request, 22-Nov-26), so the
    data comes from intervals.icu, a free training site linked to Garmin Connect, whose /api/v1/ endpoints answer web apps.
    Its personal API key (intervals.icu, Settings, Developer Settings) goes as basic auth with the user name API_KEY, and
@@ -5798,11 +5802,14 @@ INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.g
    while Chrome reports Wi-Fi (navigator.connection.type), when the app opens or comes back, when the phone joins Wi-Fi (30
    minutes at least between automatic syncs) and with Sync now. Every sync reads the last 8 weeks again (1.3.3), so whatever
    reaches intervals.icu late (Garmin's backfill of older days, a late watch sync, a rating changed there) shows at the next
-   sync. The replies of the last sync, cut short and without the key, make the sync report. */
+   sync. The replies of the last sync, cut short and without the key, make the sync report. Each treadmill run has a switch
+   (1.3.4): Garmin's distance (right when Casian used Calibrate & Save) or Estimated from his figures; the estimated runs are
+   kept in app/settings (treadEst, by activity id), so they are in the backup and survive a new sync. */
 var GM_BASE='https://intervals.icu',GM_DB='casian-fitness-log-garmin';
-var GM_LS={key:'cfl-icu-key',base:'cfl-icu-base',tread:'cfl-garmin-treadmill'};
+var GM_LS={key:'cfl-icu-key',base:'cfl-icu-base'};
 /* the Garmin key of 1.3.1 is of no use any more: off the phone */
-['cfl-garmin-key','cfl-garmin-key-until','cfl-garmin-token','cfl-garmin-base'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+/* and the single Treadmill speed setting of 1.3.1, replaced by a switch on each run (1.3.4) */
+['cfl-garmin-key','cfl-garmin-key-until','cfl-garmin-token','cfl-garmin-base','cfl-garmin-treadmill'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
 var GM={data:null,loading:false,busy:false,err:null,report:null,test:null};
 /* Casian's treadmill (22-Nov-26): the watch shows 5:30 per km at 10 km/h, 5:15 at 11 km/h and 5:00 at 12 km/h */
 var GM_TREAD=[[60/5.5,10],[60/5.25,11],[12,12]];
@@ -5959,10 +5966,13 @@ function gmLoadOf(a){
   if(tz>0)return {v:a.zones.reduce(function(s,z,i){return s+z*GM_ZONE_RPE[i];},0)/tz*min,est:true};
   return {v:0,est:true,none:true};
 }
+/* a treadmill run marked as not calibrated takes its speed from Casian's figures */
+function gmIsTread(a){return a.cat==='run'&&/treadmill|indoor/.test(a.type);}
+function gmEst(a){return gmIsTread(a)&&!!(S.settings&&S.settings.treadEst&&S.settings.treadEst[a.id]);}
 function gmSpeedKmh(a){
   if(!(a.moving>0))return null;
   var w=a.dist>0?a.dist/a.moving*3.6:(a.speed?a.speed*3.6:null);if(!w)return null;
-  if(lsGet(GM_LS.tread)!=='figures'||!/treadmill|indoor/.test(a.type))return w;
+  if(!gmEst(a))return w;
   var P=GM_TREAD;
   if(w<=P[0][0])return P[0][1]-(P[0][0]-w);
   for(var i=1;i<P.length;i++)if(w<=P[i][0])return P[i-1][1]+(w-P[i-1][0])*(P[i][1]-P[i-1][1])/(P[i][0]-P[i-1][0]);
@@ -6036,10 +6046,11 @@ function renderGarmin(){
   if(est)h+='<p class="hint">'+est+(est===1?' session':' sessions')+' of the last 7 days without an effort rating, estimated from heart rate.</p>';
   h+='</section>';
   /* running */
-  var km=[],kl=[],longest=null;
-  for(var j=5;j>=0;j--){var m2=addDays(mon,-7*j),s2=0;gmActs(ymd(m2),ymd(addDays(m2,6))).forEach(function(a){if(a.cat==='run'){var sp=gmSpeedKmh(a),dk=sp&&a.moving?sp*a.moving/3600:a.dist/1000;s2+=dk;if(!longest||dk>=longest.km)longest={km:dk,date:a.date};}});km.push(s2);kl.push(fmtDM(m2));}
+  var km=[],kl=[],longest=null,nEst=0;
+  for(var j=5;j>=0;j--){var m2=addDays(mon,-7*j),s2=0;gmActs(ymd(m2),ymd(addDays(m2,6))).forEach(function(a){if(a.cat==='run'){var sp=gmSpeedKmh(a),dk=sp&&a.moving?sp*a.moving/3600:a.dist/1000;s2+=dk;if(gmEst(a))nEst++;if(!longest||dk>=longest.km)longest={km:dk,date:a.date,est:gmEst(a)};}});km.push(s2);kl.push(fmtDM(m2));}
   h+='<section class="card"><h3>Running</h3>'+gmBars(km,kl.map(function(x){return x.split(' ')[0]+' '+x.split(' ')[1];}),function(v){return v?v.toFixed(1):'0';},5);
-  if(longest)h+='<div class="kv"><span>Longest run, last 6 weeks</span><b>'+longest.km.toFixed(1)+' km, '+esc(fmtDate(parseYmd(longest.date)))+'</b></div>';
+  if(longest)h+='<div class="kv"><span>Longest run, last 6 weeks</span><b>'+(longest.est?'c.':'')+longest.km.toFixed(1)+' km, '+esc(fmtDate(parseYmd(longest.date)))+'</b></div>';
+  if(nEst)h+='<p class="hint">'+nEst+(nEst===1?' treadmill run':' treadmill runs')+' of these weeks estimated from your figures (see Treadmill below).</p>';
   var zt=[0,0,0,0,0];gmActs(ymd(mon),today).forEach(function(a){if(a.cat==='run'||a.cat==='cardio')a.zones.forEach(function(z,i){zt[i]+=z;});});
   var ztot=zt.reduce(function(s,z){return s+z;},0);
   if(ztot>0){
@@ -6057,11 +6068,17 @@ function renderGarmin(){
   var tr=gmActs(ymd(addDays(t,-56)),today).filter(function(a){return a.cat==='run'&&/treadmill|indoor/.test(a.type)&&a.hr&&gmSpeedKmh(a);}).reverse();
   h+='<section class="card"><h3>Treadmill: heart rate at your speed</h3>';
   if(tr.length){
-    var fig=lsGet(GM_LS.tread)==='figures',mpb=function(a){return gmSpeedKmh(a)*1000/60/a.hr;};
+    var mpb=function(a){return gmSpeedKmh(a)*1000/60/a.hr;};
     var recent=tr.slice(0,3),older=tr.filter(function(a){return a.date<=ymd(addDays(t,-21));}).slice(0,3),avgM=function(l){return l.reduce(function(s,a){return s+mpb(a);},0)/l.length;};
     if(older.length&&recent.length){var ch=(avgM(recent)/avgM(older)-1)*100;h+='<p class="gm-verdict '+(ch>=0?'ok':'warn')+'"><b>'+(ch>=1?'Fitter':ch<=-1?'Less efficient':'About the same')+'</b>: '+avgM(recent).toFixed(2)+' m per heartbeat in your last runs against '+avgM(older).toFixed(2)+' three weeks before ('+signed(ch,0)+'%)</p>';}
-    h+=tr.slice(0,8).map(function(a){return '<div class="kv"><span>'+esc(fmtDate(parseYmd(a.date)))+', '+fmtInt(a.dur/60)+' min</span><b>'+gmSpeedKmh(a).toFixed(1)+' km/h at '+fmtInt(a.hr)+' bpm</b></div>';}).join('');
-    h+='<p class="hint">'+(fig?'Speeds corrected with your figures (5:30 per km shown at 10 km/h, 5:15 at 11, 5:00 at 12), approximate.':'Speeds from Garmin\'s distance: use Calibrate & Save after each run so they are right.')+' The same speed at a lower heart rate means you are fitter.</p>';
+    h+='<p class="hint">Each run starts on Garmin\'s distance, which is right when you used Calibrate & Save at the end of the run. On a run you did not calibrate, tap Garmin\'s distance to switch it to an estimate from your figures (5:30 per km shown at 10 km/h, 5:15 at 11, 5:00 at 12), marked c.; tap again to switch back.</p>';
+    h+=(UI.gmTrAll?tr:tr.slice(0,8)).map(function(a){
+      var e=gmEst(a),sp=gmSpeedKmh(a),c=e?'c.':'';
+      return '<div class="gm-run"><div class="kv"><span>'+esc(fmtDate(parseYmd(a.date)))+', '+fmtInt(a.dur/60)+' min</span><b>'+c+sp.toFixed(1)+' km/h at '+fmtInt(a.hr)+' bpm</b></div>'+
+        '<div class="gm-run-sub"><span>'+c+(sp*a.moving/3600).toFixed(1)+' km</span><button class="gm-sw" data-act="gm-tr" data-id="'+esc(a.id)+'" aria-pressed="'+e+'">'+(e?'Estimated from my figures':'Garmin\'s distance')+'</button></div></div>';
+    }).join('');
+    if(tr.length>8)h+='<div class="row"><button class="btn small ghost" data-act="gm-tr-all">'+(UI.gmTrAll?'Show the last 8 runs':'Show all '+tr.length+' runs')+'</button></div>';
+    h+='<p class="hint">The same speed at a lower heart rate means you are fitter.</p>';
   }else h+='<p class="hint">No treadmill runs with heart rate in the last 8 weeks.</p>';
   h+='</section>';
   /* strength sessions with the watch's effort rating */
@@ -6091,7 +6108,6 @@ function gmSettingsHtml(){
   if(GM.test)h+='<p class="hint">'+esc(GM.test)+'</p>';
   if((GM.data&&GM.data.synced&&!gmWellAny(ymd(addDays(new Date(),-6)),todayY()))||(GM.test&&/sleep on 0 of/.test(GM.test)))
     h+='<p class="notice">No sleep, HRV or resting heart rate from the last 7 days. In intervals.icu, Settings, Garmin Connect: tick Download wellness data with sleep, HRV and resting HR, then Download old data. In the Garmin Connect app, check under connected apps that intervals.icu may read your health data. Disconnecting Garmin in intervals.icu and connecting it again often fixes it.</p>';
-  h+='<label class="fld" for="gm-tread"><span>Treadmill speed</span><select class="txt" id="gm-tread" data-k="gmtread"><option value="garmin"'+(lsGet(GM_LS.tread)!=='figures'?' selected':'')+'>From Garmin\'s distance (Calibrate & Save after each run)</option><option value="figures"'+(lsGet(GM_LS.tread)==='figures'?' selected':'')+'>Corrected with my figures (5:30 at 10 km/h, 5:15 at 11, 5:00 at 12)</option></select></label>';
   h+='<div class="row"><button class="btn" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button><button class="btn" data-act="gm-test"'+(GM.busy||w===false?' disabled':'')+'>Test connection</button></div>'+
     (UI.gmForget?'<div class="confirm"><span>Remove the intervals.icu key from this phone? The synced data stays; syncing stops until a key is added again.</span><div class="row"><button class="btn danger" data-act="gm-forget-yes">Remove</button><button class="btn ghost" data-act="gm-forget-no">Cancel</button></div></div>':
       '<div class="row between"><button class="btn small" data-act="gm-report">Save sync report</button><button class="btn small ghost danger" data-act="gm-forget">Remove key</button></div>')+
@@ -6124,7 +6140,13 @@ ACT['gm-forget-no']=function(){UI.gmForget=false;render();};
 ACT['gm-forget-yes']=function(){
   UI.gmForget=false;lsSet(GM_LS.key,null);GM.test=null;GM.err=null;toast('intervals.icu key removed from this phone');render();
 };
-INPUT.gmtread=function(t){lsSet(GM_LS.tread,t.value==='figures'?'figures':null);render();};
+ACT['gm-tr']=function(b){
+  var id=b.getAttribute('data-id');if(!id)return;
+  S.settings=S.settings||{blockStart:null,targets:{}};var t=S.settings.treadEst=S.settings.treadEst||{};
+  if(t[id])delete t[id];else t[id]=true;
+  save('app/settings',S.settings,0);render();
+};
+ACT['gm-tr-all']=function(){UI.gmTrAll=!UI.gmTrAll;render();};
 
 /* ---------- start ---------- */
 window.CFL={parseLabel:parseLabel,gm:{sync:function(m){return gmSync(!!m);},age:function(ms){if(GM.data)GM.data.synced-=ms;},state:function(){return {busy:GM.busy,err:GM.err,counts:GM.data?gmCounts():null,synced:GM.data&&GM.data.synced,test:GM.test};}},rcPer100:function(id){return rcPer100(S.recipes[id],id);},mkSearch:function(q,g,n){return mkSearch(q,g,n).map(function(f){return f.n;});},mkReady:function(){return !!MK.data;},cookKinds:COOK_KINDS,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,PLAN_V4:PLAN_V4,version:APP_VERSION,
