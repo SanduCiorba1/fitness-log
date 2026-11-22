@@ -415,7 +415,7 @@ a.btn{text-decoration:none}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.3.1';
+var APP_VERSION='1.3.2';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -5788,20 +5788,21 @@ INPUT.rc=function(t){var f=UI.rcForm;if(!f)return;f[t.getAttribute('data-f')]=t.
 INPUT.rcg=function(t){var f=UI.rcForm;if(!f)return;var it=f.items[+t.getAttribute('data-i')];if(it)it.g=t.value;var el=document.getElementById('rc-sum');if(el)el.innerHTML=rcSumHtml(f);};
 INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.getElementById('rc-res');if(el)el.innerHTML=rcResHtml(f);};
 
-/* ---------- Garmin (1.3.1): training data through Garmin's personal API, synced only on Wi-Fi ----------
-   Garmin Connect Personal API (since Oct-26): a key made in Garmin Connect's web settings (valid 30 days to a year) is
-   exchanged for a 24-hour access token (POST /personalapitoken-service/personal-api/personal-api-key/token with
-   "Authorization: ApiKey <key>"; the token is the response text, a JWT), which reads the data (Authorization: Bearer).
-   Host and paths from Garmin's own client, github.com/garmin/connect-personal-api-python. The key and the token stay in
-   this phone's localStorage, never in the backup file. The data (activities, sleep, HRV, resting heart rate) lives in a
-   database of its own (casian-fitness-log-garmin) and is read without a connection; a sync runs only while Chrome reports
-   Wi-Fi (navigator.connection.type), when the app opens or comes back, when the phone joins Wi-Fi (30 minutes at least
-   between automatic syncs) and with Sync now. Garmin's answers are read loosely (fields looked for anywhere in the reply),
-   since only the paths are documented; the last sync's replies, cut short and without key or token, make the Garmin report. */
-var GM_BASE='https://personal.connectapi.garmin.com',GM_TOKEN_PATH='/personalapitoken-service/personal-api/personal-api-key/token',GM_DB='casian-fitness-log-garmin';
-var GM_LS={key:'cfl-garmin-key',until:'cfl-garmin-key-until',tok:'cfl-garmin-token',base:'cfl-garmin-base',tread:'cfl-garmin-treadmill'};
+/* ---------- Garmin tab (1.3.2): the watch's data through intervals.icu, synced only on Wi-Fi ----------
+   Garmin's own personal API refuses calls from web apps (1.3.1: the browser blocked the first request, 22-Nov-26), so the
+   data comes from intervals.icu, a free training site linked to Garmin Connect, whose /api/v1/ endpoints answer web apps.
+   Its personal API key (intervals.icu, Settings, Developer Settings) goes as basic auth with the user name API_KEY, and
+   athlete 0 is the key's own athlete: /api/v1/athlete/0/activities and /api/v1/athlete/0/wellness, both with oldest and
+   newest. The key stays in this phone's localStorage, never in the backup file. The data (activities, sleep, HRV, resting
+   heart rate) lives in a database of its own (casian-fitness-log-garmin) and is read without a connection; a sync runs only
+   while Chrome reports Wi-Fi (navigator.connection.type), when the app opens or comes back, when the phone joins Wi-Fi (30
+   minutes at least between automatic syncs) and with Sync now. The replies of the last sync, cut short and without the key,
+   make the sync report. */
+var GM_BASE='https://intervals.icu',GM_DB='casian-fitness-log-garmin';
+var GM_LS={key:'cfl-icu-key',base:'cfl-icu-base',tread:'cfl-garmin-treadmill'};
+/* the Garmin key of 1.3.1 is of no use any more: off the phone */
+['cfl-garmin-key','cfl-garmin-key-until','cfl-garmin-token','cfl-garmin-base'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
 var GM={data:null,loading:false,busy:false,err:null,report:null,test:null};
-UI.gmValid='365';
 /* Casian's treadmill (22-Nov-26): the watch shows 5:30 per km at 10 km/h, 5:15 at 11 km/h and 5:00 at 12 km/h */
 var GM_TREAD=[[60/5.5,10],[60/5.25,11],[12,12]];
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
@@ -5812,11 +5813,11 @@ function gmWifi(){var c=navigator.connection,t=c&&c.type;if(!t||t==='unknown')re
 function gmErr(kind,detail){var e=new Error(kind);e.gm=kind;e.detail=detail==null?'':String(detail&&detail.message||detail);return e;}
 function gmErrText(e){
   var k=e&&e.gm;
-  if(k==='key')return 'Garmin refused the key: it may have expired or been deleted. Make a new one in Garmin Connect and paste it in Settings.';
-  if(k==='net')return 'Garmin did not answer. If the phone is online, Garmin is refusing calls from a web app like this one; the way round it is intervals.icu.';
-  if(k==='rate')return 'Garmin asked the app to slow down; the next sync will try again.';
-  if(k==='nokey')return 'No Garmin key yet: add it in Settings.';
-  return 'Garmin answered with an error ('+((e&&e.detail)||'unknown')+').';
+  if(k==='key')return 'intervals.icu refused the key: generate a new one in intervals.icu (Settings, Developer Settings) and paste it in Settings.';
+  if(k==='net')return 'intervals.icu did not answer: check that the phone is online and try again. If it keeps failing, save the sync report in Settings and send it.';
+  if(k==='rate')return 'intervals.icu asked the app to slow down; the next sync will try again.';
+  if(k==='nokey')return 'No intervals.icu key yet: add it in Settings.';
+  return 'intervals.icu answered with an error ('+((e&&e.detail)||'unknown')+').';
 }
 function gmTx(mode,fn){
   return new Promise(function(res,rej){
@@ -5842,91 +5843,52 @@ function gmLoad(){
 function gmAgo(ts){var m=Math.round((Date.now()-ts)/60000);if(m<1)return 'just now';if(m<60)return m+' min ago';var h=Math.round(m/60);if(h<24)return h+(h===1?' hour ago':' hours ago');return agoText(new Date(ts).toISOString());}
 function gmStore(){var d=GM.data,r=GM.report;return gmTx('readwrite',function(st){st.put(d,'data');if(r)st.put(r,'report');}).catch(function(){});}
 
-/* the 24-hour token, kept until it has less than 10 minutes left; a refusal of the key ends the sync */
-function gmKeyTag(k){var h=0;for(var i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))|0;return String(h);}
-function gmJwtExp(t){try{var p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');while(p.length%4)p+='=';var o=JSON.parse(atob(p));return o.exp?o.exp*1000:0;}catch(e){return 0;}}
-function gmToken(force){
+/* every call carries the key as basic auth (user name API_KEY); a refusal of the key ends the sync */
+function gmGet(path,params){
   var key=gmKey();if(!key)return Promise.reject(gmErr('nokey'));
-  var c=null;try{c=JSON.parse(lsGet(GM_LS.tok)||'null');}catch(e){}
-  if(!force&&c&&c.t&&c.k===gmKeyTag(key)&&c.exp-Date.now()>10*60000)return Promise.resolve(c.t);
-  return fetch(gmBase()+GM_TOKEN_PATH,{method:'POST',headers:{'Accept':'*/*','Authorization':'ApiKey '+key}}).then(function(r){
-    if(r.status===401||r.status===403)throw gmErr('key',r.status);
-    if(r.status===429)throw gmErr('rate',429);
-    if(!r.ok)throw gmErr('http',r.status+' token');
-    return r.text();
-  },function(e){throw gmErr('net',e);}).then(function(t){
-    t=String(t||'').trim().replace(/^"|"$/g,'');if(!t)throw gmErr('http','empty token');
-    lsSet(GM_LS.tok,JSON.stringify({t:t,exp:gmJwtExp(t)||Date.now()+23*3600000,k:gmKeyTag(key)}));return t;
-  });
-}
-function gmGet(path,params,tok){
   var q=params?'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&'):'';
-  return fetch(gmBase()+path+q,{headers:{'Accept':'application/json','Authorization':'Bearer '+tok}}).then(function(r){
-    if(r.status===401)throw gmErr('auth',401);
-    if(r.status===403)throw gmErr('http','403 '+path);
+  return fetch(gmBase()+path+q,{headers:{'Accept':'application/json','Authorization':'Basic '+btoa('API_KEY:'+key)}}).then(function(r){
+    if(r.status===401||r.status===403)throw gmErr('key',r.status);
     if(r.status===429)throw gmErr('rate',429);
     if(!r.ok)throw gmErr('http',r.status+' '+path);
     return r.status===204?null:r.text().then(function(x){return x?JSON.parse(x):null;});
   },function(e){throw gmErr('net',e);});
 }
-function gmCall(path,params){
-  return gmToken().then(function(t){return gmGet(path,params,t);}).catch(function(e){
-    if(e.gm!=='auth')throw e;
-    return gmToken(true).then(function(t){return gmGet(path,params,t);}).catch(function(e2){throw e2.gm==='auth'?gmErr('key',401):e2;});
-  });
-}
+function gmCall(path,params){return gmGet(path,params);}
 
-/* reading Garmin's replies: the objects that carry a date and the field wanted, wherever they sit */
-function gmFind(j,test,out){
-  out=out||[];if(!j||typeof j!=='object')return out;
-  if(Array.isArray(j)){j.forEach(function(x){gmFind(x,test,out);});return out;}
-  if(test(j))out.push(j);
-  Object.keys(j).forEach(function(k){if(j[k]&&typeof j[k]==='object')gmFind(j[k],test,out);});
-  return out;
-}
-function gmDate(o){var d=o.calendarDate||o.summaryDate||o.date;return typeof d==='string'&&/^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):null;}
+/* reading intervals.icu's replies, with the field names of its API */
 function gmFirst(o,keys){for(var i=0;i<keys.length;i++){var v=o[keys[i]];if(v!=null&&v!==''&&!isNaN(+v))return +v;}return null;}
-function gmTakeSleep(j){
-  gmFind(j,function(o){return gmDate(o)&&gmFirst(o,['sleepTimeSeconds','sleepTimeInSeconds','totalSleepSeconds','sleepSeconds'])!=null;}).forEach(function(o){
-    var s=gmFirst(o,['sleepTimeSeconds','sleepTimeInSeconds','totalSleepSeconds','sleepSeconds']);if(!(s>0))return;
-    var sc=o.sleepScores&&o.sleepScores.overall&&o.sleepScores.overall.value;
-    if(sc==null)sc=(o.overallSleepScore&&o.overallSleepScore.value)!=null?o.overallSleepScore.value:gmFirst(o,['sleepScore','overallScore']);
-    GM.data.sleep[gmDate(o)]={secs:s,score:sc==null?null:+sc};
+function gmDay(x){x=String(x||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:null;}
+function gmTakeWell(l){
+  (Array.isArray(l)?l:[]).forEach(function(w){
+    if(!w||typeof w!=='object')return;var d=gmDay(w.id)||gmDay(w.date);if(!d)return;
+    var s=gmFirst(w,['sleepSecs','sleep_secs']);if(s>0)GM.data.sleep[d]={secs:s,score:gmFirst(w,['sleepScore','sleep_score'])};
+    var hv=gmFirst(w,['hrv','hrv_rmssd']);if(hv>0)GM.data.hrv[d]={night:hv,weekly:null,status:null,low:null,high:null};
+    var r=gmFirst(w,['restingHR','resting_hr']);if(r>25&&r<130)GM.data.rhr[d]=r;
   });
 }
-function gmTakeHrv(j){
-  gmFind(j,function(o){return gmDate(o)&&gmFirst(o,['lastNightAvg','lastNightAverage','hrvValue'])!=null;}).forEach(function(o){
-    var b=o.baseline||{};
-    GM.data.hrv[gmDate(o)]={night:gmFirst(o,['lastNightAvg','lastNightAverage','hrvValue']),weekly:gmFirst(o,['weeklyAvg','weeklyAverage']),status:o.status||o.hrvStatus||null,low:gmFirst(b,['balancedLow']),high:gmFirst(b,['balancedUpper'])};
-  });
-}
-function gmTakeDaily(j){
-  gmFind(j,function(o){return gmDate(o)&&gmFirst(o,['restingHeartRate','restingHeartRateValue','restingHR'])!=null;}).forEach(function(o){
-    var v=gmFirst(o,['restingHeartRate','restingHeartRateValue','restingHR']);if(v>25&&v<130)GM.data.rhr[gmDate(o)]=v;
-  });
-}
-function gmCat(tk){
-  tk=String(tk||'').toLowerCase();
-  if(/run/.test(tk))return 'run';
-  if(/strength/.test(tk))return 'strength';
-  if(/hiit|cardio|interval|elliptical|stair|row|cycl|bik|fitness_equipment/.test(tk))return 'cardio';
+function gmCat(t){
+  t=String(t||'').toLowerCase();
+  if(/run/.test(t))return 'run';
+  if(/weight|strength/.test(t))return 'strength';
+  if(/hiit|highintensity|interval|workout|crossfit|cardio|elliptical|stair|row|ride|cycl|bik/.test(t))return 'cardio';
   return 'other';
 }
 function gmRpe(v){if(v==null||v===''||isNaN(+v))return null;v=+v;if(v>10)v=v/10;v=Math.round(v);return v>=1&&v<=10?v:null;}
-function gmRpeOf(a){var s=a.summaryDTO||{};return gmRpe(a.directWorkoutRpe!=null?a.directWorkoutRpe:a.workoutRpe!=null?a.workoutRpe:a.perceivedExertion!=null?a.perceivedExertion:s.directWorkoutRpe);}
+/* intervals.icu's own heart-rate zones: with more than five, the ones above zone 4 count as zone 5 */
+function gmZones(z){var o=[0,0,0,0,0];(Array.isArray(z)?z:[]).forEach(function(v,i){o[Math.min(i,4)]+=+v||0;});return o;}
 function gmTakeAct(a){
-  if(!a||typeof a!=='object')return;
-  var id=a.activityId||a.activityID||a.id;if(!id)return;
-  var tk=(a.activityType&&(a.activityType.typeKey||a.activityType.key))||a.activityTypeKey||'';
-  var st=String(a.startTimeLocal||a.startTimeGMT||''),date=st.slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
-  var mov=+(a.movingDuration||a.duration||a.elapsedDuration||0),el=+(a.duration||a.elapsedDuration||mov);
-  var o={id:String(id),date:date,time:st.slice(11,16),name:String(a.activityName||tk||'Activity'),type:tk,cat:gmCat(tk),dur:el,moving:mov,dist:+(a.distance||0),
-    hr:+(a.averageHR||a.averageHeartRate||0)||null,maxhr:+(a.maxHR||a.maxHeartRate||0)||null,speed:+(a.averageSpeed||0)||null,
-    zones:[1,2,3,4,5].map(function(n){return +(a['hrTimeInZone_'+n]||0);}),load:+(a.activityTrainingLoad||0)||null,rpe:gmRpeOf(a)};
-  var old=GM.data.acts[o.id];
-  if(old){if(o.rpe==null&&old.rpe!=null)o.rpe=old.rpe;if(old.detail)o.detail=old.detail;}
-  GM.data.acts[o.id]=o;
+  if(!a||typeof a!=='object'||a.id==null||a.id==='')return;
+  var st=String(a.start_date_local||''),date=gmDay(st);if(!date)return;
+  var cat=gmCat(a.type),tm=cat==='run'&&(a.trainer===true||/virtual/i.test(a.type||'')||/treadmill|indoor/i.test(a.name||''));
+  var mov=+(a.moving_time||a.elapsed_time||0),el=+(a.elapsed_time||mov);
+  GM.data.acts[String(a.id)]={id:String(a.id),date:date,time:st.slice(11,16),name:String(a.name||a.type||'Activity'),
+    type:cat==='run'?(tm?'treadmill_running':'running'):cat==='strength'?'strength_training':String(a.type||'').toLowerCase(),cat:cat,dur:el,moving:mov,dist:+(a.distance||0),
+    hr:+(a.average_heartrate||0)||null,maxhr:+(a.max_heartrate||0)||null,speed:+(a.average_speed||0)||null,
+    zones:gmZones(a.icu_hr_zone_times),load:+(a.icu_training_load||0)||null,rpe:gmRpe(a.icu_rpe!=null?a.icu_rpe:a.perceived_exertion!=null?a.perceived_exertion:a.rpe)};
 }
+/* any sleep, HRV or resting heart rate between two days */
+function gmWellAny(from,to){var d=GM.data,f=function(m){return Object.keys(m).some(function(k){return k>=from&&k<=to;});};return f(d.sleep)||f(d.hrv)||f(d.rhr);}
 function gmSample(j,depth){
   depth=depth||0;
   if(Array.isArray(j))return j.slice(0,2).map(function(x){return gmSample(x,depth+1);}).concat(j.length>2?['('+(j.length-2)+' more)']:[]);
@@ -5939,44 +5901,30 @@ function gmSeq(list,fn){return list.reduce(function(p,x){return p.then(function(
 
 function gmSync(manual){
   if(GM.busy)return Promise.resolve();
-  if(!gmKey()){if(manual)toast('Add your Garmin key in Settings first',3000);return Promise.resolve();}
+  if(!gmKey()){if(manual)toast('Add your intervals.icu key in Settings first',3000);return Promise.resolve();}
   var w=gmWifi();
-  if(w===false||(w===null&&!manual)){if(manual)toast('Garmin syncs only on Wi-Fi',3000);return Promise.resolve();}
+  if(w===false||(w===null&&!manual)){if(manual)toast('The Garmin tab syncs only on Wi-Fi',3000);return Promise.resolve();}
   if(!GM.data){gmLoad();return Promise.resolve();}
   GM.busy=true;GM.err=null;if(UI.tab==='garmin'||UI.tab==='settings')requestRender();
   var today=ymd(new Date()),start=GM.data.lastDay?ymd(addDays(parseYmd(GM.data.lastDay),-3)):ymd(addDays(new Date(),-55));
-  var rep={app:APP_ID,kind:'garmin-report',version:APP_VERSION,at:new Date().toISOString(),base:gmBase(),wifi:w,calls:[]};
+  var rep={app:APP_ID,kind:'sync-report',source:'intervals.icu',version:APP_VERSION,at:new Date().toISOString(),base:gmBase(),wifi:w,calls:[]};
   function call(path,params){
     var label=path+(params?' '+JSON.stringify(params):'');
-    return gmCall(path,params).then(function(j){rep.calls.push({path:label,ok:true,sample:gmSample(j)});return j;},function(e){rep.calls.push({path:label,ok:false,error:e.gm+(e.detail?' '+e.detail:'')});throw e;});
+    return gmCall(path,params).then(function(j){rep.calls.push({path:label,ok:true,n:Array.isArray(j)?j.length:null,sample:gmSample(j)});return j;},function(e){rep.calls.push({path:label,ok:false,error:e.gm+(e.detail?' '+e.detail:'')});throw e;});
   }
   function soft(p){return p.catch(function(e){if(e.gm==='key'||e.gm==='net'||e.gm==='nokey')throw e;return null;});}
-  var acts=[],chunks=gmChunks(start,today,28);
-  function page(i){
-    return call('/activitylist-service/activities/search/activities',{start:i,limit:100,startDate:start,endDate:today}).then(function(j){
-      var l=Array.isArray(j)?j:(j&&(j.activityList||j.activities||j.results))||[];acts=acts.concat(l);
-      if(l.length===100&&i<400)return page(i+100);
-    });
-  }
-  return page(0).then(function(){acts.forEach(gmTakeAct);})
-    .then(function(){return gmSeq(chunks,function(c){return soft(call('/sleep-service/sleep/dailySleepSummariesByDate',{startDate:c[0],endDate:c[1]})).then(gmTakeSleep);});})
+  var acts=[],well=[],chunks=gmChunks(start,today,28);
+  return gmSeq(chunks,function(c){return call('/api/v1/athlete/0/activities',{oldest:c[0],newest:c[1]}).then(function(j){if(Array.isArray(j))acts=acts.concat(j);});})
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/api/v1/athlete/0/wellness',{oldest:c[0],newest:c[1]})).then(function(j){if(Array.isArray(j))well=well.concat(j);});});})
     .then(function(){
-      var miss=[0,1].map(function(n){return ymd(addDays(new Date(),-n));}).filter(function(d){return !GM.data.sleep[d];});
-      return gmSeq(miss,function(d){return soft(call('/sleep-service/sleep/dailySleep',{date:d})).then(gmTakeSleep);});
-    })
-    .then(function(){return gmSeq(chunks,function(c){return soft(call('/hrv-service/hrv/daily/'+c[0]+'/'+c[1])).then(gmTakeHrv);});})
-    .then(function(){return gmSeq(chunks,function(c){return soft(call('/usersummary-service/v2/dailysummaries',{startDate:c[0],endDate:c[1]})).then(gmTakeDaily);});})
-    .then(function(){
-      /* the effort rating of a strength session, when the list does not carry it: from the session's own page */
-      var need=Object.keys(GM.data.acts).map(function(k){return GM.data.acts[k];}).filter(function(a){return a.cat==='strength'&&a.rpe==null&&!a.detail;}).slice(0,12);
-      return gmSeq(need,function(a){return soft(call('/activity-service/activity/'+a.id)).then(function(j){a.detail=1;if(j){var r=gmRpeOf(j);if(r!=null)a.rpe=r;}});});
-    })
-    .then(function(){
+      /* the days read again replace what was there, so an activity deleted in intervals.icu goes here too */
+      Object.keys(GM.data.acts).forEach(function(k){if(GM.data.acts[k].date>=start)delete GM.data.acts[k];});
+      acts.forEach(gmTakeAct);gmTakeWell(well);
       var cut=ymd(addDays(new Date(),-120));
       ['acts','sleep','hrv','rhr'].forEach(function(k){var o=GM.data[k];Object.keys(o).forEach(function(x){var d=k==='acts'?o[x].date:x;if(d<cut)delete o[x];});});
       GM.data.synced=Date.now();GM.data.lastDay=today;
       rep.counts=gmCounts();GM.report=rep;GM.busy=false;
-      return gmStore().then(function(){if(manual)toast('Garmin synced',2000);});
+      return gmStore().then(function(){if(manual)toast('Synced from intervals.icu',2000);});
     },function(e){
       GM.busy=false;GM.err=gmErrText(e);rep.error=e.gm+(e.detail?' '+e.detail:'');GM.report=rep;gmStore();
       if(manual)toast(GM.err,6000);
@@ -6039,10 +5987,10 @@ function gmBars(vals,labels,fmt,hl){
 function renderGarmin(){
   if(!GM.data){gmLoad();return loadingHtml('Garmin data');}
   var h='',key=gmKey(),w=gmWifi(),d=GM.data,today=ymd(new Date()),t=new Date();
-  var stat=GM.busy?'Syncing with Garmin...':GM.err?esc(GM.err):d.synced?'Synced '+esc(fmtDate(new Date(d.synced))+' at '+pad(new Date(d.synced).getHours())+':'+pad(new Date(d.synced).getMinutes())):'Not synced yet';
-  h+='<div class="gm-status"><p class="'+(GM.err&&!GM.busy?'err':'hint')+'">'+stat+(w===false?' Waiting for Wi-Fi: the app talks to Garmin only on Wi-Fi.':'')+'</p>'+
+  var stat=GM.busy?'Syncing with intervals.icu...':GM.err?esc(GM.err):d.synced?'Synced '+esc(fmtDate(new Date(d.synced))+' at '+pad(new Date(d.synced).getHours())+':'+pad(new Date(d.synced).getMinutes())):'Not synced yet';
+  h+='<div class="gm-status"><p class="'+(GM.err&&!GM.busy?'err':'hint')+'">'+stat+(w===false?' Waiting for Wi-Fi: the app syncs only on Wi-Fi.':'')+'</p>'+
     (key?'<button class="btn small" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button>':'<button class="btn small primary" data-act="settings">Add your key</button>')+'</div>';
-  if(!d.synced)return h+'<div class="empty">'+(key?'Nothing synced yet: the first sync runs once the phone is on Wi-Fi'+(w===false?'.':', or tap Sync now.'):'Your Garmin data shows here once the key is in Settings.')+'</div>';
+  if(!d.synced)return h+'<div class="empty">'+(key?'Nothing synced yet: the first sync runs once the phone is on Wi-Fi'+(w===false?'.':', or tap Sync now.'):'Your Garmin data shows here once the intervals.icu key is in Settings.')+'</div>';
   /* last night and the morning check */
   /* Garmin files a night under the day it ends; the check uses this morning's figures only */
   var slT=d.sleep[today],sl=slT||d.sleep[ymd(addDays(t,-1))],planToday=gmPlanned(dayKeyOf(t));
@@ -6052,7 +6000,8 @@ function renderGarmin(){
     h+='<div class="kv"><span>Sleep'+(slT?'':', night to '+esc(fmtDM(addDays(t,-1))))+'</span><b>'+hmText(sl.secs)+(sl.score!=null?', score '+fmtInt(sl.score):'')+'</b></div>'+barHtml(sl.secs/3600,8,short?'--danger':'--c-p');
     if(short&&slT)h+='<p class="hint">Under the 8-hour target'+(planToday.indexOf('run')>-1?': make this morning\'s run shorter, or skip it (your plan).':'.')+'</p>';
   }
-  if(!slT)h+='<p class="hint">Last night is not in Garmin yet: sync the watch with the Garmin Connect app, then Sync now.</p>';
+  if(!slT)h+='<p class="hint">'+(gmWellAny(ymd(addDays(t,-6)),today)?'Last night is not in intervals.icu yet: sync the watch with the Garmin Connect app (intervals.icu takes it from there within minutes), then Sync now.':
+    'No sleep, HRV or resting heart rate has come from intervals.icu in the last 7 days: its Garmin link is not passing them on (see Settings, Garmin).')+'</p>';
   if(sl&&!slT)sl=null;
   var rhrT=d.rhr[today],rhrA=gmAvg(d.rhr,ymd(addDays(t,-7)),ymd(addDays(t,-1))),hv=d.hrv[today],hvA=gmAvg(Object.keys(d.hrv).reduce(function(o,k){o[k]=d.hrv[k].night;return o;},{}),ymd(addDays(t,-7)),ymd(addDays(t,-1))),flags=[];
   if(rhrT!=null)h+='<div class="kv"><span>Resting heart rate</span><b>'+fmtInt(rhrT)+' bpm'+(rhrA!=null?' ('+signed(rhrT-rhrA,0)+' against your week)':'')+'</b></div>';
@@ -6098,7 +6047,7 @@ function renderGarmin(){
     var hi=gmActs(ymd(mon),today).filter(function(a){return dayKeyOf(parseYmd(a.date))==='wed'&&(a.cat==='run'||a.cat==='cardio');}),hz=0;
     hi.forEach(function(a){hz+=a.zones[3]+a.zones[4];});
     if(hi.length)h+='<div class="kv"><span>HIIT in zones 4 and 5</span><b>'+minText(hz)+'</b></div>';
-  }else h+='<p class="hint">No heart-rate zones in Garmin\'s data this week.</p>';
+  }else h+='<p class="hint">No heart-rate zones in the data this week.</p>';
   h+='</section>';
   /* treadmill: heart rate at the speed run */
   var tr=gmActs(ymd(addDays(t,-56)),today).filter(function(a){return a.cat==='run'&&/treadmill|indoor/.test(a.type)&&a.hr&&gmSpeedKmh(a);}).reverse();
@@ -6116,62 +6065,61 @@ function renderGarmin(){
   h+='<section class="card"><h3>Strength sessions</h3>';
   if(str.length){
     h+=str.slice(0,8).map(function(a){var L=gmLoadOf(a);return '<div class="kv"><span>'+esc(fmtDate(parseYmd(a.date)))+', '+fmtInt(a.dur/60)+' min</span><b>'+(a.rpe!=null?'Effort '+a.rpe+' of 10, load '+fmtInt(L.v):'No rating')+'</b></div>';}).join('');
-    if(str.some(function(a){return a.rpe==null;}))h+='<p class="hint">Sessions without a rating: turn on Self Evaluation for Strength on the watch (activity settings), or add the rating in the Garmin Connect app.</p>';
+    if(str.some(function(a){return a.rpe==null;}))h+='<p class="hint">Sessions without a rating: turn on Self Evaluation for Strength on the watch and rate each session on the watch when it asks; a rating added later in the Garmin Connect app does not reach intervals.icu.</p>';
   }else h+='<p class="hint">No strength sessions from Garmin in the last 6 weeks.</p>';
-  return h+'</section><p class="hint">From Garmin Connect through your personal API key. The app syncs only on Wi-Fi and works offline with the last synced data.</p>';
+  return h+'</section><p class="hint">From your Garmin watch through intervals.icu. The app syncs only on Wi-Fi and works offline with the last synced data.</p>';
 }
 function gmSettingsHtml(){
   if(!GM.data)gmLoad();
-  var key=gmKey(),w=gmWifi(),until=lsGet(GM_LS.until),h='<section class="card"><h3>Garmin</h3>';
+  var key=gmKey(),w=gmWifi(),h='<section class="card"><h3>Garmin</h3>';
   if(!key){
-    h+='<p class="hint">The Garmin tab reads your runs, strength sessions, sleep, HRV and resting heart rate from Garmin Connect. Make a personal API key on the Garmin Connect website (Settings, Personal API Key), choose how long it lasts and paste it here. The key stays on this phone; it is not in the backup file.</p>'+
-      '<div class="row"><a class="btn small" href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank" rel="noopener">Open the key page</a></div>'+
-      '<label class="fld" for="gm-key"><span>Garmin personal API key</span><input class="txt" type="password" id="gm-key" autocomplete="off" spellcheck="false"></label>'+
-      '<label class="fld" for="gm-valid"><span>Valid for</span><select class="txt" id="gm-valid" data-k="gmvalid">'+[['30','30 days'],['90','90 days'],['180','180 days'],['365','1 year']].map(function(x){return '<option value="'+x[0]+'"'+(UI.gmValid===x[0]?' selected':'')+'>'+x[1]+'</option>';}).join('')+'</select></label>'+
+    h+='<p class="hint">The Garmin tab reads your watch\'s data through intervals.icu, a free training site linked to Garmin Connect: runs, strength sessions with their effort rating, sleep, HRV and resting heart rate. In intervals.icu, Settings, Developer Settings, generate an API key and paste it here. The key stays on this phone; it is not in the backup file.</p>'+
+      '<div class="row"><a class="btn small" href="https://intervals.icu/settings" target="_blank" rel="noopener">Open intervals.icu settings</a></div>'+
+      '<label class="fld" for="gm-key"><span>intervals.icu API key</span><input class="txt" type="password" id="gm-key" autocomplete="off" spellcheck="false"></label>'+
       '<div class="row"><button class="btn primary" data-act="gm-key-save">Save key</button></div>';
     return h+'</section>';
   }
-  var left=until?Math.round((parseYmd(until)-parseYmd(todayY()))/86400000):null;
-  h+='<div class="kv"><span>Key</span><b>'+(until?(left<0?'Expired '+esc(fmtDate(parseYmd(until))):'Valid until '+esc(fmtDate(parseYmd(until)))+' ('+left+(left===1?' day':' days')+')'):'Saved')+'</b></div>';
-  if(left!=null&&left<=14)h+='<p class="err">'+(left<0?'The key has expired':'The key runs out soon')+': make a new one in Garmin Connect and paste it here.</p>';
+  h+='<div class="kv"><span>Key</span><b>intervals.icu, saved on this phone</b></div>';
   h+='<div class="kv"><span>Connection</span><b>'+(w===true?'Wi-Fi':w===false?'Not Wi-Fi: syncing waits':'Unknown here: only Sync now')+'</b></div>';
   if(GM.data&&GM.data.synced)h+='<div class="kv"><span>Last sync</span><b>'+esc(fmtDate(new Date(GM.data.synced))+', '+gmAgo(GM.data.synced))+'</b></div>';
-  if(GM.report&&GM.report.counts){var c=GM.report.counts;h+='<div class="kv"><span>From Garmin</span><b>'+c.activities+' activities ('+c.rated+' rated), '+c.sleep+' nights, '+c.hrv+' HRV, '+c.rhr+' resting HR</b></div>';}
+  if(GM.report&&GM.report.counts){var c=GM.report.counts;h+='<div class="kv"><span>From intervals.icu</span><b>'+c.activities+' activities ('+c.rated+' rated), '+c.sleep+' nights, '+c.hrv+' HRV, '+c.rhr+' resting HR</b></div>';}
   if(GM.err)h+='<p class="err">'+esc(GM.err)+'</p>';
   if(GM.test)h+='<p class="hint">'+esc(GM.test)+'</p>';
+  if((GM.data&&GM.data.synced&&!gmWellAny(ymd(addDays(new Date(),-6)),todayY()))||(GM.test&&/sleep on 0 of/.test(GM.test)))
+    h+='<p class="notice">No sleep, HRV or resting heart rate from the last 7 days. In intervals.icu, Settings, Garmin Connect: tick Download wellness data with sleep, HRV and resting HR, then Download old data. In the Garmin Connect app, check under connected apps that intervals.icu may read your health data. Disconnecting Garmin in intervals.icu and connecting it again often fixes it.</p>';
   h+='<label class="fld" for="gm-tread"><span>Treadmill speed</span><select class="txt" id="gm-tread" data-k="gmtread"><option value="garmin"'+(lsGet(GM_LS.tread)!=='figures'?' selected':'')+'>From Garmin\'s distance (Calibrate & Save after each run)</option><option value="figures"'+(lsGet(GM_LS.tread)==='figures'?' selected':'')+'>Corrected with my figures (5:30 at 10 km/h, 5:15 at 11, 5:00 at 12)</option></select></label>';
   h+='<div class="row"><button class="btn" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button><button class="btn" data-act="gm-test"'+(GM.busy||w===false?' disabled':'')+'>Test connection</button></div>'+
-    (UI.gmForget?'<div class="confirm"><span>Remove the Garmin key from this phone? The synced data stays; syncing stops until a key is added again.</span><div class="row"><button class="btn danger" data-act="gm-forget-yes">Remove</button><button class="btn ghost" data-act="gm-forget-no">Cancel</button></div></div>':
-      '<div class="row between"><button class="btn small" data-act="gm-report">Save Garmin report</button><button class="btn small ghost danger" data-act="gm-forget">Remove key</button></div>')+
-    '<p class="hint">The Garmin report holds Garmin\'s answers to the last sync, cut short, without the key: send it to the developer when something in the Garmin tab looks wrong.</p>';
+    (UI.gmForget?'<div class="confirm"><span>Remove the intervals.icu key from this phone? The synced data stays; syncing stops until a key is added again.</span><div class="row"><button class="btn danger" data-act="gm-forget-yes">Remove</button><button class="btn ghost" data-act="gm-forget-no">Cancel</button></div></div>':
+      '<div class="row between"><button class="btn small" data-act="gm-report">Save sync report</button><button class="btn small ghost danger" data-act="gm-forget">Remove key</button></div>')+
+    '<p class="hint">The sync report holds intervals.icu\'s answers to the last sync, cut short, without the key: send it to the developer when something in the Garmin tab looks wrong. If the key was ever seen by someone else, generate a new one in intervals.icu: the old one stops working.</p>';
   return h+'</section>';
 }
 ACT['gm-key-save']=function(){
-  var el=document.getElementById('gm-key'),k=el?el.value.trim():'';
-  if(k.length<10){toast('Paste the key from Garmin Connect',3000);return;}
-  lsSet(GM_LS.key,k);lsSet(GM_LS.tok,null);lsSet(GM_LS.until,ymd(addDays(new Date(),+UI.gmValid||365)));
-  GM.err=null;GM.test=null;toast('Garmin key saved on this phone',2500);render();
+  var el=document.getElementById('gm-key'),k=el?el.value.replace(/\s+/g,''):'';
+  if(k.length<16||/[^\x21-\x7e]/.test(k)){toast('Paste the API key from intervals.icu (Settings, Developer Settings)',3500);return;}
+  lsSet(GM_LS.key,k);GM.err=null;GM.test=null;toast('intervals.icu key saved on this phone',2500);render();
   if(gmWifi()===true)gmSync(false);
 };
 ACT['gm-sync']=function(){gmSync(true);};
 ACT['gm-test']=function(){
-  if(gmWifi()===false){toast('Connect to Wi-Fi first: the app talks to Garmin only on Wi-Fi',3500);return;}
+  if(gmWifi()===false){toast('Connect to Wi-Fi first: the app syncs only on Wi-Fi',3500);return;}
   GM.test='Testing...';render();
-  gmToken(true).then(function(t){return gmGet('/activitylist-service/activities/search/activities',{start:0,limit:1},t);}).then(function(j){
-    var n=(Array.isArray(j)?j:(j&&(j.activityList||j.activities))||[]).length;
-    GM.test='Connected: Garmin answered'+(n?' and sent your latest activity.':'.');GM.err=null;
+  var t=new Date(),q={oldest:ymd(addDays(t,-6)),newest:ymd(t)};
+  gmCall('/api/v1/athlete/0/activities',q).then(function(a){return gmCall('/api/v1/athlete/0/wellness',q).then(function(wl){return [a,wl];});}).then(function(r){
+    var acts=Array.isArray(r[0])?r[0]:[],well=Array.isArray(r[1])?r[1]:[],n=function(keys){return well.filter(function(x){return x&&gmFirst(x,keys)>0;}).length;};
+    GM.test='Connected: intervals.icu answered. Last 7 days: '+acts.length+(acts.length===1?' activity':' activities')+', sleep on '+n(['sleepSecs'])+' of 7 nights, HRV on '+n(['hrv'])+', resting heart rate on '+n(['restingHR'])+'.';
+    GM.err=null;
   },function(e){GM.test=null;GM.err=gmErrText(e);}).then(function(){render();});
 };
 ACT['gm-report']=function(){
   var r=GM.report;if(!r){toast('No sync yet to report on',3000);return;}
-  downloadBlob(new Blob([JSON.stringify(r,null,1)],{type:'application/json'}),'garmin-report-'+todayY()+'.json');
+  downloadBlob(new Blob([JSON.stringify(r,null,1)],{type:'application/json'}),'sync-report-'+todayY()+'.json');
 };
 ACT['gm-forget']=function(){UI.gmForget=true;render();};
 ACT['gm-forget-no']=function(){UI.gmForget=false;render();};
 ACT['gm-forget-yes']=function(){
-  UI.gmForget=false;lsSet(GM_LS.key,null);lsSet(GM_LS.tok,null);lsSet(GM_LS.until,null);GM.test=null;GM.err=null;toast('Garmin key removed from this phone');render();
+  UI.gmForget=false;lsSet(GM_LS.key,null);GM.test=null;GM.err=null;toast('intervals.icu key removed from this phone');render();
 };
-INPUT.gmvalid=function(t){UI.gmValid=t.value;};
 INPUT.gmtread=function(t){lsSet(GM_LS.tread,t.value==='figures'?'figures':null);render();};
 
 /* ---------- start ---------- */
