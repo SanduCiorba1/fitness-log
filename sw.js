@@ -1,6 +1,6 @@
 /* Casian Fitness Log service worker: keeps the app working offline.
    Bump CACHE when releasing a new version so phones pick it up. */
-var CACHE = 'cfl-app-v1.3.2';
+var CACHE = 'cfl-app-v1.3.3';
 var FONT_CACHE = 'cfl-fonts';
 var OCR_CACHE = 'cfl-ocr';
 var MODEL_CACHE = 'cfl-models';

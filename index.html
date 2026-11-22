@@ -415,7 +415,7 @@ a.btn{text-decoration:none}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.3.2';
+var APP_VERSION='1.3.3';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -5788,7 +5788,7 @@ INPUT.rc=function(t){var f=UI.rcForm;if(!f)return;f[t.getAttribute('data-f')]=t.
 INPUT.rcg=function(t){var f=UI.rcForm;if(!f)return;var it=f.items[+t.getAttribute('data-i')];if(it)it.g=t.value;var el=document.getElementById('rc-sum');if(el)el.innerHTML=rcSumHtml(f);};
 INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.getElementById('rc-res');if(el)el.innerHTML=rcResHtml(f);};
 
-/* ---------- Garmin tab (1.3.2): the watch's data through intervals.icu, synced only on Wi-Fi ----------
+/* ---------- Garmin tab (1.3.2, 1.3.3): the watch's data through intervals.icu, synced only on Wi-Fi ----------
    Garmin's own personal API refuses calls from web apps (1.3.1: the browser blocked the first request, 22-Nov-26), so the
    data comes from intervals.icu, a free training site linked to Garmin Connect, whose /api/v1/ endpoints answer web apps.
    Its personal API key (intervals.icu, Settings, Developer Settings) goes as basic auth with the user name API_KEY, and
@@ -5796,8 +5796,9 @@ INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.g
    newest. The key stays in this phone's localStorage, never in the backup file. The data (activities, sleep, HRV, resting
    heart rate) lives in a database of its own (casian-fitness-log-garmin) and is read without a connection; a sync runs only
    while Chrome reports Wi-Fi (navigator.connection.type), when the app opens or comes back, when the phone joins Wi-Fi (30
-   minutes at least between automatic syncs) and with Sync now. The replies of the last sync, cut short and without the key,
-   make the sync report. */
+   minutes at least between automatic syncs) and with Sync now. Every sync reads the last 8 weeks again (1.3.3), so whatever
+   reaches intervals.icu late (Garmin's backfill of older days, a late watch sync, a rating changed there) shows at the next
+   sync. The replies of the last sync, cut short and without the key, make the sync report. */
 var GM_BASE='https://intervals.icu',GM_DB='casian-fitness-log-garmin';
 var GM_LS={key:'cfl-icu-key',base:'cfl-icu-base',tread:'cfl-garmin-treadmill'};
 /* the Garmin key of 1.3.1 is of no use any more: off the phone */
@@ -5889,10 +5890,11 @@ function gmTakeAct(a){
 }
 /* any sleep, HRV or resting heart rate between two days */
 function gmWellAny(from,to){var d=GM.data,f=function(m){return Object.keys(m).some(function(k){return k>=from&&k<=to;});};return f(d.sleep)||f(d.hrv)||f(d.rhr);}
+var GM_READ=['id','start_date_local','type','trainer','name','elapsed_time','moving_time','distance','average_heartrate','max_heartrate','average_speed','icu_hr_zone_times','icu_training_load','icu_rpe','perceived_exertion','rpe','sleepSecs','sleepScore','hrv','restingHR'];
 function gmSample(j,depth){
   depth=depth||0;
   if(Array.isArray(j))return j.slice(0,2).map(function(x){return gmSample(x,depth+1);}).concat(j.length>2?['('+(j.length-2)+' more)']:[]);
-  if(j&&typeof j==='object'){if(depth>6)return '(deeper)';var o={};Object.keys(j).slice(0,80).forEach(function(k){o[k]=gmSample(j[k],depth+1);});return o;}
+  if(j&&typeof j==='object'){if(depth>6)return '(deeper)';var o={},ks=Object.keys(j),pre=GM_READ.filter(function(k){return k in j;});pre.concat(ks.filter(function(k){return pre.indexOf(k)<0;})).slice(0,80).forEach(function(k){o[k]=gmSample(j[k],depth+1);});return o;}
   if(typeof j==='string'&&j.length>120)return j.slice(0,120)+'...';
   return j;
 }
@@ -5906,19 +5908,21 @@ function gmSync(manual){
   if(w===false||(w===null&&!manual)){if(manual)toast('The Garmin tab syncs only on Wi-Fi',3000);return Promise.resolve();}
   if(!GM.data){gmLoad();return Promise.resolve();}
   GM.busy=true;GM.err=null;if(UI.tab==='garmin'||UI.tab==='settings')requestRender();
-  var today=ymd(new Date()),start=GM.data.lastDay?ymd(addDays(parseYmd(GM.data.lastDay),-3)):ymd(addDays(new Date(),-55));
+  var today=ymd(new Date()),start=ymd(addDays(new Date(),-55));
   var rep={app:APP_ID,kind:'sync-report',source:'intervals.icu',version:APP_VERSION,at:new Date().toISOString(),base:gmBase(),wifi:w,calls:[]};
   function call(path,params){
     var label=path+(params?' '+JSON.stringify(params):'');
     return gmCall(path,params).then(function(j){rep.calls.push({path:label,ok:true,n:Array.isArray(j)?j.length:null,sample:gmSample(j)});return j;},function(e){rep.calls.push({path:label,ok:false,error:e.gm+(e.detail?' '+e.detail:'')});throw e;});
   }
   function soft(p){return p.catch(function(e){if(e.gm==='key'||e.gm==='net'||e.gm==='nokey')throw e;return null;});}
-  var acts=[],well=[],chunks=gmChunks(start,today,28);
+  var acts=[],well=[],wellAll=true,chunks=gmChunks(start,today,28);
   return gmSeq(chunks,function(c){return call('/api/v1/athlete/0/activities',{oldest:c[0],newest:c[1]}).then(function(j){if(Array.isArray(j))acts=acts.concat(j);});})
-    .then(function(){return gmSeq(chunks,function(c){return soft(call('/api/v1/athlete/0/wellness',{oldest:c[0],newest:c[1]})).then(function(j){if(Array.isArray(j))well=well.concat(j);});});})
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/api/v1/athlete/0/wellness',{oldest:c[0],newest:c[1]})).then(function(j){if(Array.isArray(j))well=well.concat(j);else wellAll=false;});});})
     .then(function(){
-      /* the days read again replace what was there, so an activity deleted in intervals.icu goes here too */
+      /* the 8 weeks read again replace what was there, so an activity deleted in intervals.icu goes here too; the
+         sleep, HRV and resting heart rate of those days only when every wellness call answered */
       Object.keys(GM.data.acts).forEach(function(k){if(GM.data.acts[k].date>=start)delete GM.data.acts[k];});
+      if(wellAll)['sleep','hrv','rhr'].forEach(function(k){Object.keys(GM.data[k]).forEach(function(d){if(d>=start)delete GM.data[k][d];});});
       acts.forEach(gmTakeAct);gmTakeWell(well);
       var cut=ymd(addDays(new Date(),-120));
       ['acts','sleep','hrv','rhr'].forEach(function(k){var o=GM.data[k];Object.keys(o).forEach(function(x){var d=k==='acts'?o[x].date:x;if(d<cut)delete o[x];});});
@@ -6000,7 +6004,7 @@ function renderGarmin(){
     h+='<div class="kv"><span>Sleep'+(slT?'':', night to '+esc(fmtDM(addDays(t,-1))))+'</span><b>'+hmText(sl.secs)+(sl.score!=null?', score '+fmtInt(sl.score):'')+'</b></div>'+barHtml(sl.secs/3600,8,short?'--danger':'--c-p');
     if(short&&slT)h+='<p class="hint">Under the 8-hour target'+(planToday.indexOf('run')>-1?': make this morning\'s run shorter, or skip it (your plan).':'.')+'</p>';
   }
-  if(!slT)h+='<p class="hint">'+(gmWellAny(ymd(addDays(t,-6)),today)?'Last night is not in intervals.icu yet: sync the watch with the Garmin Connect app (intervals.icu takes it from there within minutes), then Sync now.':
+  if(!slT)h+='<p class="hint">'+(gmWellAny(ymd(addDays(t,-6)),today)?'Last night is not in intervals.icu yet: Garmin sometimes sends the sleep hours after the watch syncs, and the app picks it up at a later sync.':
     'No sleep, HRV or resting heart rate has come from intervals.icu in the last 7 days: its Garmin link is not passing them on (see Settings, Garmin).')+'</p>';
   if(sl&&!slT)sl=null;
   var rhrT=d.rhr[today],rhrA=gmAvg(d.rhr,ymd(addDays(t,-7)),ymd(addDays(t,-1))),hv=d.hrv[today],hvA=gmAvg(Object.keys(d.hrv).reduce(function(o,k){o[k]=d.hrv[k].night;return o;},{}),ymd(addDays(t,-7)),ymd(addDays(t,-1))),flags=[];
