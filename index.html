@@ -94,7 +94,7 @@ button{cursor:pointer;touch-action:manipulation}
 /* Main + tab bar */
 main{padding-block:16px calc(92px + env(safe-area-inset-bottom,0px))}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabbar .wrap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.tabbar .wrap{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .tab{appearance:none;border:0;background:transparent;color:var(--muted);padding:9px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font:600 12px var(--font-body);letter-spacing:.07em;text-transform:uppercase}
 .tab[aria-current="page"]{color:var(--accent)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font:600 14px var(--font-body);max-width:calc(100% - 32px);width:max-content;text-align:center;box-shadow:0 6px 20px var(--shadow)}
@@ -296,6 +296,51 @@ html.cam-on,html.cam-on body{overflow:hidden}
 .seg.three button{padding-inline:4px}
 .cook-typ{display:flex;flex-direction:column;gap:8px}
 .mk-head{margin-top:6px}
+.seg.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.seg.four button{padding-inline:2px;font-size:13px}
+.wt-chart{width:100%;height:auto;display:block}
+.wt-chart .grid{stroke:var(--line);stroke-width:1}
+.wt-chart text{font:500 10px var(--font-body);fill:var(--muted)}
+.wt-chart circle{fill:var(--accent)}
+.wt-chart .avg{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;opacity:.75}
+.wt-legend{display:flex;gap:16px;font-size:13px;color:var(--muted)}
+.wt-legend i{display:inline-block;vertical-align:middle;margin-right:6px}
+.wt-legend .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.wt-legend .ln{width:16px;height:2px;background:var(--ink);opacity:.75}
+.cmp-side{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cmp-side figure{margin:0;display:flex;flex-direction:column;gap:4px}
+.cmp-side img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;background:var(--sunk)}
+.cmp-side figcaption{font:600 13px var(--font-body);color:var(--muted);text-align:center}
+.cmp-slide{position:relative;width:100%;border-radius:12px;overflow:hidden;background:var(--sunk)}
+.cmp-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cmp-top{position:absolute;inset:0}
+.cmp-line{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.5)}
+.cmp-tag{position:absolute;bottom:8px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font:600 12px var(--font-body)}
+.cmp-tag.l{left:8px}
+.cmp-tag.r{right:8px}
+.cmp-range{width:100%;accent-color:var(--accent)}
+.rc-items{display:flex;flex-direction:column;gap:8px}
+.rc-item{display:grid;grid-template-columns:minmax(0,1fr) 84px 36px;gap:8px;align-items:center;font-size:15px}
+.rc-item .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.gm-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.gm-status p{margin:0;font-size:14px}
+.gm-status .btn{flex:none}
+.rc-item .txt{padding:8px 10px;text-align:right}
+.rc-res:empty{display:none}
+a.btn{text-decoration:none}
+.ing-row.wt-row{flex-direction:row;justify-content:space-between;align-items:baseline}
+.gm-bars{width:100%;height:auto;display:block}
+.gm-bars rect{fill:var(--accent);opacity:.45}
+.gm-bars rect.hl{opacity:1}
+.gm-bars text{font:600 10px var(--font-body);fill:var(--ink)}
+.gm-bars text.lab{font-weight:500;fill:var(--muted)}
+.gm-zones{display:flex;height:22px;border-radius:6px;overflow:hidden;font:700 11px/22px var(--font-body);color:#fff;text-align:center}
+.gm-zones .z1{background:#8FA3AD}.gm-zones .z2{background:#3E8EDE}.gm-zones .z3{background:#2FA36B}.gm-zones .z4{background:#E39A2E}.gm-zones .z5{background:#D9534F}
+.gm-zlab{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.gm-verdict{margin:0;font-size:15px;padding:10px 12px;border-radius:10px;background:var(--sunk)}
+.gm-verdict.warn{background:var(--gold-soft)}
+.kv b.ok{color:var(--accent)}
+.kv b.bad{color:var(--danger)}
 .ph-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .ph-grid.four{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .ph-tile{appearance:none;border:0;background:none;padding:0;display:flex;flex-direction:column;gap:5px;text-align:left;color:var(--ink);font:600 13px/1.2 var(--font-body);min-width:0}
@@ -363,13 +408,14 @@ html.cam-on,html.cam-on body{overflow:hidden}
     <button class="tab" data-act="tab" data-tab="prs"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="15" r="5"/><path d="M8.5 3.5L12 10l3.5-6.5"/><path d="M12 13v4"/></svg>Records</button>
     <button class="tab" data-act="tab" data-tab="food"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M9 7.5c0-1.6 1.2-2 1.2-3.5M14 7.5c0-1.6 1.2-2 1.2-3.5"/></svg>Food</button>
     <button class="tab" data-act="tab" data-tab="body"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2.5"/><path d="M6 9.5l6 1.5 6-1.5"/><path d="M12 11v4.5"/><path d="M8.5 21l3.5-5.5 3.5 5.5"/></svg>Body</button>
+    <button class="tab" data-act="tab" data-tab="garmin"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="3.5"/><path d="M9 6V3h6v3M9 18v3h6v-3"/><path d="M12 9.5V12l1.8 1.2"/></svg>Garmin</button>
   </div>
 </nav>
 
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.3.0';
+var APP_VERSION='1.3.1';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
 
@@ -636,7 +682,7 @@ var UI={tab:'train',prevTab:'train',weekOffset:0,selDay:dayKeyOf(new Date()),edi
   prForm:null,prDel:null,newPr:null,prAll:{},
   foodView:'log',foodDate:todayY(),foodDetails:false,targetsForm:null,newMeal:false,mealName:'',addTo:null,pick:null,grams:'',ingSearch:'',delMeal:null,ingForm:null,ingFilter:'',
   importPending:null,updateReady:false,installDismissed:false};
-try{var savedTab=localStorage.getItem('cfl-tab');if(savedTab&&['train','prs','food','body'].indexOf(savedTab)>-1)UI.tab=UI.prevTab=savedTab;}catch(e){}
+try{var savedTab=localStorage.getItem('cfl-tab');if(savedTab&&['train','prs','food','body','garmin'].indexOf(savedTab)>-1)UI.tab=UI.prevTab=savedTab;}catch(e){}
 try{UI.installDismissed=localStorage.getItem('cfl-install-dismissed')==='1';}catch(e){}
 
 var $top=document.getElementById('top'),$app=document.getElementById('app'),$tabbar=document.getElementById('tabbar'),$toast=document.getElementById('toast'),$file=document.getElementById('import-file'),$scan=document.getElementById('scan-file');
@@ -707,10 +753,11 @@ window.addEventListener('pagehide',flushAll);
 
 function loadDocs(all){
   S.settings=all['app/settings']||null;S.plan=all['app/plan']||null;S.meta=all['app/meta']||{};
-  S.prs={};S.ingredients={};S.logs={};S.meals={};
+  S.prs={};S.ingredients={};S.logs={};S.meals={};S.recipes={};
+  S.body=all['body/weights']&&Array.isArray(all['body/weights'].weights)?all['body/weights']:{weights:[]};
   Object.keys(all).forEach(function(p){
     var i=p.indexOf('/'),col=p.slice(0,i),id=p.slice(i+1);
-    if(col==='prs'||col==='ingredients'||col==='logs'||col==='meals')S[col][id]=all[p];
+    if(col==='prs'||col==='ingredients'||col==='logs'||col==='meals'||col==='recipes')S[col][id]=all[p];
   });
   Object.keys(S.ready).forEach(function(k){S.ready[k]=true;});
 }
@@ -760,10 +807,11 @@ function allDocs(){
   var d={};
   if(S.settings)d['app/settings']=S.settings;
   if(S.plan)d['app/plan']=S.plan;
-  ['prs','ingredients','logs','meals'].forEach(function(col){Object.keys(S[col]).forEach(function(id){d[col+'/'+id]=S[col][id];});});
+  ['prs','ingredients','logs','meals','recipes'].forEach(function(col){Object.keys(S[col]||{}).forEach(function(id){d[col+'/'+id]=S[col][id];});});
+  if(S.body&&(S.body.weights||[]).length)d['body/weights']=S.body;
   return d;
 }
-function isEmpty(){return !S.settings&&!S.plan&&!Object.keys(S.prs).length&&!Object.keys(S.ingredients).length&&!Object.keys(S.logs).length&&!Object.keys(S.meals).length;}
+function isEmpty(){return !S.settings&&!S.plan&&!Object.keys(S.prs).length&&!Object.keys(S.ingredients).length&&!Object.keys(S.logs).length&&!Object.keys(S.meals).length&&!Object.keys(S.recipes||{}).length&&!((S.body&&S.body.weights)||[]).length;}
 function hasUserData(){
   if(Object.keys(S.meals).some(function(y){return (S.meals[y].meals||[]).some(function(m){return (m.items||[]).length;});}))return true;
   if(Object.keys(S.ingredients).some(function(id){return !S.ingredients[id].example;}))return true;
@@ -777,16 +825,18 @@ function requestPersist(){
     if(!p&&!isEmpty()&&navigator.storage.persist)return navigator.storage.persist().then(function(r){S.persisted=r;});
   }).catch(function(){}).then(function(){if(UI.tab==='settings')requestRender();});
 }
-function validPath(p){return /^(app\/(settings|plan)|(prs|ingredients|logs|meals)\/[A-Za-z0-9_\-.~:@+]{1,200})$/.test(p);}
+function validPath(p){return /^(app\/(settings|plan)|body\/weights|(prs|ingredients|logs|meals|recipes)\/[A-Za-z0-9_\-.~:@+]{1,200})$/.test(p);}
 function countsText(docs){
-  var c={plan:0,prs:0,ing:0,meals:0};
+  var c={plan:0,prs:0,ing:0,meals:0,rc:0,wt:0};
   Object.keys(docs).forEach(function(p){
     if(p==='app/plan')c.plan=1;
     else if(p.indexOf('prs/')===0)c.prs++;
     else if(p.indexOf('ingredients/')===0)c.ing++;
     else if(p.indexOf('meals/')===0)c.meals++;
+    else if(p.indexOf('recipes/')===0)c.rc++;
+    else if(p==='body/weights')c.wt=((docs[p]&&docs[p].weights)||[]).length;
   });
-  return [c.plan?'your weekly plan':'',c.prs?c.prs+(c.prs===1?' record':' records'):'',c.ing?c.ing+(c.ing===1?' ingredient':' ingredients'):'',c.meals?c.meals+(c.meals===1?' food day':' food days'):''].filter(Boolean).join(', ');
+  return [c.plan?'your weekly plan':'',c.prs?c.prs+(c.prs===1?' record':' records'):'',c.ing?c.ing+(c.ing===1?' ingredient':' ingredients'):'',c.meals?c.meals+(c.meals===1?' food day':' food days'):'',c.rc?c.rc+(c.rc===1?' recipe':' recipes'):'',c.wt?c.wt+(c.wt===1?' weigh-in':' weigh-ins'):''].filter(Boolean).join(', ');
 }
 
 /* ---------- backup ---------- */
@@ -4077,20 +4127,26 @@ function renderTop(){
   }else if(UI.tab==='prs'){
     eyebrow='Personal records';title='Records';
     var n=Object.keys(S.prs).length;sub=S.ready.prs?(n+(n===1?' record':' records')+' tracked'):'';
+  }else if(UI.tab==='garmin'){
+    eyebrow='From the watch';title='Garmin';sub=GM.data&&GM.data.synced?'Synced '+gmAgo(GM.data.synced):'Synced only on Wi-Fi';
   }else if(UI.tab==='body'){
-    eyebrow='Progress photos, beta';
-    if(UI.phMode==='pose'){title='By pose';sub=PH.list?PH.list.length+(PH.list.length===1?' photo':' photos'):'';}
+    eyebrow='Body';
+    if(UI.bodyView==='weight'){var ws=wtStats();title='Weight';sub=ws?fmtV(ws.last.kg)+' kg on '+fmtDate(parseYmd(ws.last.d)):'No weigh-ins yet';}
+    else if(UI.bodyView==='info'){title='Info';sub='Taking the photos, keeping a copy';}
+    else if(UI.phMode==='pose'){title='By pose';sub=PH.list?PH.list.length+(PH.list.length===1?' photo':' photos'):'';}
+    else if(UI.phMode==='cmp'){title='Compare';sub='One pose in two weeks';}
     else{
       var pm=phViewMon();title=PH.list?phWeekName(ymd(pm)):'Photos';sub=fmtDM(pm)+' to '+fmtDM(addDays(pm,6));
       nav=['ph-prev','Previous week','ph-next','Next week',UI.phWeek>=0];
       if(UI.phWeek!==0)back=['ph-today','This week'];
     }
   }else if(UI.tab==='settings'){
-    eyebrow='App';title='Settings';sub='Backup and install';
+    eyebrow='App';title='Settings';sub='Backup, Garmin and install';
   }else{
     eyebrow='Nutrition';
-    if(UI.foodView==='ingredients'){title='Ingredients';sub='Values per 100 g or 100 ml';}
+    if(UI.foodView==='ingredients'){title='Ingredients';var ni=Object.keys(S.ingredients).length;sub=S.ready.ingredients?ni+(ni===1?' ingredient':' ingredients')+', values per 100 g or 100 ml':'Values per 100 g or 100 ml';}
     else if(UI.foodView==='market'){title='Market';sub='Foods without a label, per 100 g';}
+    else if(UI.foodView==='recipes'){title='Recipes';sub='Your own dishes, per 100 g';}
     else{
       var d=parseYmd(UI.foodDate),isT=UI.foodDate===todayY(),w=weekNum(d);
       title=isT?'Today':DAY_SHORT[dayKeyOf(d)]+' '+fmtDM(d);
@@ -4145,7 +4201,7 @@ function render(){
   else if(isEmpty()&&UI.tab!=='settings')h=noticesHtml(true)+welcomeHtml();
   else{
     h=noticesHtml();
-    if(UI.tab==='train')h+=renderTrain();else if(UI.tab==='prs')h+=renderPRs();else if(UI.tab==='settings')h+=renderSettings();else if(UI.tab==='body')h+=renderBody();else h+=renderFood();
+    if(UI.tab==='train')h+=renderTrain();else if(UI.tab==='prs')h+=renderPRs();else if(UI.tab==='settings')h+=renderSettings();else if(UI.tab==='body')h+=renderBody();else if(UI.tab==='garmin')h+=renderGarmin();else h+=renderFood();
   }
   $app.innerHTML='<div class="wrap stack">'+h+'</div>';
 }
@@ -4153,10 +4209,11 @@ function render(){
 /* ---------- Settings view ---------- */
 function renderSettings(){
   var lb=S.meta&&S.meta.lastBackup,c=countsText(allDocs())||'Nothing saved yet';
-  var h='<section class="card"><h3>Backup</h3><p class="hint">Your log is stored only on this phone. Save a backup every week or two and keep it somewhere safe, such as Files, iCloud Drive or Google Drive. A backup also moves your log to a new phone. Progress photos are not in it: save them from the Body tab (Save all photos).</p>';
+  var h='<section class="card"><h3>Backup</h3><p class="hint">Your log is stored only on this phone. Save a backup every week or two and keep it somewhere safe, such as Files, iCloud Drive or Google Drive. A backup also moves your log to a new phone. Progress photos are not in it: save them from the Body tab, under Info (Save all photos).</p>';
   h+='<div class="kv"><span>Last backup</span><b>'+(lb?esc(fmtDate(new Date(lb))+', '+agoText(lb)):'Never')+'</b></div>';
   h+='<div class="kv"><span>On this phone</span><b>'+esc(c)+'</b></div>';
   h+='<div class="row"><button class="btn primary" data-act="export">Save backup</button><button class="btn" data-act="import">Load backup</button></div><p class="hint">Loading a backup replaces what is on this phone.</p></section>';
+  h+=gmSettingsHtml();
   h+='<section class="card"><h3>Install</h3>'+installHtml()+'</section>';
   var rk=readerKind();
   if(SCANLOG.count==null&&!SCANLOG.counting){SCANLOG.counting=true;scanCount();}
@@ -4353,11 +4410,10 @@ function newPrForm(){
 
 /* ---------- Food view ---------- */
 function renderFood(){
-  var count=S.ready.ingredients?' ('+Object.keys(S.ingredients).length+')':'';
-  var seg='<div class="seg three" role="group" aria-label="Food view"><button data-act="food-view" data-v="log" aria-pressed="'+(UI.foodView==='log')+'">Daily log</button><button data-act="food-view" data-v="ingredients" aria-pressed="'+(UI.foodView==='ingredients')+'">Ingredients'+count+'</button><button data-act="food-view" data-v="market" aria-pressed="'+(UI.foodView==='market')+'">Market</button></div>';
+  var seg='<div class="seg four" role="group" aria-label="Food view"><button data-act="food-view" data-v="log" aria-pressed="'+(UI.foodView==='log')+'">Daily log</button><button data-act="food-view" data-v="ingredients" aria-pressed="'+(UI.foodView==='ingredients')+'">Ingredients</button><button data-act="food-view" data-v="market" aria-pressed="'+(UI.foodView==='market')+'">Market</button><button data-act="food-view" data-v="recipes" aria-pressed="'+(UI.foodView==='recipes')+'">Recipes</button></div>';
   if(!ready('meals','ingredients','settings'))return seg+loadingHtml('food log');
   mkLoad();
-  return seg+(UI.foodView==='ingredients'?renderIngredients():UI.foodView==='market'?renderMarket():renderFoodLog());
+  return seg+(UI.foodView==='ingredients'?renderIngredients():UI.foodView==='market'?renderMarket():UI.foodView==='recipes'?renderRecipes():renderFoodLog());
 }
 function macroHtml(name,v,t,color){
   return '<div class="min0"><div class="m-name">'+name+'</div><div class="m-val">'+fmtInt(v)+'<small> '+(t?'/ '+fmtInt(t)+' g':'g')+'</small></div>'+(t?barHtml(v,t,color):'')+'</div>';
@@ -4429,12 +4485,14 @@ function ingOptions(){
   if(!has&&!q)h+='<p class="hint">Your ingredient list is empty. Search the Market foods, add one with the values from its label, or scan the label.</p>';
   else if(has&&!own.length&&q.length<2)h+='<p class="hint">No match. Add it as a new ingredient.</p>';
   h+=own.slice(0,40).map(function(p){return '<button class="ing-opt" data-act="pick-ing" data-id="'+esc(p[0])+'"><span class="n">'+esc(p[1].name)+'</span><span class="m">'+fmtInt(p[1].kcal)+' kcal, P '+fmtG(p[1].p)+'</span></button>';}).join('');
+  var rcs=rcSorted(q).slice(0,q?8:4);
+  if(rcs.length)h+='<div class="eyebrow mk-head">Recipes</div>'+rcs.map(function(p){var v=rcPer100(p[1],p[0]);return '<button class="ing-opt" data-act="pick-rc" data-id="'+esc(p[0])+'"><span class="n">'+esc(p[1].name)+' <span class="chip gold">Recipe</span></span><span class="m">'+(v?fmtInt(v.kcal)+' kcal, P '+fmtG(v.p):'')+'</span></button>';}).join('');
   if(q.length>=2){
     if(!MK.data){mkLoad();h+='<p class="hint">'+(MK.err?'The Market foods could not be loaded.':'Looking in the Market foods.')+'</p>';}
     else{
       var mk=mkSearch(q,null,12);
       if(mk.length)h+='<div class="eyebrow mk-head">Market</div>'+mk.map(function(f){return '<button class="ing-opt" data-act="pick-mk" data-id="'+esc(f.id)+'"><span class="n">'+esc(f.n)+' <span class="chip accent">Market</span></span><span class="m">'+fmtInt(f.v[0])+' kcal, P '+fmtG(f.v[1])+'</span></button>';}).join('');
-      else if(!own.length)h+='<p class="hint">No match here or in the Market foods. Add it as a new ingredient.</p>';
+      else if(!own.length&&!rcs.length)h+='<p class="hint">No match here or in the Market foods. Add it as a new ingredient.</p>';
     }
   }
   return h;
@@ -4442,10 +4500,10 @@ function ingOptions(){
 function pickerHtml(m){
   var ing=pickIng(UI.pick);
   if(ing){
-    var isMk=UI.pick.indexOf('mk:')===0,f=isMk?MK.byId[UI.pick.slice(3)]:null,byW=ing.basis!=='ml';
+    var isMk=UI.pick.indexOf('mk:')===0,isRc=UI.pick.indexOf('rc:')===0,f=isMk?MK.byId[UI.pick.slice(3)]:null,byW=ing.basis!=='ml'&&!isRc;
     if(!UI.cook)UI.cook=cookStart(UI.pick);
     var cooked=byW&&UI.cook.mode==='cooked';
-    var h='<div class="picker"><div class="pick-sel"><div class="min0"><div class="it-name">'+esc(ing.name)+(isMk?' <span class="chip accent">Market</span>':'')+'</div><div class="it-mac">Per 100 '+(ing.basis==='ml'?'ml':'g')+(cooked?' raw':'')+': '+per100(ing)+'</div>'+(f&&f.pc?'<div class="it-mac">'+esc(f.pc)+'</div>':'')+'</div><button class="btn ghost small" data-act="pick-back">Change</button></div>';
+    var h='<div class="picker"><div class="pick-sel"><div class="min0"><div class="it-name">'+esc(ing.name)+(isMk?' <span class="chip accent">Market</span>':'')+(isRc?' <span class="chip gold">Recipe</span>':'')+'</div><div class="it-mac">Per 100 '+(ing.basis==='ml'?'ml':'g')+(cooked?' raw':'')+': '+per100(ing)+'</div>'+(f&&f.pc?'<div class="it-mac">'+esc(f.pc)+'</div>':'')+(isRc&&ing.piece?'<div class="it-mac">1 piece '+fmtG(ing.piece)+' g <button class="link" data-act="pick-piece">Use 1 piece</button></div>':'')+'</div><button class="btn ghost small" data-act="pick-back">Change</button></div>';
     if(byW)h+='<div class="seg" role="group" aria-label="Weighed"><button data-act="cook-mode" data-v="raw" aria-pressed="'+!cooked+'">Raw</button><button data-act="cook-mode" data-v="cooked" aria-pressed="'+cooked+'">Cooked</button></div>';
     if(cooked)h+=cookPanelHtml(ing);
     h+='<div class="grams-row"><label class="fld" for="grams"><span>'+(ing.basis==='ml'?'Amount (ml)':(cooked?'On the plate (g)':'Weight (g)'))+'</span><input class="num" id="grams" type="text" inputmode="decimal" autocomplete="off" data-k="grams" value="'+esc(UI.grams)+'" placeholder=" "></label><div class="preview" id="preview">'+previewHtml(ing)+'</div></div>';
@@ -4634,7 +4692,7 @@ ACT['pick-add']=function(){
   var ing=pickIng(UI.pick),g=num(UI.grams);if(!ing)return;
   if(!(g>0)){toast('Enter the amount in grams');focusLater('grams');return;}
   var md=mealsDoc(UI.foodDate,true),m=md.meals.filter(function(x){return x.id===UI.addTo;})[0];if(!m)return;
-  var ck=UI.cook,cr=null,name=ing.name,base=ing,isMk=UI.pick.indexOf('mk:')===0;
+  var ck=UI.cook,cr=null,name=ing.name,base=ing,isMk=UI.pick.indexOf('mk:')===0,isRc=UI.pick.indexOf('rc:')===0;
   if(ck&&ck.mode==='cooked'&&ing.basis!=='ml'){
     cr=cookRatio(UI.pick);
     if(!cr){toast('Enter the batch weights, raw and cooked',3000);focusLater('cook-raw');return;}
@@ -4644,7 +4702,7 @@ ACT['pick-add']=function(){
   }
   var v=scale(base,g);m.items=m.items||[];
   var it={name:name,g:r1(g)};
-  if(isMk)it.mk=UI.pick.slice(3);else it.ing=UI.pick;
+  if(isMk)it.mk=UI.pick.slice(3);else if(isRc)it.rc=UI.pick.slice(3);else it.ing=UI.pick;
   if(cr)it.cook={r:r3(cr.r),approx:!!cr.approx,raw:r1(g/cr.r)};
   LABEL.forEach(function(l){it[l.k]=v[l.k];});if(Object.keys(v.micros).length)it.micros=v.micros;
   m.items.push(it);
@@ -4914,7 +4972,7 @@ function phPendRestore(){
   var p=null;try{p=JSON.parse(localStorage.getItem(PH_PEND)||'null');}catch(e){}
   phPendClear();
   if(!p||!PH_CAT[p.pose]||!/^\d{4}-\d{2}-\d{2}$/.test(p.week||'')||!(Date.now()-p.at<30*60000))return null;
-  UI.tab=UI.prevTab='body';UI.phMode='week';
+  UI.tab=UI.prevTab='body';UI.bodyView='photos';UI.phMode='week';
   UI.phWeek=Math.min(0,Math.round((parseYmd(p.week)-phThisMon())/(7*86400000)));
   return p;
 }
@@ -5025,14 +5083,6 @@ function phvRender(){
 }
 
 /* the Body tab */
-function renderBody(){
-  var seg='<div class="seg" role="group" aria-label="Photos view"><button data-act="ph-mode" data-v="week" aria-pressed="'+(UI.phMode!=='pose')+'">Weeks</button><button data-act="ph-mode" data-v="pose" aria-pressed="'+(UI.phMode==='pose')+'">Poses</button></div>';
-  if(PH.list===null){phLoad();return seg+loadingHtml('photos');}
-  var h=seg;
-  if(PH.err)h+='<div class="notice"><p class="hint">Photos cannot be kept in this browser ('+esc(PH.err)+'). Open the app from its home-screen icon.</p></div>';
-  h+=UI.phMode==='pose'?phPoseHtml():phWeekHtml();
-  return h+phTipsHtml()+phStoreHtml();
-}
 function phTile(r,label,small){
   return '<button class="ph-tile" data-act="ph-open" data-id="'+esc(r.id)+'"><img src="'+phThumb(r)+'" alt=""><span>'+esc(label)+(small?'<small>'+esc(small)+'</small>':'')+'</span></button>';
 }
@@ -5312,6 +5362,7 @@ function mkIng(f){
 function pickIng(id){
   if(!id)return null;
   if(id.indexOf('mk:')===0){var f=MK.byId[id.slice(3)];return f?mkIng(f):null;}
+  if(id.indexOf('rc:')===0){var r=S.recipes[id.slice(3)];return r?rcPer100(r,id.slice(3)):null;}
   return S.ingredients[id]||null;
 }
 function per100v(v){return fmtInt(v[0])+' kcal, P '+fmtG(v[1])+', C '+fmtG(v[2])+', F '+fmtG(v[3]);}
@@ -5491,15 +5542,647 @@ INPUT.cook=function(t){
 };
 INPUT.ifc=function(t){if(UI.ingForm){UI.ingForm[t.getAttribute('data-f')]=t.value;var el=document.getElementById('cook-form-prev');if(el)el.innerHTML=cookFormPrev(UI.ingForm);}};
 
+/* ---------- Body tab views (1.3.1): Photos (Weeks, Poses, Compare), Weight, Info ----------
+   Weight: entries {d: 'YYYY-MM-DD', kg} in the document body/weights, part of the backup file (unlike the photos).
+   The chart shows every entry of the last 12 weeks with the 7-day average; the changes compare weekly averages.
+   Compare: one pose in two weeks, side by side or one over the other with a slider, from the full photos. */
+S.body=S.body||{weights:[]};
+UI.bodyView='photos';UI.cmpPose='front';UI.cmpA=null;UI.cmpB=null;UI.cmpMode='side';UI.cmpCut=50;UI.wtEdit=null;
+var CMP={urls:{}};
+function wtList(){return ((S.body&&S.body.weights)||[]).slice().sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0;});}
+function wtSave(d,kg){
+  var l=wtList().filter(function(x){return x.d!==d;});l.push({d:d,kg:r1(kg)});
+  l.sort(function(a,b){return a.d<b.d?-1:1;});S.body={weights:l};save('body/weights',S.body,0);
+}
+function wtDelete(d){S.body={weights:wtList().filter(function(x){return x.d!==d;})};save('body/weights',S.body,0);}
+function wtAvg(l,from,to){var s=0,n=0;l.forEach(function(x){if(x.d>=from&&x.d<=to){s+=x.kg;n++;}});return n?s/n:null;}
+function wtStats(){
+  var l=wtList();if(!l.length)return null;
+  var last=l[l.length-1],t=parseYmd(last.d),day=function(n){return ymd(addDays(t,n));};
+  var wk=wtAvg(l,day(-6),last.d),prev=wtAvg(l,day(-13),day(-7)),m4=wtAvg(l,day(-34),day(-28));
+  return {last:last,first:l[0],n:l.length,week:wk,prevWeek:prev,change:wk!=null&&prev!=null?wk-prev:null,
+    perWeek:wk!=null&&m4!=null?(wk-m4)/4:null,total:last.kg-l[0].kg,days:Math.round((t-parseYmd(l[0].d))/86400000)};
+}
+function signed(v,dec){var x=Math.abs(v)<0.05?0:v;return (x>0?'+':'')+x.toFixed(dec==null?1:dec);}
+function wtChartSvg(){
+  var l=wtList();if(l.length<2)return '';
+  var end=parseYmd(l[l.length-1].d),start=addDays(end,-83),pts=l.filter(function(x){return parseYmd(x.d)>=start;});
+  if(pts.length<2)pts=l.slice(-2);
+  var t0=parseYmd(pts[0].d),span=Math.max(1,(end-t0)/86400000),lo=Infinity,hi=-Infinity;
+  pts.forEach(function(x){lo=Math.min(lo,x.kg);hi=Math.max(hi,x.kg);});
+  var pad=Math.max(0.5,(hi-lo)*0.15);lo-=pad;hi+=pad;
+  var W=320,H=150,L=34,R=8,T=10,B=22,X=function(d){return L+(W-L-R)*((parseYmd(d)-t0)/86400000)/span;},Y=function(v){return T+(H-T-B)*(hi-v)/(hi-lo);};
+  var avg=pts.map(function(x){var a=wtAvg(l,ymd(addDays(parseYmd(x.d),-6)),x.d);return [X(x.d),Y(a)];});
+  var h='<svg class="wt-chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Weight over the last weeks">';
+  [lo+pad,(lo+hi)/2,hi-pad].forEach(function(v){h+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v).toFixed(1)+'" y2="'+Y(v).toFixed(1)+'" class="grid"/><text x="'+(L-4)+'" y="'+(Y(v)+3.5).toFixed(1)+'" text-anchor="end">'+v.toFixed(1)+'</text>';});
+  h+='<text x="'+L+'" y="'+(H-6)+'">'+esc(fmtDM(t0))+'</text><text x="'+(W-R)+'" y="'+(H-6)+'" text-anchor="end">'+esc(fmtDM(end))+'</text>';
+  h+='<polyline class="avg" points="'+avg.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'"/>';
+  pts.forEach(function(x){h+='<circle cx="'+X(x.d).toFixed(1)+'" cy="'+Y(x.kg).toFixed(1)+'" r="2.6"/>';});
+  return h+'</svg><div class="wt-legend"><span><i class="dot"></i>Weigh-ins</span><span><i class="ln"></i>7-day average</span></div>';
+}
+function renderWeight(){
+  if(!S.ready.settings)return loadingHtml('weights');
+  var st=wtStats(),e=UI.wtEdit||{d:todayY(),kg:''},h='';
+  h+='<section class="card"><h3>'+(UI.wtEdit&&UI.wtEdit.old?'Change a weigh-in':'Log your weight')+'</h3><div class="grid2"><label class="fld" for="wt-d"><span>Date</span><input class="txt" type="date" id="wt-d" data-k="wt" data-f="d" value="'+esc(e.d)+'" max="'+todayY()+'"></label>'+
+    '<label class="fld" for="wt-kg"><span>Weight (kg)</span><input class="txt" id="wt-kg" inputmode="decimal" autocomplete="off" data-k="wt" data-f="kg" value="'+esc(e.kg)+'" placeholder="72.5"></label></div>'+
+    '<div class="row"><button class="btn primary" data-act="wt-save">Save</button>'+(UI.wtEdit&&UI.wtEdit.old?'<button class="btn" data-act="wt-del">Delete</button><button class="btn ghost" data-act="wt-cancel">Cancel</button>':'')+'</div>'+
+    '<p class="hint">Weigh yourself the same way each time: in the morning, after the toilet, before eating or drinking, on the same scale.</p></section>';
+  if(!st)return h+'<div class="empty">No weigh-ins yet.</div>';
+  h+='<section class="card"><div class="row between"><h3>Trend</h3><span class="dim">'+st.n+(st.n===1?' weigh-in':' weigh-ins')+'</span></div>';
+  h+='<div class="kv"><span>Latest</span><b>'+fmtV(st.last.kg)+' kg, '+esc(fmtDate(parseYmd(st.last.d)))+'</b></div>';
+  if(st.week!=null)h+='<div class="kv"><span>Average of the last 7 days</span><b>'+st.week.toFixed(1)+' kg</b></div>';
+  if(st.change!=null)h+='<div class="kv"><span>Against the week before</span><b>'+signed(st.change)+' kg</b></div>';
+  if(st.perWeek!=null)h+='<div class="kv"><span>Per week, over 4 weeks</span><b>'+signed(st.perWeek,2)+' kg</b></div>';
+  if(st.n>1)h+='<div class="kv"><span>Since '+esc(fmtDate(parseYmd(st.first.d)))+'</span><b>'+signed(st.total)+' kg</b></div>';
+  h+=wtChartSvg()+'</section>';
+  h+='<section class="card"><h3>Weigh-ins</h3><div class="sheet">'+wtList().slice().reverse().slice(0,60).map(function(x){
+    return '<button class="ing-row wt-row" data-act="wt-open" data-d="'+x.d+'"><span class="n">'+esc(fmtDate(parseYmd(x.d)))+'</span><span class="m">'+fmtV(x.kg)+' kg</span></button>';
+  }).join('')+'</div></section>';
+  return h;
+}
+
+/* Compare: a pose in two weeks */
+function cmpWeeks(pose){
+  var by={};(PH.list||[]).forEach(function(r){if(r.pose===pose&&!by[r.week])by[r.week]=r;});
+  return Object.keys(by).sort().map(function(w){return by[w];});
+}
+function phCmpHtml(){
+  var pose=PH_CAT[UI.cmpPose]&&UI.cmpPose!=='unorg'?UI.cmpPose:'front',l=cmpWeeks(pose);
+  var h='<div class="ph-chips" role="group" aria-label="Pose">'+PH_POSES.map(function(x){return '<button class="ph-chip" data-act="cmp-pose" data-pose="'+x.id+'" aria-pressed="'+(x.id===pose)+'">'+esc(x.name)+'</button>';}).join('')+'</div>';
+  if(l.length<2)return h+'<div class="empty">'+(l.length?'Only one week has a '+esc(PH_CAT[pose].name.toLowerCase())+' photo so far.':'No '+esc(PH_CAT[pose].name.toLowerCase())+' photos yet.')+' Compare needs the pose in two different weeks.</div>';
+  var ids=l.map(function(r){return r.id;});
+  if(ids.indexOf(UI.cmpA)<0)UI.cmpA=ids[0];
+  if(ids.indexOf(UI.cmpB)<0||UI.cmpB===UI.cmpA)UI.cmpB=ids[ids.length-1]===UI.cmpA?ids[0]:ids[ids.length-1];
+  var a=phGet(UI.cmpA),b=phGet(UI.cmpB),opt=function(sel){return l.map(function(r){return '<option value="'+r.id+'"'+(r.id===sel?' selected':'')+'>'+esc(phWeekName(r.week))+'</option>';}).join('');};
+  h+='<section class="card"><div class="grid2"><label class="fld" for="cmp-a"><span>Before</span><select class="txt" id="cmp-a" data-k="cmp" data-f="a">'+opt(UI.cmpA)+'</select></label><label class="fld" for="cmp-b"><span>After</span><select class="txt" id="cmp-b" data-k="cmp" data-f="b">'+opt(UI.cmpB)+'</select></label></div>';
+  h+='<div class="seg" role="group" aria-label="How"><button data-act="cmp-mode" data-v="side" aria-pressed="'+(UI.cmpMode!=='slide')+'">Side by side</button><button data-act="cmp-mode" data-v="slide" aria-pressed="'+(UI.cmpMode==='slide')+'">Slider</button></div>';
+  if(UI.cmpMode==='slide'){
+    h+='<div class="cmp-slide" style="aspect-ratio:'+(b.w||3)+'/'+(b.h||4)+'"><img data-full="'+esc(b.id)+'" alt="'+esc(phWeekName(b.week))+'"><div class="cmp-top" style="clip-path:inset(0 '+(100-UI.cmpCut)+'% 0 0)"><img data-full="'+esc(a.id)+'" alt="'+esc(phWeekName(a.week))+'"></div><div class="cmp-line" style="left:'+UI.cmpCut+'%"></div>'+
+      '<span class="cmp-tag l">'+esc(phWeekName(a.week))+'</span><span class="cmp-tag r">'+esc(phWeekName(b.week))+'</span></div>'+
+      '<input type="range" class="cmp-range" id="cmp-cut" min="0" max="100" value="'+UI.cmpCut+'" data-k="cmpcut" aria-label="Slide between the two weeks">';
+  }else{
+    h+='<div class="cmp-side"><figure><img data-full="'+esc(a.id)+'" alt=""><figcaption>'+esc(phWeekName(a.week)+', '+fmtDM(parseYmd(a.week)))+'</figcaption></figure><figure><img data-full="'+esc(b.id)+'" alt=""><figcaption>'+esc(phWeekName(b.week)+', '+fmtDM(parseYmd(b.week)))+'</figcaption></figure></div>';
+  }
+  h+='<div class="row"><button class="btn small" data-act="cmp-full">Full screen</button></div></section>';
+  setTimeout(cmpLoad,0);
+  return h;
+}
+function cmpLoad(){
+  Array.prototype.forEach.call(document.querySelectorAll('img[data-full]'),function(el){
+    var id=el.getAttribute('data-full');
+    if(CMP.urls[id]){el.src=CMP.urls[id];return;}
+    el.src=(phGet(id)&&phThumb(phGet(id)))||'';
+    phFile(id).then(function(bl){if(!bl)return;if(!CMP.urls[id])CMP.urls[id]=URL.createObjectURL(bl);Array.prototype.forEach.call(document.querySelectorAll('img[data-full="'+id+'"]'),function(x){x.src=CMP.urls[id];});}).catch(function(){});
+  });
+}
+function cmpFree(){Object.keys(CMP.urls).forEach(function(k){try{URL.revokeObjectURL(CMP.urls[k]);}catch(e){}});CMP.urls={};}
+
+function renderBody(){
+  var top='<div class="seg three" role="group" aria-label="Body view"><button data-act="body-view" data-v="photos" aria-pressed="'+(UI.bodyView==='photos')+'">Photos</button><button data-act="body-view" data-v="weight" aria-pressed="'+(UI.bodyView==='weight')+'">Weight</button><button data-act="body-view" data-v="info" aria-pressed="'+(UI.bodyView==='info')+'">Info</button></div>';
+  if(UI.bodyView!=='photos'||UI.phMode!=='cmp')cmpFree();
+  if(UI.bodyView==='weight')return top+renderWeight();
+  if(PH.list===null){phLoad();return top+loadingHtml('photos');}
+  if(UI.bodyView==='info')return top+phTipsHtml()+phStoreHtml();
+  var h=top+'<div class="ph-chips" role="group" aria-label="Photos view">'+[['week','Weeks'],['pose','Poses'],['cmp','Compare']].map(function(x){return '<button class="ph-chip" data-act="ph-mode" data-v="'+x[0]+'" aria-pressed="'+(UI.phMode===x[0])+'">'+x[1]+'</button>';}).join('')+'</div>';
+  if(PH.err)h+='<div class="notice"><p class="hint">Photos cannot be kept in this browser ('+esc(PH.err)+'). Open the app from its home-screen icon.</p></div>';
+  return h+(UI.phMode==='pose'?phPoseHtml():UI.phMode==='cmp'?phCmpHtml():phWeekHtml());
+}
+
+ACT['body-view']=function(b){var v=b.getAttribute('data-v');UI.bodyView=v==='weight'||v==='info'?v:'photos';render();window.scrollTo(0,0);};
+ACT['ph-mode']=function(b){var v=b.getAttribute('data-v');UI.phMode=v==='pose'||v==='cmp'?v:'week';render();window.scrollTo(0,0);};
+ACT['cmp-pose']=function(b){UI.cmpPose=b.getAttribute('data-pose');UI.cmpA=UI.cmpB=null;render();};
+ACT['cmp-mode']=function(b){UI.cmpMode=b.getAttribute('data-v')==='slide'?'slide':'side';render();};
+ACT['cmp-full']=function(){if(UI.cmpA&&UI.cmpB)phOpen(UI.cmpB,UI.cmpA);};
+INPUT.cmp=function(t){if(t.getAttribute('data-f')==='a')UI.cmpA=t.value;else UI.cmpB=t.value;render();};
+INPUT.cmpcut=function(t){
+  UI.cmpCut=+t.value;var top=document.querySelector('.cmp-top'),ln=document.querySelector('.cmp-line');
+  if(top)top.style.clipPath='inset(0 '+(100-UI.cmpCut)+'% 0 0)';if(ln)ln.style.left=UI.cmpCut+'%';
+};
+INPUT.wt=function(t){UI.wtEdit=UI.wtEdit||{d:todayY(),kg:''};UI.wtEdit[t.getAttribute('data-f')]=t.value;};
+ACT['wt-save']=function(){
+  var e=UI.wtEdit||{d:todayY(),kg:''},kg=num(e.kg),d=e.d||todayY();
+  if(!(kg>=20&&kg<=300)){toast('Enter your weight in kg, between 20 and 300');focusLater('wt-kg');return;}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||d>todayY()){toast('Pick a date up to today');return;}
+  if(e.old&&e.old!==d)wtDelete(e.old);
+  wtSave(d,kg);UI.wtEdit=null;toast('Saved '+fmtV(r1(kg))+' kg');render();
+};
+ACT['wt-open']=function(b){var d=b.getAttribute('data-d'),x=wtList().filter(function(y){return y.d===d;})[0];if(!x)return;UI.wtEdit={d:x.d,kg:String(x.kg),old:x.d};render();window.scrollTo(0,0);focusLater('wt-kg');};
+ACT['wt-del']=function(){var e=UI.wtEdit;if(!e||!e.old)return;wtDelete(e.old);UI.wtEdit=null;toast('Weigh-in deleted');render();};
+ACT['wt-cancel']=function(){UI.wtEdit=null;render();};
+
+/* ---------- Recipes (1.3.1): own dishes built from ingredients and Market foods ----------
+   A recipe (document recipes/<id>, in the backup) holds its items {ref, name, g, v}: ref is an own ingredient's id or
+   mk:<Market id>, g the grams put in, v the values per 100 g when the item was added (used only when the source is
+   gone). Values per 100 g = the sum of the items' values divided by the weight of the finished dish when it was weighed
+   (baking and cooking lose or gain water), else by the sum of the grams; pieces give a piece weight. A recipe is found
+   in Add ingredient (marked Recipe) and logged as an item with rc: its id; meals keep the values they were logged with. */
+S.recipes=S.recipes||{};UI.rcForm=null;
+function rcSrc(it){var x=pickIng(it.ref);return x||it.v||null;}
+function rcTotals(r){
+  var tot={micros:{}},raw=0,miss=0;
+  LABEL.forEach(function(l){tot[l.k]=0;});
+  (r.items||[]).forEach(function(it){
+    var g=num(it.g);if(!(g>0))return;raw+=g;
+    var x=rcSrc(it);if(!x){miss++;return;}
+    var v=scale(x,g);
+    LABEL.forEach(function(l){tot[l.k]+=v[l.k]||0;});
+    Object.keys(v.micros||{}).forEach(function(m){tot.micros[m]=(tot.micros[m]||0)+v.micros[m];});
+  });
+  var ck=num(r.cooked);
+  return {tot:tot,raw:raw,w:ck>0?ck:raw,miss:miss};
+}
+function rcPer100(r,id){
+  var t=rcTotals(r);if(!(t.w>0))return null;
+  var o={name:r.name||'Recipe',basis:'g',micros:{},recipe:id||true};
+  LABEL.forEach(function(l){o[l.k]=t.tot[l.k]*100/t.w;});
+  Object.keys(t.tot.micros).forEach(function(m){o.micros[m]=t.tot.micros[m]*100/t.w;});
+  var pc=num(r.pieces);o.piece=pc>0?t.w/pc:null;o.weight=t.w;
+  return o;
+}
+function rcSorted(q){
+  var ws=mkWords(q||'');
+  return Object.keys(S.recipes).map(function(id){return [id,S.recipes[id]];}).filter(function(p){
+    if(!ws.length)return true;var tk=mkWords(p[1].name);
+    return ws.every(function(w){return tk.some(function(t){return t.indexOf(w)===0;});});
+  }).sort(function(a,b){return (b[1].updated||0)-(a[1].updated||0);});
+}
+function rcFormFrom(id){
+  var r=S.recipes[id];
+  return {id:id,name:r.name,items:(r.items||[]).map(function(it){return {ref:it.ref,name:it.name,g:String(it.g),v:it.v};}),cooked:r.cooked?String(r.cooked):'',pieces:r.pieces?String(r.pieces):'',q:'',err:'',delAsk:false};
+}
+function rcSumHtml(f){
+  var t=rcTotals(f),p=rcPer100(f);
+  if(!(t.raw>0))return '<p class="hint">Add the ingredients with their weights.</p>';
+  var h='<div class="kv"><span>Ingredients</span><b>'+fmtInt(t.raw)+' g</b></div>';
+  if(num(f.cooked)>0)h+='<div class="kv"><span>Finished dish</span><b>'+fmtInt(t.w)+' g ('+(t.w<t.raw?'lost ':'gained ')+fmtInt(Math.abs(t.raw-t.w))+' g)</b></div>';
+  h+='<div class="kv"><span>Whole dish</span><b>'+fmtInt(t.tot.kcal)+' kcal</b></div>';
+  if(p)h+='<div class="kv"><span>Per 100 g</span><b>'+per100(p)+'</b></div>';
+  if(p&&p.piece)h+='<div class="kv"><span>Per piece ('+fmtG(p.piece)+' g)</span><b>'+fmtInt(t.tot.kcal/num(f.pieces))+' kcal, P '+fmtG(t.tot.p/num(f.pieces))+'</b></div>';
+  if(t.miss)h+='<p class="hint">'+t.miss+(t.miss===1?' item has':' items have')+' no values.</p>';
+  return h;
+}
+function rcResHtml(f){
+  var q=(f.q||'').trim();if(q.length<2)return '';
+  var own=Object.keys(S.ingredients).length?ingSorted(q,false).slice(0,6):[],mk=MK.data?mkSearch(q,null,8):[];
+  if(!MK.data)mkLoad();
+  var h=own.map(function(p){return '<button class="ing-opt" data-act="rc-add" data-ref="'+esc(p[0])+'"><span class="n">'+esc(p[1].name)+'</span><span class="m">'+fmtInt(p[1].kcal)+' kcal</span></button>';}).join('');
+  h+=mk.map(function(x){return '<button class="ing-opt" data-act="rc-add" data-ref="mk:'+esc(x.id)+'"><span class="n">'+esc(x.n)+' <span class="chip accent">Market</span></span><span class="m">'+fmtInt(x.v[0])+' kcal</span></button>';}).join('');
+  return h||'<p class="hint">No match in your ingredients or the Market.</p>';
+}
+function rcFormHtml(f){
+  var h='<section class="card"><h3>'+(f.id?'Edit recipe':'New recipe')+'</h3>';
+  h+='<label class="fld" for="rc-name"><span>Name</span><input class="txt" id="rc-name" data-k="rc" data-f="name" value="'+esc(f.name)+'" autocomplete="off" placeholder="Apple cake"></label>';
+  h+='<h4>Ingredients</h4><div class="rc-items">';
+  f.items.forEach(function(it,i){
+    var mk=String(it.ref).indexOf('mk:')===0;
+    h+='<div class="rc-item"><span class="n">'+esc(it.name)+(mk?' <span class="chip accent">Market</span>':'')+(rcSrc(it)?'':' <span class="chip danger">No values</span>')+'</span>'+
+      '<input class="txt" id="rc-g-'+i+'" data-k="rcg" data-i="'+i+'" inputmode="decimal" autocomplete="off" value="'+esc(it.g)+'" placeholder="g" aria-label="Grams of '+esc(it.name)+'">'+
+      '<button class="icon-btn sm" data-act="rc-rm" data-i="'+i+'" aria-label="Remove '+esc(it.name)+'">'+ICON.x+'</button></div>';
+  });
+  h+='</div><input class="txt" type="search" id="rc-q" data-k="rcq" value="'+esc(f.q)+'" placeholder="Add: search ingredients or Market" autocomplete="off" aria-label="Add an ingredient"><div class="ing-list rc-res" id="rc-res">'+rcResHtml(f)+'</div>';
+  h+='<div class="grid2"><label class="fld" for="rc-cooked"><span>Finished dish (g)</span><input class="txt" id="rc-cooked" data-k="rc" data-f="cooked" inputmode="decimal" autocomplete="off" value="'+esc(f.cooked)+'" placeholder="optional"></label>'+
+    '<label class="fld" for="rc-pieces"><span>Pieces</span><input class="txt" id="rc-pieces" data-k="rc" data-f="pieces" inputmode="numeric" autocomplete="off" value="'+esc(f.pieces)+'" placeholder="optional"></label></div>';
+  h+='<p class="hint">Weigh the dish when it is done (a cake loses water in the oven) for the right values per 100 g; without it the app adds up the ingredients\' weights.</p>';
+  h+='<div class="panel" id="rc-sum">'+rcSumHtml(f)+'</div>';
+  h+=f.err?'<p class="err">'+esc(f.err)+'</p>':'';
+  h+=f.delAsk?'<div class="confirm"><span>Delete '+esc(f.name||'this recipe')+'? Meals you already logged keep their values.</span><div class="row"><button class="btn danger" data-act="rc-del-yes">Delete</button><button class="btn ghost" data-act="rc-del-no">Cancel</button></div></div>':
+    '<div class="row between"><div class="row"><button class="btn primary" data-act="rc-save">Save</button><button class="btn ghost" data-act="rc-cancel">Cancel</button></div>'+(f.id?'<button class="btn ghost danger small" data-act="rc-del">Delete</button>':'')+'</div>';
+  return h+'</section>';
+}
+function renderRecipes(){
+  if(UI.rcForm)return rcFormHtml(UI.rcForm);
+  var l=rcSorted(''),h='<div class="row"><button class="btn primary" data-act="rc-new">New recipe</button></div>';
+  if(!l.length)return h+'<div class="empty">No recipes yet. A recipe adds up its ingredients and gives values per 100 g and per piece, for a cake, a stew or a sauce you make.</div>';
+  h+='<div class="sheet">'+l.map(function(p){
+    var v=rcPer100(p[1],p[0]),pc=num(p[1].pieces);
+    return '<button class="ing-row" data-act="rc-open" data-id="'+esc(p[0])+'"><span class="n">'+esc(p[1].name)+' <span class="chip">'+(p[1].items||[]).length+' items</span></span><span class="m">'+(v?per100(v)+(pc>0?', '+pc+' pieces of '+fmtG(v.piece)+' g':''):'No values')+'</span></button>';
+  }).join('')+'</div><p class="hint">Values per 100 g of the finished dish. Add ingredient in a meal finds your recipes, marked Recipe.</p>';
+  return h;
+}
+ACT['rc-new']=function(){UI.rcForm={id:null,name:'',items:[],cooked:'',pieces:'',q:'',err:'',delAsk:false};render();window.scrollTo(0,0);focusLater('rc-name');};
+ACT['rc-open']=function(b){var id=b.getAttribute('data-id');if(!S.recipes[id])return;UI.rcForm=rcFormFrom(id);render();window.scrollTo(0,0);};
+ACT['rc-cancel']=function(){UI.rcForm=null;render();};
+ACT['rc-add']=function(b){
+  var f=UI.rcForm;if(!f)return;var ref=b.getAttribute('data-ref'),x=pickIng(ref);if(!x)return;
+  var v={basis:x.basis,micros:{}};LABEL.forEach(function(l){v[l.k]=x[l.k]==null?null:+x[l.k];});Object.keys(x.micros||{}).forEach(function(m){v.micros[m]=+x.micros[m];});
+  f.items.push({ref:ref,name:x.name,g:'',v:v});f.q='';f.err='';render();focusLater('rc-g-'+(f.items.length-1));
+};
+ACT['rc-rm']=function(b){var f=UI.rcForm;if(!f)return;f.items.splice(+b.getAttribute('data-i'),1);render();};
+ACT['rc-save']=function(){
+  var f=UI.rcForm;if(!f)return;
+  var name=(f.name||'').trim(),items=f.items.filter(function(it){return num(it.g)>0;});
+  if(!name){f.err='Give the recipe a name.';render();focusLater('rc-name');return;}
+  if(!items.length){f.err='Add at least one ingredient with its weight.';render();return;}
+  var id=f.id||('rc-'+uid()),doc={name:name,items:items.map(function(it){return {ref:it.ref,name:it.name,g:r1(num(it.g)),v:it.v||null};}),cooked:num(f.cooked)>0?r1(num(f.cooked)):null,pieces:num(f.pieces)>0?Math.round(num(f.pieces)):null,updated:Date.now()};
+  S.recipes[id]=doc;save('recipes/'+id,doc,0);UI.rcForm=null;toast('Recipe saved');render();
+};
+ACT['rc-del']=function(){if(UI.rcForm&&UI.rcForm.id){UI.rcForm.delAsk=true;render();}};
+ACT['rc-del-no']=function(){if(UI.rcForm){UI.rcForm.delAsk=false;render();}};
+ACT['rc-del-yes']=function(){
+  var f=UI.rcForm;if(!f||!f.id)return;
+  delete S.recipes[f.id];removeDoc('recipes/'+f.id);UI.rcForm=null;toast('Recipe deleted');render();
+};
+ACT['pick-rc']=function(b){UI.pick='rc:'+b.getAttribute('data-id');UI.grams='';UI.cook={mode:'raw'};render();focusLater('grams');};
+ACT['pick-piece']=function(){var x=pickIng(UI.pick);if(!x||!x.piece)return;UI.grams=String(r1(x.piece));render();};
+INPUT.rc=function(t){var f=UI.rcForm;if(!f)return;f[t.getAttribute('data-f')]=t.value;var el=document.getElementById('rc-sum');if(el)el.innerHTML=rcSumHtml(f);};
+INPUT.rcg=function(t){var f=UI.rcForm;if(!f)return;var it=f.items[+t.getAttribute('data-i')];if(it)it.g=t.value;var el=document.getElementById('rc-sum');if(el)el.innerHTML=rcSumHtml(f);};
+INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.getElementById('rc-res');if(el)el.innerHTML=rcResHtml(f);};
+
+/* ---------- Garmin (1.3.1): training data through Garmin's personal API, synced only on Wi-Fi ----------
+   Garmin Connect Personal API (since Oct-26): a key made in Garmin Connect's web settings (valid 30 days to a year) is
+   exchanged for a 24-hour access token (POST /personalapitoken-service/personal-api/personal-api-key/token with
+   "Authorization: ApiKey <key>"; the token is the response text, a JWT), which reads the data (Authorization: Bearer).
+   Host and paths from Garmin's own client, github.com/garmin/connect-personal-api-python. The key and the token stay in
+   this phone's localStorage, never in the backup file. The data (activities, sleep, HRV, resting heart rate) lives in a
+   database of its own (casian-fitness-log-garmin) and is read without a connection; a sync runs only while Chrome reports
+   Wi-Fi (navigator.connection.type), when the app opens or comes back, when the phone joins Wi-Fi (30 minutes at least
+   between automatic syncs) and with Sync now. Garmin's answers are read loosely (fields looked for anywhere in the reply),
+   since only the paths are documented; the last sync's replies, cut short and without key or token, make the Garmin report. */
+var GM_BASE='https://personal.connectapi.garmin.com',GM_TOKEN_PATH='/personalapitoken-service/personal-api/personal-api-key/token',GM_DB='casian-fitness-log-garmin';
+var GM_LS={key:'cfl-garmin-key',until:'cfl-garmin-key-until',tok:'cfl-garmin-token',base:'cfl-garmin-base',tread:'cfl-garmin-treadmill'};
+var GM={data:null,loading:false,busy:false,err:null,report:null,test:null};
+UI.gmValid='365';
+/* Casian's treadmill (22-Nov-26): the watch shows 5:30 per km at 10 km/h, 5:15 at 11 km/h and 5:00 at 12 km/h */
+var GM_TREAD=[[60/5.5,10],[60/5.25,11],[12,12]];
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}}
+function gmBase(){return (lsGet(GM_LS.base)||GM_BASE).replace(/\/+$/,'');}
+function gmKey(){return lsGet(GM_LS.key)||'';}
+function gmWifi(){var c=navigator.connection,t=c&&c.type;if(!t||t==='unknown')return null;return t==='wifi'||t==='ethernet';}
+function gmErr(kind,detail){var e=new Error(kind);e.gm=kind;e.detail=detail==null?'':String(detail&&detail.message||detail);return e;}
+function gmErrText(e){
+  var k=e&&e.gm;
+  if(k==='key')return 'Garmin refused the key: it may have expired or been deleted. Make a new one in Garmin Connect and paste it in Settings.';
+  if(k==='net')return 'Garmin did not answer. If the phone is online, Garmin is refusing calls from a web app like this one; the way round it is intervals.icu.';
+  if(k==='rate')return 'Garmin asked the app to slow down; the next sync will try again.';
+  if(k==='nokey')return 'No Garmin key yet: add it in Settings.';
+  return 'Garmin answered with an error ('+((e&&e.detail)||'unknown')+').';
+}
+function gmTx(mode,fn){
+  return new Promise(function(res,rej){
+    if(!window.indexedDB)return rej(new Error('no database'));
+    var rq;try{rq=indexedDB.open(GM_DB,1);}catch(e){return rej(e);}
+    rq.onupgradeneeded=function(){if(!rq.result.objectStoreNames.contains('kv'))rq.result.createObjectStore('kv');};
+    rq.onerror=function(){rej(rq.error);};
+    rq.onsuccess=function(){
+      var db=rq.result,tx,out;
+      try{tx=db.transaction(['kv'],mode);out=fn(tx.objectStore('kv'));}catch(e){db.close();return rej(e);}
+      tx.oncomplete=function(){db.close();res(out&&typeof out==='object'&&('result' in out)?out.result:out);};
+      tx.onerror=tx.onabort=function(){db.close();rej(tx.error);};
+    };
+  });
+}
+function gmEmpty(){return {acts:{},sleep:{},hrv:{},rhr:{},synced:0,lastDay:null};}
+function gmLoad(){
+  if(GM.data||GM.loading)return;
+  GM.loading=true;
+  gmTx('readonly',function(st){return [st.get('data'),st.get('report')];}).then(function(r){GM.data=(r[0]&&r[0].result)||gmEmpty();GM.report=GM.report||(r[1]&&r[1].result)||null;},function(){GM.data=gmEmpty();})
+    .then(function(){GM.loading=false;if(UI.tab==='garmin'||UI.tab==='settings')requestRender();gmAuto();});
+}
+function gmAgo(ts){var m=Math.round((Date.now()-ts)/60000);if(m<1)return 'just now';if(m<60)return m+' min ago';var h=Math.round(m/60);if(h<24)return h+(h===1?' hour ago':' hours ago');return agoText(new Date(ts).toISOString());}
+function gmStore(){var d=GM.data,r=GM.report;return gmTx('readwrite',function(st){st.put(d,'data');if(r)st.put(r,'report');}).catch(function(){});}
+
+/* the 24-hour token, kept until it has less than 10 minutes left; a refusal of the key ends the sync */
+function gmKeyTag(k){var h=0;for(var i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))|0;return String(h);}
+function gmJwtExp(t){try{var p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');while(p.length%4)p+='=';var o=JSON.parse(atob(p));return o.exp?o.exp*1000:0;}catch(e){return 0;}}
+function gmToken(force){
+  var key=gmKey();if(!key)return Promise.reject(gmErr('nokey'));
+  var c=null;try{c=JSON.parse(lsGet(GM_LS.tok)||'null');}catch(e){}
+  if(!force&&c&&c.t&&c.k===gmKeyTag(key)&&c.exp-Date.now()>10*60000)return Promise.resolve(c.t);
+  return fetch(gmBase()+GM_TOKEN_PATH,{method:'POST',headers:{'Accept':'*/*','Authorization':'ApiKey '+key}}).then(function(r){
+    if(r.status===401||r.status===403)throw gmErr('key',r.status);
+    if(r.status===429)throw gmErr('rate',429);
+    if(!r.ok)throw gmErr('http',r.status+' token');
+    return r.text();
+  },function(e){throw gmErr('net',e);}).then(function(t){
+    t=String(t||'').trim().replace(/^"|"$/g,'');if(!t)throw gmErr('http','empty token');
+    lsSet(GM_LS.tok,JSON.stringify({t:t,exp:gmJwtExp(t)||Date.now()+23*3600000,k:gmKeyTag(key)}));return t;
+  });
+}
+function gmGet(path,params,tok){
+  var q=params?'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&'):'';
+  return fetch(gmBase()+path+q,{headers:{'Accept':'application/json','Authorization':'Bearer '+tok}}).then(function(r){
+    if(r.status===401)throw gmErr('auth',401);
+    if(r.status===403)throw gmErr('http','403 '+path);
+    if(r.status===429)throw gmErr('rate',429);
+    if(!r.ok)throw gmErr('http',r.status+' '+path);
+    return r.status===204?null:r.text().then(function(x){return x?JSON.parse(x):null;});
+  },function(e){throw gmErr('net',e);});
+}
+function gmCall(path,params){
+  return gmToken().then(function(t){return gmGet(path,params,t);}).catch(function(e){
+    if(e.gm!=='auth')throw e;
+    return gmToken(true).then(function(t){return gmGet(path,params,t);}).catch(function(e2){throw e2.gm==='auth'?gmErr('key',401):e2;});
+  });
+}
+
+/* reading Garmin's replies: the objects that carry a date and the field wanted, wherever they sit */
+function gmFind(j,test,out){
+  out=out||[];if(!j||typeof j!=='object')return out;
+  if(Array.isArray(j)){j.forEach(function(x){gmFind(x,test,out);});return out;}
+  if(test(j))out.push(j);
+  Object.keys(j).forEach(function(k){if(j[k]&&typeof j[k]==='object')gmFind(j[k],test,out);});
+  return out;
+}
+function gmDate(o){var d=o.calendarDate||o.summaryDate||o.date;return typeof d==='string'&&/^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):null;}
+function gmFirst(o,keys){for(var i=0;i<keys.length;i++){var v=o[keys[i]];if(v!=null&&v!==''&&!isNaN(+v))return +v;}return null;}
+function gmTakeSleep(j){
+  gmFind(j,function(o){return gmDate(o)&&gmFirst(o,['sleepTimeSeconds','sleepTimeInSeconds','totalSleepSeconds','sleepSeconds'])!=null;}).forEach(function(o){
+    var s=gmFirst(o,['sleepTimeSeconds','sleepTimeInSeconds','totalSleepSeconds','sleepSeconds']);if(!(s>0))return;
+    var sc=o.sleepScores&&o.sleepScores.overall&&o.sleepScores.overall.value;
+    if(sc==null)sc=(o.overallSleepScore&&o.overallSleepScore.value)!=null?o.overallSleepScore.value:gmFirst(o,['sleepScore','overallScore']);
+    GM.data.sleep[gmDate(o)]={secs:s,score:sc==null?null:+sc};
+  });
+}
+function gmTakeHrv(j){
+  gmFind(j,function(o){return gmDate(o)&&gmFirst(o,['lastNightAvg','lastNightAverage','hrvValue'])!=null;}).forEach(function(o){
+    var b=o.baseline||{};
+    GM.data.hrv[gmDate(o)]={night:gmFirst(o,['lastNightAvg','lastNightAverage','hrvValue']),weekly:gmFirst(o,['weeklyAvg','weeklyAverage']),status:o.status||o.hrvStatus||null,low:gmFirst(b,['balancedLow']),high:gmFirst(b,['balancedUpper'])};
+  });
+}
+function gmTakeDaily(j){
+  gmFind(j,function(o){return gmDate(o)&&gmFirst(o,['restingHeartRate','restingHeartRateValue','restingHR'])!=null;}).forEach(function(o){
+    var v=gmFirst(o,['restingHeartRate','restingHeartRateValue','restingHR']);if(v>25&&v<130)GM.data.rhr[gmDate(o)]=v;
+  });
+}
+function gmCat(tk){
+  tk=String(tk||'').toLowerCase();
+  if(/run/.test(tk))return 'run';
+  if(/strength/.test(tk))return 'strength';
+  if(/hiit|cardio|interval|elliptical|stair|row|cycl|bik|fitness_equipment/.test(tk))return 'cardio';
+  return 'other';
+}
+function gmRpe(v){if(v==null||v===''||isNaN(+v))return null;v=+v;if(v>10)v=v/10;v=Math.round(v);return v>=1&&v<=10?v:null;}
+function gmRpeOf(a){var s=a.summaryDTO||{};return gmRpe(a.directWorkoutRpe!=null?a.directWorkoutRpe:a.workoutRpe!=null?a.workoutRpe:a.perceivedExertion!=null?a.perceivedExertion:s.directWorkoutRpe);}
+function gmTakeAct(a){
+  if(!a||typeof a!=='object')return;
+  var id=a.activityId||a.activityID||a.id;if(!id)return;
+  var tk=(a.activityType&&(a.activityType.typeKey||a.activityType.key))||a.activityTypeKey||'';
+  var st=String(a.startTimeLocal||a.startTimeGMT||''),date=st.slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
+  var mov=+(a.movingDuration||a.duration||a.elapsedDuration||0),el=+(a.duration||a.elapsedDuration||mov);
+  var o={id:String(id),date:date,time:st.slice(11,16),name:String(a.activityName||tk||'Activity'),type:tk,cat:gmCat(tk),dur:el,moving:mov,dist:+(a.distance||0),
+    hr:+(a.averageHR||a.averageHeartRate||0)||null,maxhr:+(a.maxHR||a.maxHeartRate||0)||null,speed:+(a.averageSpeed||0)||null,
+    zones:[1,2,3,4,5].map(function(n){return +(a['hrTimeInZone_'+n]||0);}),load:+(a.activityTrainingLoad||0)||null,rpe:gmRpeOf(a)};
+  var old=GM.data.acts[o.id];
+  if(old){if(o.rpe==null&&old.rpe!=null)o.rpe=old.rpe;if(old.detail)o.detail=old.detail;}
+  GM.data.acts[o.id]=o;
+}
+function gmSample(j,depth){
+  depth=depth||0;
+  if(Array.isArray(j))return j.slice(0,2).map(function(x){return gmSample(x,depth+1);}).concat(j.length>2?['('+(j.length-2)+' more)']:[]);
+  if(j&&typeof j==='object'){if(depth>6)return '(deeper)';var o={};Object.keys(j).slice(0,80).forEach(function(k){o[k]=gmSample(j[k],depth+1);});return o;}
+  if(typeof j==='string'&&j.length>120)return j.slice(0,120)+'...';
+  return j;
+}
+function gmChunks(from,to,days){var out=[],a=parseYmd(from),z=parseYmd(to);while(a<=z){var b=addDays(a,days-1);if(b>z)b=z;out.push([ymd(a),ymd(b)]);a=addDays(b,1);}return out;}
+function gmSeq(list,fn){return list.reduce(function(p,x){return p.then(function(){return fn(x);});},Promise.resolve());}
+
+function gmSync(manual){
+  if(GM.busy)return Promise.resolve();
+  if(!gmKey()){if(manual)toast('Add your Garmin key in Settings first',3000);return Promise.resolve();}
+  var w=gmWifi();
+  if(w===false||(w===null&&!manual)){if(manual)toast('Garmin syncs only on Wi-Fi',3000);return Promise.resolve();}
+  if(!GM.data){gmLoad();return Promise.resolve();}
+  GM.busy=true;GM.err=null;if(UI.tab==='garmin'||UI.tab==='settings')requestRender();
+  var today=ymd(new Date()),start=GM.data.lastDay?ymd(addDays(parseYmd(GM.data.lastDay),-3)):ymd(addDays(new Date(),-55));
+  var rep={app:APP_ID,kind:'garmin-report',version:APP_VERSION,at:new Date().toISOString(),base:gmBase(),wifi:w,calls:[]};
+  function call(path,params){
+    var label=path+(params?' '+JSON.stringify(params):'');
+    return gmCall(path,params).then(function(j){rep.calls.push({path:label,ok:true,sample:gmSample(j)});return j;},function(e){rep.calls.push({path:label,ok:false,error:e.gm+(e.detail?' '+e.detail:'')});throw e;});
+  }
+  function soft(p){return p.catch(function(e){if(e.gm==='key'||e.gm==='net'||e.gm==='nokey')throw e;return null;});}
+  var acts=[],chunks=gmChunks(start,today,28);
+  function page(i){
+    return call('/activitylist-service/activities/search/activities',{start:i,limit:100,startDate:start,endDate:today}).then(function(j){
+      var l=Array.isArray(j)?j:(j&&(j.activityList||j.activities||j.results))||[];acts=acts.concat(l);
+      if(l.length===100&&i<400)return page(i+100);
+    });
+  }
+  return page(0).then(function(){acts.forEach(gmTakeAct);})
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/sleep-service/sleep/dailySleepSummariesByDate',{startDate:c[0],endDate:c[1]})).then(gmTakeSleep);});})
+    .then(function(){
+      var miss=[0,1].map(function(n){return ymd(addDays(new Date(),-n));}).filter(function(d){return !GM.data.sleep[d];});
+      return gmSeq(miss,function(d){return soft(call('/sleep-service/sleep/dailySleep',{date:d})).then(gmTakeSleep);});
+    })
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/hrv-service/hrv/daily/'+c[0]+'/'+c[1])).then(gmTakeHrv);});})
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/usersummary-service/v2/dailysummaries',{startDate:c[0],endDate:c[1]})).then(gmTakeDaily);});})
+    .then(function(){
+      /* the effort rating of a strength session, when the list does not carry it: from the session's own page */
+      var need=Object.keys(GM.data.acts).map(function(k){return GM.data.acts[k];}).filter(function(a){return a.cat==='strength'&&a.rpe==null&&!a.detail;}).slice(0,12);
+      return gmSeq(need,function(a){return soft(call('/activity-service/activity/'+a.id)).then(function(j){a.detail=1;if(j){var r=gmRpeOf(j);if(r!=null)a.rpe=r;}});});
+    })
+    .then(function(){
+      var cut=ymd(addDays(new Date(),-120));
+      ['acts','sleep','hrv','rhr'].forEach(function(k){var o=GM.data[k];Object.keys(o).forEach(function(x){var d=k==='acts'?o[x].date:x;if(d<cut)delete o[x];});});
+      GM.data.synced=Date.now();GM.data.lastDay=today;
+      rep.counts=gmCounts();GM.report=rep;GM.busy=false;
+      return gmStore().then(function(){if(manual)toast('Garmin synced',2000);});
+    },function(e){
+      GM.busy=false;GM.err=gmErrText(e);rep.error=e.gm+(e.detail?' '+e.detail:'');GM.report=rep;gmStore();
+      if(manual)toast(GM.err,6000);
+    }).then(function(){if(UI.tab==='garmin'||UI.tab==='settings')requestRender();});
+}
+function gmCounts(){
+  var d=GM.data,a=Object.keys(d.acts).map(function(k){return d.acts[k];});
+  return {activities:a.length,runs:a.filter(function(x){return x.cat==='run';}).length,strength:a.filter(function(x){return x.cat==='strength';}).length,
+    rated:a.filter(function(x){return x.rpe!=null;}).length,zones:a.filter(function(x){return x.zones.some(function(z){return z>0;});}).length,
+    sleep:Object.keys(d.sleep).length,hrv:Object.keys(d.hrv).length,rhr:Object.keys(d.rhr).length};
+}
+function gmAuto(){
+  if(!gmKey()||GM.busy)return;
+  if(!GM.data){gmLoad();return;}
+  if(gmWifi()!==true||Date.now()-(GM.data.synced||0)<30*60000)return;
+  gmSync(false);
+}
+document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(gmAuto,1500);});
+if(navigator.connection&&navigator.connection.addEventListener)navigator.connection.addEventListener('change',function(){setTimeout(gmAuto,1000);if(UI.tab==='garmin'||UI.tab==='settings')requestRender();});
+
+/* what the data says */
+function gmActs(from,to){var d=GM.data;return Object.keys(d.acts).map(function(k){return d.acts[k];}).filter(function(a){return a.date>=from&&a.date<=to;}).sort(function(a,b){return a.date+a.time<b.date+b.time?-1:1;});}
+var GM_ZONE_RPE=[2,3,5,7,9];
+function gmLoadOf(a){
+  var min=(a.dur||0)/60;if(!(min>0))return {v:0,est:false};
+  if(a.rpe!=null)return {v:a.rpe*min,est:false};
+  var tz=a.zones.reduce(function(s,z){return s+z;},0);
+  if(tz>0)return {v:a.zones.reduce(function(s,z,i){return s+z*GM_ZONE_RPE[i];},0)/tz*min,est:true};
+  return {v:0,est:true,none:true};
+}
+function gmSpeedKmh(a){
+  if(!(a.moving>0))return null;
+  var w=a.dist>0?a.dist/a.moving*3.6:(a.speed?a.speed*3.6:null);if(!w)return null;
+  if(lsGet(GM_LS.tread)!=='figures'||!/treadmill|indoor/.test(a.type))return w;
+  var P=GM_TREAD;
+  if(w<=P[0][0])return P[0][1]-(P[0][0]-w);
+  for(var i=1;i<P.length;i++)if(w<=P[i][0])return P[i-1][1]+(w-P[i-1][0])*(P[i][1]-P[i-1][1])/(P[i][0]-P[i-1][0]);
+  return P[P.length-1][1]+(w-P[P.length-1][0]);
+}
+function gmPlanned(k){
+  var d=S.plan&&S.plan.days&&S.plan.days[k],out=[];if(!d)return out;
+  (d.items||[]).forEach(function(x){
+    var t=x.type==='run'?'run':x.type==='rounds'?'hiit':x.role==='warmup'?null:'strength';
+    if(t&&out.indexOf(t)<0)out.push(t);
+  });
+  return out;
+}
+function gmDoneOn(date){var l=gmActs(date,date),c={};l.forEach(function(a){c[a.cat]=1;});return {run:!!c.run,strength:!!c.strength,hiit:!!(c.cardio||c.run)};}
+function gmAvg(map,from,to){var s=0,n=0;Object.keys(map).forEach(function(d){if(d>=from&&d<=to&&map[d]!=null){s+=+map[d];n++;}});return n?s/n:null;}
+function hmText(secs){var m=Math.round(secs/60);return Math.floor(m/60)+' h '+pad(m%60)+' min';}
+function minText(secs){return fmtInt(secs/60)+' min';}
+function gmBars(vals,labels,fmt,hl){
+  var max=Math.max.apply(null,vals.concat([1])),W=300,H=96,n=vals.length,bw=W/n;
+  var h='<svg class="gm-bars" viewBox="0 0 '+W+' '+(H+16)+'" role="img" aria-label="'+esc(labels.join(', '))+'">';
+  vals.forEach(function(v,i){var bh=Math.max(v>0?2:0,(H-14)*v/max),x=i*bw+bw*0.18;
+    h+='<rect x="'+x.toFixed(1)+'" y="'+(H-bh).toFixed(1)+'" width="'+(bw*0.64).toFixed(1)+'" height="'+bh.toFixed(1)+'" class="'+(i===hl?'hl':'')+'"/>'+
+      '<text x="'+(x+bw*0.32).toFixed(1)+'" y="'+(H-bh-4).toFixed(1)+'" text-anchor="middle">'+esc(fmt(v))+'</text><text x="'+(x+bw*0.32).toFixed(1)+'" y="'+(H+12)+'" text-anchor="middle" class="lab">'+esc(labels[i])+'</text>';});
+  return h+'</svg>';
+}
+function renderGarmin(){
+  if(!GM.data){gmLoad();return loadingHtml('Garmin data');}
+  var h='',key=gmKey(),w=gmWifi(),d=GM.data,today=ymd(new Date()),t=new Date();
+  var stat=GM.busy?'Syncing with Garmin...':GM.err?esc(GM.err):d.synced?'Synced '+esc(fmtDate(new Date(d.synced))+' at '+pad(new Date(d.synced).getHours())+':'+pad(new Date(d.synced).getMinutes())):'Not synced yet';
+  h+='<div class="gm-status"><p class="'+(GM.err&&!GM.busy?'err':'hint')+'">'+stat+(w===false?' Waiting for Wi-Fi: the app talks to Garmin only on Wi-Fi.':'')+'</p>'+
+    (key?'<button class="btn small" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button>':'<button class="btn small primary" data-act="settings">Add your key</button>')+'</div>';
+  if(!d.synced)return h+'<div class="empty">'+(key?'Nothing synced yet: the first sync runs once the phone is on Wi-Fi'+(w===false?'.':', or tap Sync now.'):'Your Garmin data shows here once the key is in Settings.')+'</div>';
+  /* last night and the morning check */
+  /* Garmin files a night under the day it ends; the check uses this morning's figures only */
+  var slT=d.sleep[today],sl=slT||d.sleep[ymd(addDays(t,-1))],planToday=gmPlanned(dayKeyOf(t));
+  h+='<section class="card"><h3>Last night</h3>';
+  if(sl){
+    var short=sl.secs<8*3600;
+    h+='<div class="kv"><span>Sleep'+(slT?'':', night to '+esc(fmtDM(addDays(t,-1))))+'</span><b>'+hmText(sl.secs)+(sl.score!=null?', score '+fmtInt(sl.score):'')+'</b></div>'+barHtml(sl.secs/3600,8,short?'--danger':'--c-p');
+    if(short&&slT)h+='<p class="hint">Under the 8-hour target'+(planToday.indexOf('run')>-1?': make this morning\'s run shorter, or skip it (your plan).':'.')+'</p>';
+  }
+  if(!slT)h+='<p class="hint">Last night is not in Garmin yet: sync the watch with the Garmin Connect app, then Sync now.</p>';
+  if(sl&&!slT)sl=null;
+  var rhrT=d.rhr[today],rhrA=gmAvg(d.rhr,ymd(addDays(t,-7)),ymd(addDays(t,-1))),hv=d.hrv[today],hvA=gmAvg(Object.keys(d.hrv).reduce(function(o,k){o[k]=d.hrv[k].night;return o;},{}),ymd(addDays(t,-7)),ymd(addDays(t,-1))),flags=[];
+  if(rhrT!=null)h+='<div class="kv"><span>Resting heart rate</span><b>'+fmtInt(rhrT)+' bpm'+(rhrA!=null?' ('+signed(rhrT-rhrA,0)+' against your week)':'')+'</b></div>';
+  if(hv&&hv.night!=null)h+='<div class="kv"><span>HRV overnight</span><b>'+fmtInt(hv.night)+' ms'+(hvA!=null?' (week '+fmtInt(hvA)+')':'')+(hv.status?', '+esc(String(hv.status).toLowerCase())+'':'')+'</b></div>';
+  if(rhrT!=null&&rhrA!=null&&rhrT>=rhrA+5)flags.push('resting heart rate '+fmtInt(rhrT-rhrA)+' beats above your week');
+  if(hv&&hv.night!=null&&((hv.low!=null&&hv.night<hv.low)||(hvA!=null&&hv.night<0.85*hvA)||/low|poor/i.test(hv.status||'')))flags.push('HRV below your usual range');
+  if(sl&&sl.secs<6*3600)flags.push('under 6 hours of sleep');
+  if(rhrT!=null||(hv&&hv.night!=null))h+='<p class="gm-verdict '+(flags.length?'warn':'ok')+'"><b>'+(flags.length?'Take it easier today':'Recovered as usual')+'</b>'+(flags.length?': '+esc(flags.join(', ')):'')+'</p>';
+  h+='</section>';
+  /* this week against the plan */
+  var mon=mondayOf(t),rows='',done=0,due=0;
+  DAYS.forEach(function(k,i){
+    var dd=ymd(addDays(mon,i)),pl=gmPlanned(k),dn=gmDoneOn(dd),title=(S.plan&&S.plan.days&&S.plan.days[k]&&S.plan.days[k].title)||'';
+    if(!pl.length)return;
+    var st=pl.map(function(p){var ok=dn[p];if(dd<=today){due++;if(ok)done++;}return ok?'done':dd<today?'missed':dd===today?'today':'planned';});
+    var all=st.every(function(x){return x==='done';}),miss=st.indexOf('missed')>-1;
+    rows+='<div class="kv"><span>'+DAY_SHORT[k]+' '+esc(title)+'</span><b class="'+(all?'ok':miss?'bad':'')+'">'+(all?'Done':miss?(st.filter(function(x){return x==='done';}).length?'Part done':'Missed'):dd===today?'Today':'Planned')+'</b></div>';
+  });
+  h+='<section class="card"><div class="row between"><h3>This week</h3>'+(rows?'<span class="dim">'+done+' of '+due+' sessions done so far</span>':'')+'</div>'+(rows||'<p class="hint">No runs or sessions in the plan of the Train tab.</p>')+'</section>';
+  /* load: the last 7 days against the 4-week average */
+  var acute=0,chronic=0,est=0;
+  gmActs(ymd(addDays(t,-27)),today).forEach(function(a){var L=gmLoadOf(a);chronic+=L.v;if(a.date>=ymd(addDays(t,-6))){acute+=L.v;if(L.est)est++;}});
+  chronic/=4;
+  var wk=[],wl=[];for(var i=5;i>=0;i--){var m=addDays(mon,-7*i),s=0;gmActs(ymd(m),ymd(addDays(m,6))).forEach(function(a){s+=gmLoadOf(a).v;});wk.push(s);wl.push(fmtDM(m).split(' ')[0]+' '+fmtDM(m).split(' ')[1]);}
+  var ratio=chronic>0?acute/chronic:null;
+  h+='<section class="card"><h3>Training load</h3><p class="hint">Effort rating times minutes for each session (estimated from heart-rate zones when a session has no rating), by week from Monday.</p>'+gmBars(wk,wl,function(v){return fmtInt(v);},5);
+  if(ratio!=null)h+='<div class="kv"><span>7 days against 4-week average</span><b>x'+ratio.toFixed(2)+'</b></div><p class="gm-verdict '+(ratio>1.3?'warn':'ok')+'"><b>'+(ratio>1.3?'A big jump':ratio<0.8?'Lighter than usual':'Steady')+'</b>'+(ratio>1.3?': keep the next days easy, big jumps are when injuries come':'')+'</p>';
+  if(est)h+='<p class="hint">'+est+(est===1?' session':' sessions')+' of the last 7 days without an effort rating, estimated from heart rate.</p>';
+  h+='</section>';
+  /* running */
+  var km=[],kl=[],longest=null;
+  for(var j=5;j>=0;j--){var m2=addDays(mon,-7*j),s2=0;gmActs(ymd(m2),ymd(addDays(m2,6))).forEach(function(a){if(a.cat==='run'){var sp=gmSpeedKmh(a),dk=sp&&a.moving?sp*a.moving/3600:a.dist/1000;s2+=dk;if(!longest||dk>=longest.km)longest={km:dk,date:a.date};}});km.push(s2);kl.push(fmtDM(m2));}
+  h+='<section class="card"><h3>Running</h3>'+gmBars(km,kl.map(function(x){return x.split(' ')[0]+' '+x.split(' ')[1];}),function(v){return v?v.toFixed(1):'0';},5);
+  if(longest)h+='<div class="kv"><span>Longest run, last 6 weeks</span><b>'+longest.km.toFixed(1)+' km, '+esc(fmtDate(parseYmd(longest.date)))+'</b></div>';
+  var zt=[0,0,0,0,0];gmActs(ymd(mon),today).forEach(function(a){if(a.cat==='run'||a.cat==='cardio')a.zones.forEach(function(z,i){zt[i]+=z;});});
+  var ztot=zt.reduce(function(s,z){return s+z;},0);
+  if(ztot>0){
+    h+='<h4>Heart-rate zones this week</h4><div class="gm-zones">'+zt.map(function(z,i){return z>0?'<span class="z'+(i+1)+'" style="flex:'+z+'">'+(z/ztot>0.08?'Z'+(i+1):'')+'</span>':'';}).join('')+'</div>'+
+      '<div class="gm-zlab">'+zt.map(function(z,i){return '<span>Z'+(i+1)+' '+minText(z)+'</span>';}).join('')+'</div>';
+    var easy=gmActs(ymd(mon),today).filter(function(a){return a.cat==='run'&&(dayKeyOf(parseYmd(a.date))==='tue'||dayKeyOf(parseYmd(a.date))==='sun');}),ez=0,et=0;
+    easy.forEach(function(a){ez+=a.zones[0]+a.zones[1];et+=a.zones.reduce(function(s,z){return s+z;},0);});
+    if(et>0)h+='<div class="kv"><span>Easy runs in zones 1 and 2</span><b>'+fmtInt(100*ez/et)+'%</b></div>';
+    var hi=gmActs(ymd(mon),today).filter(function(a){return dayKeyOf(parseYmd(a.date))==='wed'&&(a.cat==='run'||a.cat==='cardio');}),hz=0;
+    hi.forEach(function(a){hz+=a.zones[3]+a.zones[4];});
+    if(hi.length)h+='<div class="kv"><span>HIIT in zones 4 and 5</span><b>'+minText(hz)+'</b></div>';
+  }else h+='<p class="hint">No heart-rate zones in Garmin\'s data this week.</p>';
+  h+='</section>';
+  /* treadmill: heart rate at the speed run */
+  var tr=gmActs(ymd(addDays(t,-56)),today).filter(function(a){return a.cat==='run'&&/treadmill|indoor/.test(a.type)&&a.hr&&gmSpeedKmh(a);}).reverse();
+  h+='<section class="card"><h3>Treadmill: heart rate at your speed</h3>';
+  if(tr.length){
+    var fig=lsGet(GM_LS.tread)==='figures',mpb=function(a){return gmSpeedKmh(a)*1000/60/a.hr;};
+    var recent=tr.slice(0,3),older=tr.filter(function(a){return a.date<=ymd(addDays(t,-21));}).slice(0,3),avgM=function(l){return l.reduce(function(s,a){return s+mpb(a);},0)/l.length;};
+    if(older.length&&recent.length){var ch=(avgM(recent)/avgM(older)-1)*100;h+='<p class="gm-verdict '+(ch>=0?'ok':'warn')+'"><b>'+(ch>=1?'Fitter':ch<=-1?'Less efficient':'About the same')+'</b>: '+avgM(recent).toFixed(2)+' m per heartbeat in your last runs against '+avgM(older).toFixed(2)+' three weeks before ('+signed(ch,0)+'%)</p>';}
+    h+=tr.slice(0,8).map(function(a){return '<div class="kv"><span>'+esc(fmtDate(parseYmd(a.date)))+', '+fmtInt(a.dur/60)+' min</span><b>'+gmSpeedKmh(a).toFixed(1)+' km/h at '+fmtInt(a.hr)+' bpm</b></div>';}).join('');
+    h+='<p class="hint">'+(fig?'Speeds corrected with your figures (5:30 per km shown at 10 km/h, 5:15 at 11, 5:00 at 12), approximate.':'Speeds from Garmin\'s distance: use Calibrate & Save after each run so they are right.')+' The same speed at a lower heart rate means you are fitter.</p>';
+  }else h+='<p class="hint">No treadmill runs with heart rate in the last 8 weeks.</p>';
+  h+='</section>';
+  /* strength sessions with the watch's effort rating */
+  var str=gmActs(ymd(addDays(t,-42)),today).filter(function(a){return a.cat==='strength';}).reverse();
+  h+='<section class="card"><h3>Strength sessions</h3>';
+  if(str.length){
+    h+=str.slice(0,8).map(function(a){var L=gmLoadOf(a);return '<div class="kv"><span>'+esc(fmtDate(parseYmd(a.date)))+', '+fmtInt(a.dur/60)+' min</span><b>'+(a.rpe!=null?'Effort '+a.rpe+' of 10, load '+fmtInt(L.v):'No rating')+'</b></div>';}).join('');
+    if(str.some(function(a){return a.rpe==null;}))h+='<p class="hint">Sessions without a rating: turn on Self Evaluation for Strength on the watch (activity settings), or add the rating in the Garmin Connect app.</p>';
+  }else h+='<p class="hint">No strength sessions from Garmin in the last 6 weeks.</p>';
+  return h+'</section><p class="hint">From Garmin Connect through your personal API key. The app syncs only on Wi-Fi and works offline with the last synced data.</p>';
+}
+function gmSettingsHtml(){
+  if(!GM.data)gmLoad();
+  var key=gmKey(),w=gmWifi(),until=lsGet(GM_LS.until),h='<section class="card"><h3>Garmin</h3>';
+  if(!key){
+    h+='<p class="hint">The Garmin tab reads your runs, strength sessions, sleep, HRV and resting heart rate from Garmin Connect. Make a personal API key on the Garmin Connect website (Settings, Personal API Key), choose how long it lasts and paste it here. The key stays on this phone; it is not in the backup file.</p>'+
+      '<div class="row"><a class="btn small" href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank" rel="noopener">Open the key page</a></div>'+
+      '<label class="fld" for="gm-key"><span>Garmin personal API key</span><input class="txt" type="password" id="gm-key" autocomplete="off" spellcheck="false"></label>'+
+      '<label class="fld" for="gm-valid"><span>Valid for</span><select class="txt" id="gm-valid" data-k="gmvalid">'+[['30','30 days'],['90','90 days'],['180','180 days'],['365','1 year']].map(function(x){return '<option value="'+x[0]+'"'+(UI.gmValid===x[0]?' selected':'')+'>'+x[1]+'</option>';}).join('')+'</select></label>'+
+      '<div class="row"><button class="btn primary" data-act="gm-key-save">Save key</button></div>';
+    return h+'</section>';
+  }
+  var left=until?Math.round((parseYmd(until)-parseYmd(todayY()))/86400000):null;
+  h+='<div class="kv"><span>Key</span><b>'+(until?(left<0?'Expired '+esc(fmtDate(parseYmd(until))):'Valid until '+esc(fmtDate(parseYmd(until)))+' ('+left+(left===1?' day':' days')+')'):'Saved')+'</b></div>';
+  if(left!=null&&left<=14)h+='<p class="err">'+(left<0?'The key has expired':'The key runs out soon')+': make a new one in Garmin Connect and paste it here.</p>';
+  h+='<div class="kv"><span>Connection</span><b>'+(w===true?'Wi-Fi':w===false?'Not Wi-Fi: syncing waits':'Unknown here: only Sync now')+'</b></div>';
+  if(GM.data&&GM.data.synced)h+='<div class="kv"><span>Last sync</span><b>'+esc(fmtDate(new Date(GM.data.synced))+', '+gmAgo(GM.data.synced))+'</b></div>';
+  if(GM.report&&GM.report.counts){var c=GM.report.counts;h+='<div class="kv"><span>From Garmin</span><b>'+c.activities+' activities ('+c.rated+' rated), '+c.sleep+' nights, '+c.hrv+' HRV, '+c.rhr+' resting HR</b></div>';}
+  if(GM.err)h+='<p class="err">'+esc(GM.err)+'</p>';
+  if(GM.test)h+='<p class="hint">'+esc(GM.test)+'</p>';
+  h+='<label class="fld" for="gm-tread"><span>Treadmill speed</span><select class="txt" id="gm-tread" data-k="gmtread"><option value="garmin"'+(lsGet(GM_LS.tread)!=='figures'?' selected':'')+'>From Garmin\'s distance (Calibrate & Save after each run)</option><option value="figures"'+(lsGet(GM_LS.tread)==='figures'?' selected':'')+'>Corrected with my figures (5:30 at 10 km/h, 5:15 at 11, 5:00 at 12)</option></select></label>';
+  h+='<div class="row"><button class="btn" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button><button class="btn" data-act="gm-test"'+(GM.busy||w===false?' disabled':'')+'>Test connection</button></div>'+
+    (UI.gmForget?'<div class="confirm"><span>Remove the Garmin key from this phone? The synced data stays; syncing stops until a key is added again.</span><div class="row"><button class="btn danger" data-act="gm-forget-yes">Remove</button><button class="btn ghost" data-act="gm-forget-no">Cancel</button></div></div>':
+      '<div class="row between"><button class="btn small" data-act="gm-report">Save Garmin report</button><button class="btn small ghost danger" data-act="gm-forget">Remove key</button></div>')+
+    '<p class="hint">The Garmin report holds Garmin\'s answers to the last sync, cut short, without the key: send it to the developer when something in the Garmin tab looks wrong.</p>';
+  return h+'</section>';
+}
+ACT['gm-key-save']=function(){
+  var el=document.getElementById('gm-key'),k=el?el.value.trim():'';
+  if(k.length<10){toast('Paste the key from Garmin Connect',3000);return;}
+  lsSet(GM_LS.key,k);lsSet(GM_LS.tok,null);lsSet(GM_LS.until,ymd(addDays(new Date(),+UI.gmValid||365)));
+  GM.err=null;GM.test=null;toast('Garmin key saved on this phone',2500);render();
+  if(gmWifi()===true)gmSync(false);
+};
+ACT['gm-sync']=function(){gmSync(true);};
+ACT['gm-test']=function(){
+  if(gmWifi()===false){toast('Connect to Wi-Fi first: the app talks to Garmin only on Wi-Fi',3500);return;}
+  GM.test='Testing...';render();
+  gmToken(true).then(function(t){return gmGet('/activitylist-service/activities/search/activities',{start:0,limit:1},t);}).then(function(j){
+    var n=(Array.isArray(j)?j:(j&&(j.activityList||j.activities))||[]).length;
+    GM.test='Connected: Garmin answered'+(n?' and sent your latest activity.':'.');GM.err=null;
+  },function(e){GM.test=null;GM.err=gmErrText(e);}).then(function(){render();});
+};
+ACT['gm-report']=function(){
+  var r=GM.report;if(!r){toast('No sync yet to report on',3000);return;}
+  downloadBlob(new Blob([JSON.stringify(r,null,1)],{type:'application/json'}),'garmin-report-'+todayY()+'.json');
+};
+ACT['gm-forget']=function(){UI.gmForget=true;render();};
+ACT['gm-forget-no']=function(){UI.gmForget=false;render();};
+ACT['gm-forget-yes']=function(){
+  UI.gmForget=false;lsSet(GM_LS.key,null);lsSet(GM_LS.tok,null);lsSet(GM_LS.until,null);GM.test=null;GM.err=null;toast('Garmin key removed from this phone');render();
+};
+INPUT.gmvalid=function(t){UI.gmValid=t.value;};
+INPUT.gmtread=function(t){lsSet(GM_LS.tread,t.value==='figures'?'figures':null);render();};
+
 /* ---------- start ---------- */
-window.CFL={parseLabel:parseLabel,mkSearch:function(q,g,n){return mkSearch(q,g,n).map(function(f){return f.n;});},mkReady:function(){return !!MK.data;},cookKinds:COOK_KINDS,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,PLAN_V4:PLAN_V4,version:APP_VERSION,
+window.CFL={parseLabel:parseLabel,gm:{sync:function(m){return gmSync(!!m);},age:function(ms){if(GM.data)GM.data.synced-=ms;},state:function(){return {busy:GM.busy,err:GM.err,counts:GM.data?gmCounts():null,synced:GM.data&&GM.data.synced,test:GM.test};}},rcPer100:function(id){return rcPer100(S.recipes[id],id);},mkSearch:function(q,g,n){return mkSearch(q,g,n).map(function(f){return f.n;});},mkReady:function(){return !!MK.data;},cookKinds:COOK_KINDS,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,PLAN_V4:PLAN_V4,version:APP_VERSION,
   photos:function(){return (PH.list||[]).slice().sort(phOrder).map(function(r){return {id:r.id,week:r.week,pose:r.pose,w:r.w,h:r.h,size:r.size,thumb:r.thumb?r.thumb.size:0,weekName:phWeekName(r.week)};});}};
 render();
 openIdb().then(function(h){
   KV=h?idbKV(h):(lsWorks()?lsKV():memKV());
   return KV.all();
 }).then(function(all){
-  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();var back=pendRestore(),phBack=back?(phPendClear(),null):phPendRestore();render();requestPersist();
+  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();var back=pendRestore(),phBack=back?(phPendClear(),null):phPendRestore();render();requestPersist();setTimeout(gmLoad,1200);
   if(phBack)toast('The phone closed the app while the camera was open, so the photo did not arrive. Tap '+(PH_CAT[phBack.pose]||PH_UNORG).name+' to take it again.',7000);
   if(back)toast('The phone closed the app while the camera was open. Your ingredient is back: tap Scan label to take the photo again.',7000);
 }).catch(function(){
