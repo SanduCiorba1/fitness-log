@@ -325,6 +325,14 @@ html.cam-on,html.cam-on body{overflow:hidden}
 .gm-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .gm-status p{margin:0;font-size:14px}
 .gm-status .btn{flex:none}
+.gm-btns{display:flex;gap:8px;flex:none}
+.ph-chips.nv-days{flex-wrap:wrap;overflow:visible}
+.gmx-list{display:flex;flex-direction:column;gap:12px}
+.gmx-check{align-items:flex-start}
+.gmx-check input{flex:none;margin-top:1px}
+.gmx-check span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.gmx-check b{font-weight:600}
+.gmx-check small{color:var(--muted);font-size:13px;line-height:1.35}
 .gm-run{display:flex;flex-direction:column;gap:6px}
 .gm-run-sub{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted)}
 .gm-sw{flex:none;font:600 13px/1.2 var(--font-body);padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
@@ -419,9 +427,98 @@ a.btn{text-decoration:none}
 <script>
 (function(){
 'use strict';
-var APP_VERSION='1.3.4';
+var APP_VERSION='2.0.0';
 var APP_ID='casian-fitness-log';
 var TESS_URLS=['https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js','https://unpkg.com/tesseract.js@5/dist/tesseract.min.js'];
+
+/* ---------- Android app (2.0.0): the same page inside a Capacitor app ----------
+   Capacitor (an open-source wrapper, version 8) runs this page in an Android app and adds native add-ons. The app puts
+   its bridge on window.Capacitor before this script runs; the add-ons are called through Capacitor.nativePromise and
+   Capacitor.nativeCallback, so the page needs no build step. In the browser none of this exists and the app works as
+   before. In the app: no service worker (the files are inside the app); files saved in Documents/Fitness Log and shared
+   through Android's share menu; the network type from the Network add-on for the Wi-Fi rule; the scanner's runtime and
+   models from inside the app. Notifications, the Garmin connection and the background checks are in the modules after
+   the Garmin tab. */
+var CAP=(function(){try{return window.Capacitor||null;}catch(e){return null;}})();
+var NV={on:!!(CAP&&typeof CAP.isNativePlatform==='function'&&CAP.isNativePlatform()&&typeof CAP.nativePromise==='function'),
+  net:null,perm:null,exact:null,err:null,cfgSig:null,status:null,planT:null,cfgT:null,done:{},started:false};
+var NV_DIR='Fitness Log',NV_RUNNER='io.github.sanduciorba1.fitnesslog.checks',NV_ICON='ic_stat_fitness',NV_COLOR='#8DA4FF';
+/* Garmin's own connection (the module after the Garmin tab): its address and what it keeps on this phone */
+var GMG_BASE='https://personal.connectapi.garmin.com',GMG_TOKEN='/personalapitoken-service/personal-api/personal-api-key/token';
+var GMG_LS={key:'cfl-gc-key',until:'cfl-gc-until',tok:'cfl-gc-token',base:'cfl-gc-base',src:'cfl-gm-src'};
+/* an add-on is in the app when the bridge lists it */
+function nvHas(p){
+  if(!NV.on)return false;
+  var hs=CAP.PluginHeaders;
+  if(Array.isArray(hs)&&hs.length)return hs.some(function(h){return h&&h.name===p;});
+  try{return !!CAP.isPluginAvailable(p);}catch(e){return false;}
+}
+function nvCall(p,m,o){
+  if(!NV.on)return Promise.reject(new Error('not in the Android app'));
+  try{return Promise.resolve(CAP.nativePromise(p,m,o||{}));}catch(e){return Promise.reject(e);}
+}
+function nvOn(p,ev,fn){
+  if(!nvHas(p))return;
+  try{CAP.nativeCallback(p,'addListener',{eventName:ev},function(d,err){if(!err)fn(d||{});});}catch(e){}
+}
+function nvMsg(e){return String((e&&(e.message||e.errorMessage))||e||'unknown').slice(0,160);}
+
+/* ---------- the network type, for the Wi-Fi rule ---------- */
+function nvNetType(s){return s&&s.connectionType?String(s.connectionType):null;}
+function nvNetStart(){
+  if(!nvHas('Network'))return;
+  nvCall('Network','getStatus').then(function(s){NV.net=nvNetType(s);if(UI.tab==='garmin'||UI.tab==='settings')requestRender();setTimeout(gmAuto,800);},function(){});
+  nvOn('Network','networkStatusChange',function(s){
+    var was=NV.net;NV.net=nvNetType(s);
+    if(NV.net!==was){setTimeout(gmAuto,1000);if(UI.tab==='garmin'||UI.tab==='settings')requestRender();}
+  });
+}
+
+/* ---------- files: saved in Documents/Fitness Log, or put in the app's cache and shared ---------- */
+function nvBuf(blob){
+  if(blob.arrayBuffer)return blob.arrayBuffer();
+  return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=function(){rej(r.error);};r.readAsArrayBuffer(blob);});
+}
+function nvB64(u8){var s='',CH=0x8000;for(var i=0;i<u8.length;i+=CH)s+=String.fromCharCode.apply(null,u8.subarray(i,i+CH));return btoa(s);}
+/* in parts of 3 MB, so a large photos zip never crosses the bridge in one piece */
+function nvWrite(blob,name,dir){
+  var path=(dir==='CACHE'?'':NV_DIR+'/')+name,CH=3*1024*1024,off=0,first=true,uri=null;
+  function next(){
+    if(!first&&off>=blob.size)return Promise.resolve(uri);
+    var part=blob.slice(off,off+CH);off+=CH;
+    return nvBuf(part).then(function(b){
+      var o={path:path,data:nvB64(new Uint8Array(b)),directory:dir};
+      if(first){first=false;o.recursive=true;return nvCall('Filesystem','writeFile',o).then(function(r){uri=(r&&r.uri)||null;return next();});}
+      return nvCall('Filesystem','appendFile',o).then(next);
+    });
+  }
+  return next();
+}
+/* Android 10 asks once for the files permission before the first file in Documents; later versions need none */
+function nvStorage(){
+  if(NV.storageOk)return Promise.resolve();
+  return nvCall('Filesystem','checkPermissions').then(function(r){
+    if(r&&r.publicStorage==='granted'){NV.storageOk=true;return;}
+    return nvCall('Filesystem','requestPermissions').then(function(r2){if(r2&&r2.publicStorage==='granted')NV.storageOk=true;});
+  }).catch(function(){});
+}
+function nvSaveFile(blob,name){
+  return nvStorage().then(function(){return nvWrite(blob,name,'DOCUMENTS');}).then(function(){toast('Saved in Documents/'+NV_DIR+': '+name,4500);return true;},function(e){
+    toast('The file could not be saved ('+nvMsg(e)+'). If Android asked about files, allow it and try again; Share also works.',7000);return false;
+  });
+}
+function nvShareFile(blob,name,title){
+  return nvWrite(blob,name,'CACHE').then(function(uri){
+    if(uri)return uri;
+    return nvCall('Filesystem','getUri',{path:name,directory:'CACHE'}).then(function(r){return r&&r.uri;});
+  }).then(function(uri){
+    if(!uri)throw new Error('no file to share');
+    return nvCall('Share','share',{title:title||name,files:[uri],dialogTitle:'Share '+name});
+  }).then(function(){return true;},function(e){
+    if(/cancel/i.test(nvMsg(e)))return false;
+    toast('Sharing did not work ('+nvMsg(e)+'): use Save to phone instead.',5000);return false;
+  });
+}
 
 /* ---------- helpers ---------- */
 var DAYS=['mon','tue','wed','thu','fri','sat','sun'];
@@ -455,7 +552,7 @@ function todayY(){return ymd(new Date());}
 function daysSince(iso){var t=Date.parse(iso);return isFinite(t)?Math.floor((Date.now()-t)/86400000):null;}
 function agoText(iso){var n=daysSince(iso);if(n==null)return '';if(n<=0)return 'today';if(n===1)return '1 day ago';return n+' days ago';}
 function isIOS(){return /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
-function isStandalone(){return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;}
+function isStandalone(){return NV.on||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;}
 function sv(d,w){w=w||22;return '<svg viewBox="0 0 24 24" width="'+w+'" height="'+w+'" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';}
 var ICON={left:sv('<path d="M15 5l-7 7 7 7"/>'),right:sv('<path d="M9 5l7 7-7 7"/>'),x:sv('<path d="M7 7l10 10M17 7L7 17"/>',18),up:sv('<path d="M6 15l6-6 6 6"/>',18),down:sv('<path d="M6 9l6 6 6-6"/>',18),
   gear:sv('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>')};
@@ -803,6 +900,8 @@ function migrate(){
     });
     setMeta({recs1211:1});
   }
+  /* Version 1.3.5: the tests and long runs Casian gave on 23-Nov-26, added once (records_135.js) */
+  if(S.settings&&!S.meta.rec135){recSeed135();setMeta({rec135:1});}
   if(S.plan&&hasLongRun()&&(!S.settings||!S.settings.longRun)){
     S.settings=S.settings||{blockStart:null,targets:{}};S.settings.longRun=clone(LONGRUN_SEED);save('app/settings',S.settings,0);
   }
@@ -845,6 +944,7 @@ function countsText(docs){
 
 /* ---------- backup ---------- */
 function downloadBlob(blob,name){
+  if(NV.on){nvSaveFile(blob,name);return;}
   var url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=name;document.body.appendChild(a);a.click();
   setTimeout(function(){URL.revokeObjectURL(url);a.remove();},2000);
@@ -885,7 +985,7 @@ $file.addEventListener('change',function(){
 var deferredPrompt=null;
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;requestRender();});
 window.addEventListener('appinstalled',function(){deferredPrompt=null;toast('App installed');requestRender();});
-if('serviceWorker' in navigator&&location.protocol!=='file:'){
+if(!NV.on&&'serviceWorker' in navigator&&location.protocol!=='file:'){
   var hadController=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange',function(){if(hadController){UI.updateReady=true;requestRender();}hadController=true;});
   window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});
@@ -3795,7 +3895,8 @@ tiny:"!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcd
    small pair of networks alone. */
 /* 1.19.0 is the runtime version this reader was tested with in a real browser; the later version is asked for only when
    both sources of the first one fail */
-var ORT_BASES=['https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/','https://unpkg.com/onnxruntime-web@1.19.0/dist/','https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/'];
+/* in the Android app the runtime is inside the app (2.0.0) */
+var ORT_BASES=(NV.on?[new URL('ort/',location.href).href]:[]).concat(['https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/','https://unpkg.com/onnxruntime-web@1.19.0/dist/','https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/']);
 var ORT_FILES=['ort.wasm.min.js','ort.min.js'];
 var NET_KINDS={
   net:{label:'New reader, accurate',det:'ocr-det-v5.onnx',rec:'ocr-rec-latin-v5.onnx',dict:'latin',rec2:'ocr-rec-tiny.onnx',dict2:'tiny'},
@@ -4145,7 +4246,7 @@ function renderTop(){
       if(UI.phWeek!==0)back=['ph-today','This week'];
     }
   }else if(UI.tab==='settings'){
-    eyebrow='App';title='Settings';sub='Backup, Garmin and install';
+    eyebrow='App';title='Settings';sub=NV.on?'Backup, notifications and Garmin':'Backup, Garmin and install';
   }else{
     eyebrow='Nutrition';
     if(UI.foodView==='ingredients'){title='Ingredients';var ni=Object.keys(S.ingredients).length;sub=S.ready.ingredients?ni+(ni===1?' ingredient':' ingredients')+', values per 100 g or 100 ml':'Values per 100 g or 100 ml';}
@@ -4217,17 +4318,17 @@ function renderSettings(){
   h+='<div class="kv"><span>Last backup</span><b>'+(lb?esc(fmtDate(new Date(lb))+', '+agoText(lb)):'Never')+'</b></div>';
   h+='<div class="kv"><span>On this phone</span><b>'+esc(c)+'</b></div>';
   h+='<div class="row"><button class="btn primary" data-act="export">Save backup</button><button class="btn" data-act="import">Load backup</button></div><p class="hint">Loading a backup replaces what is on this phone.</p></section>';
-  h+=gmSettingsHtml();
-  h+='<section class="card"><h3>Install</h3>'+installHtml()+'</section>';
+  h+=nvSettingsHtml()+gmSettingsHtml();
+  if(!NV.on)h+='<section class="card"><h3>Install</h3>'+installHtml()+'</section>';
   var rk=readerKind();
   if(SCANLOG.count==null&&!SCANLOG.counting){SCANLOG.counting=true;scanCount();}
-  h+='<section class="card"><h3>Label scanning</h3><p class="hint">The reader finds every piece of text in the crop with one small network and reads each piece with two different ones, entirely on this phone. A value on which the two readings agree is filled in as read; the others are marked Check, with both readings in the note under the scan. The first scan downloads the model files (c.17 MB, or c.6 MB for the fast reader) and their runtime and needs an internet connection; after that, scanning works offline. The photo never leaves your phone. The crop box only has to hold the table: the reader finds the table inside it, and it turns a photo taken sideways or upside down by itself. The classic reader of 1.2.9 stays available here and takes over by itself if the new one cannot start. Version numbers run 1.2.y, where y counts the scanner iterations since it first appeared in 1.2.</p>';
+  h+='<section class="card"><h3>Label scanning</h3><p class="hint">The reader finds every piece of text in the crop with one small network and reads each piece with two different ones, entirely on this phone. A value on which the two readings agree is filled in as read; the others are marked Check, with both readings in the note under the scan. '+(NV.on?'The model files and their runtime are inside the app, so scanning works offline from the first scan. ':'The first scan downloads the model files (c.17 MB, or c.6 MB for the fast reader) and their runtime and needs an internet connection; after that, scanning works offline. ')+'The photo never leaves your phone. The crop box only has to hold the table: the reader finds the table inside it, and it turns a photo taken sideways or upside down by itself. The classic reader of 1.2.9 stays available here and takes over by itself if the new one cannot start. Version numbers run 1.2.y, where y counts the scanner iterations since it first appeared in 1.2.</p>';
   h+='<label class="fld" for="set-reader"><span>Reader</span><select class="txt" id="set-reader" data-k="reader"><option value="net"'+(rk==='net'?' selected':'')+'>New reader, accurate (two readings)</option><option value="fast"'+(rk==='fast'?' selected':'')+'>New reader, fast (one reading)</option><option value="classic"'+(rk==='classic'?' selected':'')+'>Classic reader (1.2.9)</option></select></label>';
   h+='<div class="kv"><span>Scan reports kept</span><b>'+(SCANLOG.count==null?'...':SCANLOG.count+' of '+SCANLOG.max)+'</b></div>';
   h+='<p class="hint">Every scan keeps the picture the reader was given, what it read, how long it took and the values you saved afterwards. When scans go wrong, save the report file and send it in the chat, so the same scans can be replayed and fixed. Nothing is sent by the app itself.</p>';
   h+='<div class="row"><button class="btn" data-act="report-save">Save report file</button><button class="btn" data-act="report-copy">Copy as text</button><button class="btn ghost" data-act="report-clear">Delete reports</button></div></section>';
-  h+='<section class="card"><h3>Storage</h3><p class="hint">'+(S.storeState==='memory'?'Saving is not available in this browser.':(S.persisted?'Protected: the browser will not clear your log to free up space.':'The browser may clear site data if your phone runs very low on space, so keep a recent backup.'))+'</p></section>';
-  h+='<p class="hint center">Casian Fitness Log, version '+APP_VERSION+'</p>';
+  h+='<section class="card"><h3>Storage</h3><p class="hint">'+(S.storeState==='memory'?'Saving is not available in this browser.':NV.on?'Kept in the app\'s own storage on this phone. Uninstalling the app deletes it, so keep a recent backup.':(S.persisted?'Protected: the browser will not clear your log to free up space.':'The browser may clear site data if your phone runs very low on space, so keep a recent backup.'))+'</p></section>';
+  h+='<p class="hint center">Casian Fitness Log, version '+APP_VERSION+(NV.on?', Android app':'')+'</p>';
   return h;
 }
 
@@ -4351,6 +4452,7 @@ function renderBlock(){
 /* ---------- Records view ---------- */
 function renderPRs(){
   if(!ready('prs'))return loadingHtml('records');
+  if(gmKey()&&!GM.data)gmLoad();
   var list=Object.keys(S.prs).map(function(id){return [id,S.prs[id]];}).sort(function(a,b){
     var oa=a[1].order==null?1e15:a[1].order,ob=b[1].order==null?1e15:b[1].order;
     return (oa-ob)||String(a[1].name).localeCompare(String(b[1].name));
@@ -4366,7 +4468,8 @@ function prCard(id,pr){
   var hist=pr.history||[],b=prBest(pr),unit=pr.type==='secs'?'s':(pr.type==='run'?'km':(pr.type==='kg'?'kg':'reps')),bestHtml;
   if(!b)bestHtml='<p class="hint">No result yet. Log your first test.</p>';
   else{
-    var bv=prVal(pr,b),prev=hist.map(function(x){return prVal(pr,x);}).filter(function(v){return v<bv;}),pv=prev.length?Math.max.apply(null,prev):null;
+    var bv=prVal(pr,b),first=-1;hist.forEach(function(x,i){if(first<0&&prVal(pr,x)>=bv)first=i;});
+    var prev=hist.slice(0,Math.max(0,first)).map(function(x){return prVal(pr,x);}),pv=prev.length?Math.max.apply(null,prev):null;
     var show=pr.type==='run'?fmtKm:function(v){return String(v);};
     bestHtml='<div class="pr-best"><span class="big">'+show(bv)+'</span><span class="unit">'+unit+'</span></div>';
     if(pr.type==='run'&&b.sec)bestHtml+='<div class="delta">'+fmtDur(b.sec)+', '+paceStr(b.km,b.sec)+'</div>';
@@ -4604,7 +4707,7 @@ ACT['import-yes']=function(){
   var meta={lastBackup:new Date().toISOString()},all=clone(docs);all['app/meta']=meta;
   KV.replaceAll(all).then(function(){
     loadDocs(all);migrate();UI.importPending=null;UI.editDay=false;UI.weekOffset=0;UI.lrForm=null;
-    toast('Backup loaded');render();requestPersist();
+    toast('Backup loaded');render();requestPersist();nvReady();
   },function(){toast('Could not load the backup on this phone.',4000);});
 };
 ACT['start-empty']=function(){S.settings={blockStart:null,targets:{}};save('app/settings',S.settings,0);render();};
@@ -4894,7 +4997,7 @@ function phLoad(){
   if(PH.loading)return;
   PH.loading=true;
   phTx(['photos'],'readonly',function(tx){return tx.objectStore('photos').getAll();}).then(function(l){PH.list=l||[];PH.err=null;},function(e){PH.list=[];PH.err=(e&&e.message)||String(e);})
-    .then(function(){PH.loading=false;if(UI.tab==='body')requestRender();});
+    .then(function(){PH.loading=false;if(UI.tab==='body')requestRender();nvPlanSoon();});
 }
 
 /* weeks: Monday dates; Week 1 is the week of the earliest photo */
@@ -4948,7 +5051,7 @@ function phAdd(file,week,pose){
     return phTx(['photos','files'],'readwrite',function(tx){
       tx.objectStore('files').put(p.blob,rec.id);tx.objectStore('photos').put(rec);
       if(old)tx.objectStore('photos').put(Object.assign({},old,{pose:'unorg'}));
-    }).then(function(){if(old)old.pose='unorg';PH.list.push(rec);return {rec:rec,old:old};});
+    }).then(function(){if(old)old.pose='unorg';PH.list.push(rec);nvPlanSoon();return {rec:rec,old:old};});
   });
 }
 /* to a pose that already has a photo that week: the two swap places */
@@ -4963,7 +5066,7 @@ function phMove(id,pose){
 }
 function phDelete(id){
   return phTx(['photos','files'],'readwrite',function(tx){tx.objectStore('photos').delete(id);tx.objectStore('files').delete(id);}).then(function(){
-    PH.list=PH.list.filter(function(r){return r.id!==id;});
+    PH.list=PH.list.filter(function(r){return r.id!==id;});nvPlanSoon();
     if(PH.thumbs[id]){try{URL.revokeObjectURL(PH.thumbs[id]);}catch(e){}delete PH.thumbs[id];}
   });
 }
@@ -5556,9 +5659,9 @@ var CMP={urls:{}};
 function wtList(){return ((S.body&&S.body.weights)||[]).slice().sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0;});}
 function wtSave(d,kg){
   var l=wtList().filter(function(x){return x.d!==d;});l.push({d:d,kg:r1(kg)});
-  l.sort(function(a,b){return a.d<b.d?-1:1;});S.body={weights:l};save('body/weights',S.body,0);
+  l.sort(function(a,b){return a.d<b.d?-1:1;});S.body={weights:l};save('body/weights',S.body,0);nvPlanSoon();
 }
-function wtDelete(d){S.body={weights:wtList().filter(function(x){return x.d!==d;})};save('body/weights',S.body,0);}
+function wtDelete(d){S.body={weights:wtList().filter(function(x){return x.d!==d;})};save('body/weights',S.body,0);nvPlanSoon();}
 function wtAvg(l,from,to){var s=0,n=0;l.forEach(function(x){if(x.d>=from&&x.d<=to){s+=x.kg;n++;}});return n?s/n:null;}
 function wtStats(){
   var l=wtList();if(!l.length)return null;
@@ -5792,7 +5895,7 @@ INPUT.rc=function(t){var f=UI.rcForm;if(!f)return;f[t.getAttribute('data-f')]=t.
 INPUT.rcg=function(t){var f=UI.rcForm;if(!f)return;var it=f.items[+t.getAttribute('data-i')];if(it)it.g=t.value;var el=document.getElementById('rc-sum');if(el)el.innerHTML=rcSumHtml(f);};
 INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.getElementById('rc-res');if(el)el.innerHTML=rcResHtml(f);};
 
-/* ---------- Garmin tab (1.3.2 to 1.3.4): the watch's data through intervals.icu, synced only on Wi-Fi ----------
+/* ---------- Garmin tab (1.3.2 to 1.3.5): the watch's data through intervals.icu, synced only on Wi-Fi ----------
    Garmin's own personal API refuses calls from web apps (1.3.1: the browser blocked the first request, 22-Nov-26), so the
    data comes from intervals.icu, a free training site linked to Garmin Connect, whose /api/v1/ endpoints answer web apps.
    Its personal API key (intervals.icu, Settings, Developer Settings) goes as basic auth with the user name API_KEY, and
@@ -5804,7 +5907,8 @@ INPUT.rcq=function(t){var f=UI.rcForm;if(!f)return;f.q=t.value;var el=document.g
    reaches intervals.icu late (Garmin's backfill of older days, a late watch sync, a rating changed there) shows at the next
    sync. The replies of the last sync, cut short and without the key, make the sync report. Each treadmill run has a switch
    (1.3.4): Garmin's distance (right when Casian used Calibrate & Save) or Estimated from his figures; the estimated runs are
-   kept in app/settings (treadEst, by activity id), so they are in the backup and survive a new sync. */
+   kept in app/settings (treadEst, by activity id), so they are in the backup and survive a new sync. Export PDF and the
+   records of the runs of 10 km or more (1.3.5) are in the two modules after this one. */
 var GM_BASE='https://intervals.icu',GM_DB='casian-fitness-log-garmin';
 var GM_LS={key:'cfl-icu-key',base:'cfl-icu-base'};
 /* the Garmin key of 1.3.1 is of no use any more: off the phone */
@@ -5816,10 +5920,11 @@ var GM_TREAD=[[60/5.5,10],[60/5.25,11],[12,12]];
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}}
 function gmBase(){return (lsGet(GM_LS.base)||GM_BASE).replace(/\/+$/,'');}
-function gmKey(){return lsGet(GM_LS.key)||'';}
-function gmWifi(){var c=navigator.connection,t=c&&c.type;if(!t||t==='unknown')return null;return t==='wifi'||t==='ethernet';}
+function gmKey(){return gmSrc()==='garmin'?(lsGet(GMG_LS.key)||''):(lsGet(GM_LS.key)||'');}
+function gmWifi(){if(NV.on&&NV.net)return NV.net==='wifi'?true:(NV.net==='cellular'||NV.net==='none')?false:null;var c=navigator.connection,t=c&&c.type;if(!t||t==='unknown')return null;return t==='wifi'||t==='ethernet';}
 function gmErr(kind,detail){var e=new Error(kind);e.gm=kind;e.detail=detail==null?'':String(detail&&detail.message||detail);return e;}
 function gmErrText(e){
+  if(gmSrc()==='garmin')return gmgErrText(e);
   var k=e&&e.gm;
   if(k==='key')return 'intervals.icu refused the key: generate a new one in intervals.icu (Settings, Developer Settings) and paste it in Settings.';
   if(k==='net')return 'intervals.icu did not answer: check that the phone is online and try again. If it keeps failing, save the sync report in Settings and send it.';
@@ -5846,14 +5951,14 @@ function gmLoad(){
   if(GM.data||GM.loading)return;
   GM.loading=true;
   gmTx('readonly',function(st){return [st.get('data'),st.get('report')];}).then(function(r){GM.data=(r[0]&&r[0].result)||gmEmpty();GM.report=GM.report||(r[1]&&r[1].result)||null;},function(){GM.data=gmEmpty();})
-    .then(function(){GM.loading=false;if(UI.tab==='garmin'||UI.tab==='settings')requestRender();gmAuto();});
+    .then(function(){GM.loading=false;if(recAuto()&&UI.tab==='prs')requestRender();if(UI.tab==='garmin'||UI.tab==='settings')requestRender();gmAuto();});
 }
 function gmAgo(ts){var m=Math.round((Date.now()-ts)/60000);if(m<1)return 'just now';if(m<60)return m+' min ago';var h=Math.round(m/60);if(h<24)return h+(h===1?' hour ago':' hours ago');return agoText(new Date(ts).toISOString());}
 function gmStore(){var d=GM.data,r=GM.report;return gmTx('readwrite',function(st){st.put(d,'data');if(r)st.put(r,'report');}).catch(function(){});}
 
 /* every call carries the key as basic auth (user name API_KEY); a refusal of the key ends the sync */
 function gmGet(path,params){
-  var key=gmKey();if(!key)return Promise.reject(gmErr('nokey'));
+  var key=lsGet(GM_LS.key)||'';if(!key)return Promise.reject(gmErr('nokey'));
   var q=params?'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&'):'';
   return fetch(gmBase()+path+q,{headers:{'Accept':'application/json','Authorization':'Basic '+btoa('API_KEY:'+key)}}).then(function(r){
     if(r.status===401||r.status===403)throw gmErr('key',r.status);
@@ -5893,11 +5998,11 @@ function gmTakeAct(a){
   GM.data.acts[String(a.id)]={id:String(a.id),date:date,time:st.slice(11,16),name:String(a.name||a.type||'Activity'),
     type:cat==='run'?(tm?'treadmill_running':'running'):cat==='strength'?'strength_training':String(a.type||'').toLowerCase(),cat:cat,dur:el,moving:mov,dist:+(a.distance||0),
     hr:+(a.average_heartrate||0)||null,maxhr:+(a.max_heartrate||0)||null,speed:+(a.average_speed||0)||null,
-    zones:gmZones(a.icu_hr_zone_times),load:+(a.icu_training_load||0)||null,rpe:gmRpe(a.icu_rpe!=null?a.icu_rpe:a.perceived_exertion!=null?a.perceived_exertion:a.rpe)};
+    zones:gmZones(a.icu_hr_zone_times),hrz:Array.isArray(a.icu_hr_zones)?a.icu_hr_zones.map(Number).filter(function(v){return v>0;}):null,load:+(a.icu_training_load||0)||null,rpe:gmRpe(a.icu_rpe!=null?a.icu_rpe:a.perceived_exertion!=null?a.perceived_exertion:a.rpe)};
 }
 /* any sleep, HRV or resting heart rate between two days */
 function gmWellAny(from,to){var d=GM.data,f=function(m){return Object.keys(m).some(function(k){return k>=from&&k<=to;});};return f(d.sleep)||f(d.hrv)||f(d.rhr);}
-var GM_READ=['id','start_date_local','type','trainer','name','elapsed_time','moving_time','distance','average_heartrate','max_heartrate','average_speed','icu_hr_zone_times','icu_training_load','icu_rpe','perceived_exertion','rpe','sleepSecs','sleepScore','hrv','restingHR'];
+var GM_READ=['id','start_date_local','type','trainer','name','elapsed_time','moving_time','distance','average_heartrate','max_heartrate','average_speed','icu_hr_zone_times','icu_hr_zones','icu_training_load','icu_rpe','perceived_exertion','rpe','sleepSecs','sleepScore','hrv','restingHR'];
 function gmSample(j,depth){
   depth=depth||0;
   if(Array.isArray(j))return j.slice(0,2).map(function(x){return gmSample(x,depth+1);}).concat(j.length>2?['('+(j.length-2)+' more)']:[]);
@@ -5908,7 +6013,7 @@ function gmSample(j,depth){
 function gmChunks(from,to,days){var out=[],a=parseYmd(from),z=parseYmd(to);while(a<=z){var b=addDays(a,days-1);if(b>z)b=z;out.push([ymd(a),ymd(b)]);a=addDays(b,1);}return out;}
 function gmSeq(list,fn){return list.reduce(function(p,x){return p.then(function(){return fn(x);});},Promise.resolve());}
 
-function gmSync(manual){
+function gmIcuSync(manual){
   if(GM.busy)return Promise.resolve();
   if(!gmKey()){if(manual)toast('Add your intervals.icu key in Settings first',3000);return Promise.resolve();}
   var w=gmWifi();
@@ -5922,7 +6027,7 @@ function gmSync(manual){
     return gmCall(path,params).then(function(j){rep.calls.push({path:label,ok:true,n:Array.isArray(j)?j.length:null,sample:gmSample(j)});return j;},function(e){rep.calls.push({path:label,ok:false,error:e.gm+(e.detail?' '+e.detail:'')});throw e;});
   }
   function soft(p){return p.catch(function(e){if(e.gm==='key'||e.gm==='net'||e.gm==='nokey')throw e;return null;});}
-  var acts=[],well=[],wellAll=true,chunks=gmChunks(start,today,28);
+  var acts=[],well=[],wellAll=true,chunks=gmChunks(start,today,28),before=gmSnap();
   return gmSeq(chunks,function(c){return call('/api/v1/athlete/0/activities',{oldest:c[0],newest:c[1]}).then(function(j){if(Array.isArray(j))acts=acts.concat(j);});})
     .then(function(){return gmSeq(chunks,function(c){return soft(call('/api/v1/athlete/0/wellness',{oldest:c[0],newest:c[1]})).then(function(j){if(Array.isArray(j))well=well.concat(j);else wellAll=false;});});})
     .then(function(){
@@ -5930,16 +6035,16 @@ function gmSync(manual){
          sleep, HRV and resting heart rate of those days only when every wellness call answered */
       Object.keys(GM.data.acts).forEach(function(k){if(GM.data.acts[k].date>=start)delete GM.data.acts[k];});
       if(wellAll)['sleep','hrv','rhr'].forEach(function(k){Object.keys(GM.data[k]).forEach(function(d){if(d>=start)delete GM.data[k][d];});});
-      acts.forEach(gmTakeAct);gmTakeWell(well);
+      acts.forEach(gmTakeAct);gmTakeWell(well);gmRemap(before);
       var cut=ymd(addDays(new Date(),-120));
       ['acts','sleep','hrv','rhr'].forEach(function(k){var o=GM.data[k];Object.keys(o).forEach(function(x){var d=k==='acts'?o[x].date:x;if(d<cut)delete o[x];});});
       GM.data.synced=Date.now();GM.data.lastDay=today;
-      rep.counts=gmCounts();GM.report=rep;GM.busy=false;
-      return gmStore().then(function(){if(manual)toast('Synced from intervals.icu',2000);});
+      rep.counts=gmCounts();if(GM.report&&GM.report.export)rep.export=GM.report.export;GM.report=rep;GM.busy=false;
+      return gmStore().then(function(){if(manual)toast('Synced from intervals.icu',2000);recAuto();nvAfterSync();});
     },function(e){
-      GM.busy=false;GM.err=gmErrText(e);rep.error=e.gm+(e.detail?' '+e.detail:'');GM.report=rep;gmStore();
+      GM.busy=false;GM.err=gmErrText(e);rep.error=e.gm+(e.detail?' '+e.detail:'');if(GM.report&&GM.report.export)rep.export=GM.report.export;GM.report=rep;gmStore();
       if(manual)toast(GM.err,6000);
-    }).then(function(){if(UI.tab==='garmin'||UI.tab==='settings')requestRender();});
+    }).then(function(){if(UI.tab==='garmin'||UI.tab==='settings'||UI.tab==='prs')requestRender();});
 }
 function gmCounts(){
   var d=GM.data,a=Object.keys(d.acts).map(function(k){return d.acts[k];});
@@ -6000,11 +6105,13 @@ function gmBars(vals,labels,fmt,hl){
 }
 function renderGarmin(){
   if(!GM.data){gmLoad();return loadingHtml('Garmin data');}
+  if(UI.gmx)return gmxHtml();
   var h='',key=gmKey(),w=gmWifi(),d=GM.data,today=ymd(new Date()),t=new Date();
-  var stat=GM.busy?'Syncing with intervals.icu...':GM.err?esc(GM.err):d.synced?'Synced '+esc(fmtDate(new Date(d.synced))+' at '+pad(new Date(d.synced).getHours())+':'+pad(new Date(d.synced).getMinutes())):'Not synced yet';
+  var stat=GM.busy?'Syncing with '+gmSrcName()+'...':GM.err?esc(GM.err):d.synced?'Synced '+esc(fmtDate(new Date(d.synced))+' at '+pad(new Date(d.synced).getHours())+':'+pad(new Date(d.synced).getMinutes())):'Not synced yet';
   h+='<div class="gm-status"><p class="'+(GM.err&&!GM.busy?'err':'hint')+'">'+stat+(w===false?' Waiting for Wi-Fi: the app syncs only on Wi-Fi.':'')+'</p>'+
-    (key?'<button class="btn small" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button>':'<button class="btn small primary" data-act="settings">Add your key</button>')+'</div>';
-  if(!d.synced)return h+'<div class="empty">'+(key?'Nothing synced yet: the first sync runs once the phone is on Wi-Fi'+(w===false?'.':', or tap Sync now.'):'Your Garmin data shows here once the intervals.icu key is in Settings.')+'</div>';
+    '<div class="gm-btns">'+(d.synced?'<button class="btn small" data-act="gmx-open"'+(GM.busy?' disabled':'')+'>Export PDF</button>':'')+
+    (key?'<button class="btn small" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button>':'<button class="btn small primary" data-act="settings">Add your key</button>')+'</div></div>';
+  if(!d.synced)return h+'<div class="empty">'+(key?'Nothing synced yet: the first sync runs once the phone is on Wi-Fi'+(w===false?'.':', or tap Sync now.'):'Your Garmin data shows here once the '+gmSrcName()+' key is in Settings.')+'</div>';
   /* last night and the morning check */
   /* Garmin files a night under the day it ends; the check uses this morning's figures only */
   var slT=d.sleep[today],sl=slT||d.sleep[ymd(addDays(t,-1))],planToday=gmPlanned(dayKeyOf(t));
@@ -6014,7 +6121,7 @@ function renderGarmin(){
     h+='<div class="kv"><span>Sleep'+(slT?'':', night to '+esc(fmtDM(addDays(t,-1))))+'</span><b>'+hmText(sl.secs)+(sl.score!=null?', score '+fmtInt(sl.score):'')+'</b></div>'+barHtml(sl.secs/3600,8,short?'--danger':'--c-p');
     if(short&&slT)h+='<p class="hint">Under the 8-hour target'+(planToday.indexOf('run')>-1?': make this morning\'s run shorter, or skip it (your plan).':'.')+'</p>';
   }
-  if(!slT)h+='<p class="hint">'+(gmWellAny(ymd(addDays(t,-6)),today)?'Last night is not in intervals.icu yet: Garmin sometimes sends the sleep hours after the watch syncs, and the app picks it up at a later sync.':
+  if(!slT)h+='<p class="hint">'+(gmSrc()==='garmin'?(gmWellAny(ymd(addDays(t,-6)),today)?'Last night is not in Garmin Connect yet: sync the watch with the Garmin Connect app, and the app picks it up at the next sync.':'No sleep, HRV or resting heart rate has come from Garmin Connect in the last 7 days: the sync report in Settings, Garmin, shows what Garmin sent.'):gmWellAny(ymd(addDays(t,-6)),today)?'Last night is not in intervals.icu yet: Garmin sometimes sends the sleep hours after the watch syncs, and the app picks it up at a later sync.':
     'No sleep, HRV or resting heart rate has come from intervals.icu in the last 7 days: its Garmin link is not passing them on (see Settings, Garmin).')+'</p>';
   if(sl&&!slT)sl=null;
   var rhrT=d.rhr[today],rhrA=gmAvg(d.rhr,ymd(addDays(t,-7)),ymd(addDays(t,-1))),hv=d.hrv[today],hvA=gmAvg(Object.keys(d.hrv).reduce(function(o,k){o[k]=d.hrv[k].night;return o;},{}),ymd(addDays(t,-7)),ymd(addDays(t,-1))),flags=[];
@@ -6086,11 +6193,11 @@ function renderGarmin(){
   h+='<section class="card"><h3>Strength sessions</h3>';
   if(str.length){
     h+=str.slice(0,8).map(function(a){var L=gmLoadOf(a);return '<div class="kv"><span>'+esc(fmtDate(parseYmd(a.date)))+', '+fmtInt(a.dur/60)+' min</span><b>'+(a.rpe!=null?'Effort '+a.rpe+' of 10, load '+fmtInt(L.v):'No rating')+'</b></div>';}).join('');
-    if(str.some(function(a){return a.rpe==null;}))h+='<p class="hint">Sessions without a rating: turn on Self Evaluation for Strength on the watch and rate each session on the watch when it asks; a rating added later in the Garmin Connect app does not reach intervals.icu.</p>';
+    if(str.some(function(a){return a.rpe==null;}))h+='<p class="hint">Sessions without a rating: turn on Self Evaluation for Strength on the watch and rate each session on the watch when it asks; '+(gmSrc()==='garmin'?'a rating added later in the Garmin Connect app (the activity, Perceived Effort) comes in at the next sync.':'a rating added later in the Garmin Connect app does not reach intervals.icu.')+'</p>';
   }else h+='<p class="hint">No strength sessions from Garmin in the last 6 weeks.</p>';
-  return h+'</section><p class="hint">From your Garmin watch through intervals.icu. The app syncs only on Wi-Fi and works offline with the last synced data.</p>';
+  return h+'</section><p class="hint">From your Garmin watch through '+gmSrcName()+'. The app syncs only on Wi-Fi and works offline with the last synced data.</p>';
 }
-function gmSettingsHtml(){
+function gmIcuSettingsHtml(){
   if(!GM.data)gmLoad();
   var key=gmKey(),w=gmWifi(),h='<section class="card"><h3>Garmin</h3>';
   if(!key){
@@ -6111,7 +6218,7 @@ function gmSettingsHtml(){
   h+='<div class="row"><button class="btn" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button><button class="btn" data-act="gm-test"'+(GM.busy||w===false?' disabled':'')+'>Test connection</button></div>'+
     (UI.gmForget?'<div class="confirm"><span>Remove the intervals.icu key from this phone? The synced data stays; syncing stops until a key is added again.</span><div class="row"><button class="btn danger" data-act="gm-forget-yes">Remove</button><button class="btn ghost" data-act="gm-forget-no">Cancel</button></div></div>':
       '<div class="row between"><button class="btn small" data-act="gm-report">Save sync report</button><button class="btn small ghost danger" data-act="gm-forget">Remove key</button></div>')+
-    '<p class="hint">The sync report holds intervals.icu\'s answers to the last sync, cut short, without the key: send it to the developer when something in the Garmin tab looks wrong. If the key was ever seen by someone else, generate a new one in intervals.icu: the old one stops working.</p>';
+    '<p class="hint">The sync report holds intervals.icu\'s answers to the last sync and to the last PDF export, cut short, without the key: send it to the developer when something in the Garmin tab looks wrong. If the key was ever seen by someone else, generate a new one in intervals.icu: the old one stops working.</p>';
   return h+'</section>';
 }
 ACT['gm-key-save']=function(){
@@ -6144,19 +6251,1309 @@ ACT['gm-tr']=function(b){
   var id=b.getAttribute('data-id');if(!id)return;
   S.settings=S.settings||{blockStart:null,targets:{}};var t=S.settings.treadEst=S.settings.treadEst||{};
   if(t[id])delete t[id];else t[id]=true;
-  save('app/settings',S.settings,0);render();
+  save('app/settings',S.settings,0);recAuto();render();
 };
 ACT['gm-tr-all']=function(){UI.gmTrAll=!UI.gmTrAll;render();};
 
+/* ---------- Records (1.3.5): the tests Casian gave on 23-Nov-26, and the runs of 10 km or more from the watch ----------
+   Added once (app/meta rec135): pull-ups and push-ups of weeks 6 to 8 of his block (started 28-Sep-26) with the counts at
+   the pauses and his notes, and the Sunday long runs from 25-Oct-26 to 22-Nov-26 (none on 8-Nov-26: he was away). An entry
+   already in the record in the same week with the same value (for a run: on the same date) is not added again. From
+   22-Nov-26 on, his first calibrated treadmill run, every run of 10 km or more in the Garmin tab goes into the long-run
+   record by itself with its moving time, linked to the activity by its id: switching the run to the estimate changes the
+   entry, and a run deleted in intervals.icu leaves the record at the next sync. A long run before then without a time
+   (those he gave, or one he logged) takes the time of that day's run on the watch, where the phone holds it. */
+var REC_GIVEN={
+  pull:[['2026-11-03',15,'Changed orientation'],['2026-11-10',17,''],['2026-11-17',18,'']],
+  push:[['2026-11-04',35,'Pauses at 22, 27 and 30'],['2026-11-11',35,'Pauses at 24, 27 and 31'],['2026-11-20',28,'Pauses at 18, 21 and 24. First week adding real weight']],
+  run:[['2026-10-25',12,'Easy'],['2026-11-01',12,'60/30/10'],['2026-11-15',13,'Easy'],['2026-11-22',13,'60/30/10']]
+};
+var REC_AUTO_FROM='2026-11-22',REC_AUTO_KM=10;
+/* the record of a kind: the run record (a long run first), or the plain pull-ups and push-ups tests */
+function recFind(kind){
+  var best=null;
+  Object.keys(S.prs||{}).forEach(function(id){
+    var p=S.prs[id],n=String(p.name||'').toLowerCase(),ok;
+    if(kind==='run')ok=p.type==='run';
+    else if(kind==='pull')ok=p.type==='reps'&&/pull.?ups?\b/.test(n)&&!/one.?(arm|hand)|weight|l.?sit|archer|chin|scap|wide|neutral|assist|negative/.test(n);
+    else ok=p.type==='reps'&&/push.?ups?\b/.test(n)&&!/one.?(arm|hand)|weight|archer|pike|diamond|incline|decline|scap|clap/.test(n);
+    if(!ok)return;
+    var score=(kind==='run'&&!/long/.test(n)?1e16:0)+(p.order==null?1e15:p.order);
+    if(!best||score<best[1])best=[id,score];
+  });
+  return best?best[0]:null;
+}
+function recMake(kind){
+  var sp={pull:['Pull-ups','Max strict reps in one set','reps'],push:['Push-ups','Max reps with 3 pauses of 5 s','reps'],run:['Longest run','Distance in one run','run']}[kind];
+  var id='pr-'+uid()+kind;S.prs[id]={name:sp[0],test:sp[1],type:sp[2],order:Date.now(),history:[]};return id;
+}
+function recMon(d){return ymd(mondayOf(parseYmd(d)));}
+function recSeed135(){
+  ['pull','push','run'].forEach(function(kind){
+    var id=recFind(kind)||recMake(kind),pr=S.prs[id],n=0;pr.history=pr.history||[];
+    REC_GIVEN[kind].forEach(function(g){
+      var d=g[0],v=g[1],wk=weekNum(parseYmd(d));
+      if(pr.history.some(function(x){
+        if(kind==='run')return x.date===d;
+        return +x.value===v&&((x.date&&recMon(x.date)===recMon(d))||(!x.date&&wk!=null&&x.week===wk));
+      }))return;
+      pr.history.push(kind==='run'?{date:d,week:wk,km:v,sec:null,note:g[2],src:'given'}:{date:d,week:wk,value:v,note:g[2],src:'given'});n++;
+    });
+    if(n){sortHist(pr);save('prs/'+id,pr,0);}
+  });
+}
+function recRunKm(a){var sp=gmSpeedKmh(a);return sp&&a.moving?sp*a.moving/3600:(a.dist||0)/1000;}
+/* after the Garmin data loads, after each sync and after a treadmill switch */
+function recAuto(){
+  if(!GM.data||!S.settings||!S.prs||(typeof ready==='function'&&!ready('prs')))return false;
+  var acts=GM.data.acts,id=recFind('run'),pr=id?S.prs[id]:null,ch=false;
+  var due=Object.keys(acts).some(function(k){var a=acts[k];return a.cat==='run'&&a.date>=REC_AUTO_FROM&&recRunKm(a)>=REC_AUTO_KM;});
+  if(!pr){if(!due)return false;id=recMake('run');pr=S.prs[id];ch=true;}
+  var h=pr.history=pr.history||[],b0=prBest(pr),km0=b0?prVal(pr,b0):0;
+  var win=GM.data.lastDay?ymd(addDays(parseYmd(GM.data.lastDay),-55)):null;
+  /* entries linked to an activity follow it; one added by the app leaves when its run is gone from the synced weeks */
+  for(var i=h.length-1;i>=0;i--){
+    var x=h[i];if(!x.gid)continue;var a=acts[x.gid];
+    if(!a){if(x.auto&&win&&x.date>=win){h.splice(i,1);ch=true;}continue;}
+    if(x.auto){
+      var km=r2(recRunKm(a)),e=gmEst(a);
+      if(km<REC_AUTO_KM){h.splice(i,1);ch=true;continue;}
+      if(x.km!==km||!!x.est!==e){x.km=km;x.est=e;x.note='From Garmin'+(e?', estimated from my figures':'');ch=true;}
+    }
+    if(!x.sec&&a.moving){x.sec=Math.round(a.moving);ch=true;}
+  }
+  /* every run of 10 km or more from 22-Nov-26 on, once; a long run already given for that day takes the link */
+  Object.keys(acts).map(function(k){return acts[k];}).sort(function(p,q){return p.date+p.time<q.date+q.time?-1:1;}).forEach(function(a){
+    if(a.cat!=='run'||a.date<REC_AUTO_FROM||h.some(function(x){return x.gid===a.id;}))return;
+    var km=r2(recRunKm(a));if(!(km>=REC_AUTO_KM))return;
+    var same=h.filter(function(x){return x.date===a.date&&!x.gid;})[0];
+    if(same){same.gid=a.id;if(!same.sec&&a.moving)same.sec=Math.round(a.moving);ch=true;return;}
+    var e=gmEst(a);
+    h.push({date:a.date,week:weekNum(parseYmd(a.date)),km:km,sec:Math.round(a.moving)||null,note:'From Garmin'+(e?', estimated from my figures':''),gid:a.id,auto:true,est:e});ch=true;
+  });
+  /* a long run before 22-Nov-26 without a time: the time of that day's longest run on the watch (at least 80% of the
+     distance by Garmin's figure, which over-read on the treadmill, so a short morning run is never taken for it) */
+  h.forEach(function(x){
+    if(x.gid||x.sec||!x.date||x.date>=REC_AUTO_FROM||!(x.km>0))return;
+    var best=null;Object.keys(acts).forEach(function(k){var a=acts[k];if(a.cat==='run'&&a.date===x.date&&a.moving&&(a.dist||0)>=x.km*800&&(!best||a.moving>best.moving))best=a;});
+    if(best){x.sec=Math.round(best.moving);x.gid=best.id;ch=true;}
+  });
+  if(!ch)return false;
+  sortHist(pr);save('prs/'+id,pr,0);nvRunnerCfg();
+  var b1=prBest(pr);if(b1&&b1.auto&&prVal(pr,b1)>km0)toast('New longest run: '+fmtKm(b1.km)+' km',3500);
+  return true;
+}
+/* ---------- Garmin export to PDF (1.3.5) ----------
+   Export PDF in the Garmin tab opens a sheet where Casian picks the period, the overview sections, the activities and
+   what to show for each (Casian, 22 and 23-Nov-26: every chart, pace and speed side by side, the strength sets), to send
+   to the training chat. The overview comes from the last sync. The curves of each activity (intervals.icu's streams), its
+   laps and intervals and, for a strength session, the sets in its original file (Garmin's FIT format, which intervals.icu
+   keeps but does not show) are read when he taps Make PDF, on Wi-Fi or mobile data (the export runs only at his request).
+   The app writes the PDF itself, with no library and no internet: real text, so the numbers stay exact, and the charts as
+   lines. A treadmill run's speed curve is scaled to the run's speed in the app (Garmin's after Calibrate & Save, or the
+   estimate from his figures, marked c.). Share hands the file to the phone's share menu; Save to phone downloads it. The
+   answers of the last export, cut short and without the key, join the sync report. */
+var GMX_LS='cfl-pdf';
+var GMX_SEC=[['nights','Nights and recovery','Sleep, score, HRV and resting heart rate of each night, and the recovery check'],
+  ['plan','Sessions and the plan','This week against the plan, and the sessions of each week'],
+  ['load','Training load','Effort rating times minutes by week, and the last 7 days against the 4-week average'],
+  ['running','Running','Km per week, the longest run and the time in heart-rate zones'],
+  ['tread','Treadmill','Pace, speed and heart rate of each treadmill run'],
+  ['strength','Strength sessions','Minutes, effort rating and load of each session']];
+var GMX_CH=[['hr','Heart rate, with the zones'],['pace','Pace and speed'],['cad','Cadence'],['other','Other curves the watch recorded (power, elevation and the like)'],
+  ['zones','Time in each heart-rate zone'],['ints','Laps and intervals'],['sets','Strength sets: exercise, reps, weight and heart rate']];
+var GMX_PRE=[['7d','Last 7 days'],['week','This week'],['4w','Last 4 weeks'],['8w','8 weeks']];
+var GMX_GRP=[['all','All'],['none','None'],['run','Runs'],['strength','Strength'],['cardio','HIIT and cardio'],['other','Other']];
+function gmxRange(p){
+  var t=new Date(),to=ymd(t);
+  if(p==='7d')return [ymd(addDays(t,-6)),to];
+  if(p==='week')return [ymd(mondayOf(t)),to];
+  if(p==='8w')return [ymd(addDays(t,-55)),to];
+  return [ymd(addDays(t,-27)),to];
+}
+function gmxSaved(){try{return JSON.parse(lsGet(GMX_LS)||'null');}catch(e){return null;}}
+function gmxKeep(){var x=UI.gmx;if(x)lsSet(GMX_LS,JSON.stringify({preset:x.preset,from:x.from,to:x.to,sec:x.sec,ch:x.ch}));}
+function gmxOpen(){
+  var s=gmxSaved()||{},pre=s.preset||'7d',r=pre==='custom'&&s.from&&s.to?[s.from,s.to]:gmxRange(pre),sec={},ch={};
+  GMX_SEC.forEach(function(x){sec[x[0]]=!(s.sec&&s.sec[x[0]]===false);});
+  GMX_CH.forEach(function(x){ch[x[0]]=!(s.ch&&s.ch[x[0]]===false);});
+  UI.gmx={preset:pre,from:r[0],to:r[1],sec:sec,ch:ch,off:{},busy:false,prog:'',err:null,out:null};
+}
+function gmxActs(){var x=UI.gmx;return x&&x.from&&x.to&&x.from<=x.to&&GM.data?gmActs(x.from,x.to):[];}
+function gmxChosen(){var x=UI.gmx;return gmxActs().filter(function(a){return !x.off[a.id];});}
+function gmxAnyCharts(c){return c.hr||c.pace||c.cad||c.other||c.zones||c.ints||c.sets;}
+function gmxEstimate(){
+  var x=UI.gmx,acts=gmxActs(),n=gmxChosen().length,p=0;
+  var days=x.from&&x.to&&x.from<=x.to?Math.round((parseYmd(x.to)-parseYmd(x.from))/864e5)+1:0;
+  if(x.sec.nights)p+=1+(days>31?1:0);
+  ['plan','load','running'].forEach(function(k){if(x.sec[k])p+=0.5;});
+  if(x.sec.tread)p+=0.4+acts.filter(function(a){return gmIsTread(a);}).length/45;
+  if(x.sec.strength)p+=0.3+acts.filter(function(a){return a.cat==='strength';}).length/45;
+  return Math.max(1,Math.ceil(p)+(gmxAnyCharts(x.ch)?n:Math.ceil(n/6)));
+}
+function gmxSummary(){
+  var acts=gmxActs(),n=gmxChosen().length,p=gmxEstimate();
+  return '<p class="hint">'+n+' of '+acts.length+(acts.length===1?' activity':' activities')+', about '+p+(p===1?' page':' pages')+'.</p>'+
+    (p>100?'<p class="notice">Over 100 pages: Claude reads the charts only in PDFs of 100 pages or fewer. Choose a shorter period or fewer activities.</p>':'');
+}
+function gmxDow(d){return DAY_SHORT[dayKeyOf(parseYmd(d))];}
+function gmxD(d){return fmtDate(parseYmd(d));}
+function gmxPace(kmh){if(!(kmh>0))return '';var s=Math.round(3600/kmh);return Math.floor(s/60)+':'+pad(s%60);}
+function gmxRunKm(a){var sp=a.cat==='run'?gmSpeedKmh(a):(a.dist&&a.moving?a.dist/a.moving*3.6:null);return sp&&a.moving?sp*a.moving/3600:(a.dist||0)/1000;}
+function gmxActSub(a){
+  var l=[minText(a.dur)],km=gmxRunKm(a);
+  if(km>0.05)l.push((gmEst(a)?'c.':'')+km.toFixed(1)+' km');
+  if(a.hr)l.push('average '+fmtInt(a.hr)+' bpm');
+  return l.join(', ');
+}
+function gmxCheck(id,f,v,on,label,sub){
+  return '<label class="check gmx-check" for="'+id+'"><input type="checkbox" id="'+id+'" data-k="gmx" data-f="'+f+'" data-v="'+esc(v)+'"'+(on?' checked':'')+'><span><b>'+esc(label)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</span></label>';
+}
+function gmxCanShare(o){if(NV.on)return nvHas('Share');try{var f=new File([o.blob],o.name,{type:'application/pdf'});return !!(navigator.share&&navigator.canShare&&navigator.canShare({files:[f]}));}catch(e){return false;}}
+function gmxHtml(){
+  var x=UI.gmx,acts=gmxActs(),h='<section class="card gmx"><div class="row between"><h3>Export PDF</h3><button class="btn ghost small" data-act="gmx-close"'+(x.busy?' disabled':'')+'>Back</button></div>';
+  if(x.out){
+    var o=x.out,mb=o.size/1048576;
+    h+='<p class="gm-verdict ok"><b>Your PDF is ready</b>: '+o.pages+(o.pages===1?' page':' pages')+', '+(mb<0.1?'under 0.1':mb.toFixed(1))+' MB.</p>';
+    if(o.stop)h+='<p class="notice">'+esc(o.stop)+'</p>';
+    if(o.pages>100)h+='<p class="notice">Over 100 pages: Claude reads the charts only in PDFs of 100 pages or fewer. A shorter period or fewer activities keeps them readable.</p>';
+    h+='<div class="row">'+(gmxCanShare(o)?'<button class="btn primary" data-act="gmx-share">Share</button>':'')+'<button class="btn" data-act="gmx-save">Save to phone</button><button class="btn ghost" data-act="gmx-again">Change and make again</button></div>';
+    h+='<p class="hint">Share opens the phone\'s share menu, with the Claude app among the choices. The PDF holds your health data: keep it out of the GitHub repository.</p>';
+    return h+'</section>';
+  }
+  h+='<p class="hint">Choose what goes into the PDF. The charts, laps and strength sets are read from '+gmSrcName()+' when you tap Make PDF, on Wi-Fi or mobile data; the rest comes from the last sync.</p>';
+  h+='<h4>Period</h4><div class="ph-chips" role="group" aria-label="Period">'+GMX_PRE.map(function(p){return '<button class="ph-chip" data-act="gmx-pre" data-p="'+p[0]+'" aria-pressed="'+(x.preset===p[0])+'">'+p[1]+'</button>';}).join('')+'</div>';
+  h+='<div class="grid2"><label class="fld" for="gmx-from"><span>From</span><input class="txt" type="date" id="gmx-from" data-k="gmx" data-f="from" value="'+esc(x.from||'')+'"></label>'+
+    '<label class="fld" for="gmx-to"><span>To</span><input class="txt" type="date" id="gmx-to" data-k="gmx" data-f="to" value="'+esc(x.to||'')+'"></label></div>';
+  h+='<h4>Overview</h4><div class="gmx-list">'+GMX_SEC.map(function(s){return gmxCheck('gmx-s-'+s[0],'sec',s[0],x.sec[s[0]],s[1],s[2]);}).join('')+'</div>';
+  h+='<h4>For each activity</h4><div class="gmx-list">'+GMX_CH.map(function(c){return gmxCheck('gmx-c-'+c[0],'ch',c[0],x.ch[c[0]],c[1],'');}).join('')+'</div>';
+  h+='<h4>Activities</h4>';
+  if(acts.length){
+    h+='<div class="ph-chips" role="group" aria-label="Tick a group">'+GMX_GRP.map(function(g){return '<button class="ph-chip" data-act="gmx-grp" data-g="'+g[0]+'">'+g[1]+'</button>';}).join('')+'</div>';
+    h+='<div class="row"><button class="btn small ghost" data-act="gmx-list">'+(x.list?'Hide the list':'Choose one by one ('+acts.length+')')+'</button></div>';
+    if(x.list)h+='<div class="gmx-list">'+acts.slice().reverse().map(function(a){return gmxCheck('gmx-a-'+a.id,'act',a.id,!x.off[a.id],gmxDow(a.date)+' '+gmxD(a.date)+', '+(a.time?a.time+' ':'')+a.name,gmxActSub(a));}).join('')+'</div>';
+  }else h+='<p class="hint">No activities from Garmin in this period.</p>';
+  h+='<div id="gmx-sum">'+gmxSummary()+'</div>';
+  if(x.err)h+='<p class="err">'+esc(x.err)+'</p>';
+  h+='<div class="row"><button class="btn primary" data-act="gmx-make"'+(x.busy?' disabled':'')+'>'+(x.busy?'Making the PDF...':'Make PDF')+'</button></div>';
+  if(x.busy)h+='<p class="hint" id="gmx-prog">'+esc(x.prog||'')+'</p>';
+  return h+'</section>';
+}
+INPUT.gmx=function(t){
+  var x=UI.gmx;if(!x||x.busy)return;
+  var f=t.getAttribute('data-f'),v=t.getAttribute('data-v');
+  if(f==='from'||f==='to'){x[f]=t.value;x.preset='custom';gmxKeep();requestRender();}
+  else if(f==='sec'||f==='ch'){x[f][v]=!!t.checked;gmxKeep();}
+  else if(f==='act'){if(t.checked)delete x.off[v];else x.off[v]=true;}
+  var el=document.getElementById('gmx-sum');if(el)el.innerHTML=gmxSummary();
+};
+ACT['gmx-open']=function(){gmxOpen();render();window.scrollTo(0,0);};
+ACT['gmx-close']=function(){if(UI.gmx&&UI.gmx.busy)return;UI.gmx=null;render();};
+ACT['gmx-pre']=function(b){var x=UI.gmx,p=b.getAttribute('data-p'),r=gmxRange(p);x.preset=p;x.from=r[0];x.to=r[1];gmxKeep();render();};
+ACT['gmx-grp']=function(b){
+  var x=UI.gmx,g=b.getAttribute('data-g'),acts=gmxActs();
+  if(g==='all')x.off={};
+  else if(g==='none')acts.forEach(function(a){x.off[a.id]=true;});
+  else{var grp=acts.filter(function(a){return a.cat===g;}),on=grp.length&&grp.every(function(a){return !x.off[a.id];});grp.forEach(function(a){if(on)x.off[a.id]=true;else delete x.off[a.id];});}
+  render();
+};
+ACT['gmx-list']=function(){if(UI.gmx){UI.gmx.list=!UI.gmx.list;render();}};
+ACT['gmx-make']=function(){gmxMake();};
+ACT['gmx-again']=function(){if(UI.gmx){UI.gmx.out=null;render();}};
+ACT['gmx-save']=function(){var o=UI.gmx&&UI.gmx.out;if(!o)return;downloadBlob(o.blob,o.name);toast('PDF saved to the phone',2500);};
+ACT['gmx-share']=function(){
+  var o=UI.gmx&&UI.gmx.out;if(!o)return;
+  if(NV.on){nvShareFile(o.blob,o.name,'Training data from Garmin');return;}
+  var f=new File([o.blob],o.name,{type:'application/pdf'});
+  navigator.share({files:[f],title:o.name}).catch(function(e){if(e&&e.name==='AbortError')return;downloadBlob(o.blob,o.name);toast('Sharing did not work: the PDF was saved to the phone instead',3500);});
+};
+function gmxMake(){
+  var x=UI.gmx;if(!x||x.busy)return;
+  if(!x.from||!x.to||x.from>x.to){x.err='Choose the period: the From date on or before the To date.';render();return;}
+  var acts=gmxChosen(),anySec=GMX_SEC.some(function(s){return x.sec[s[0]];});
+  if(!acts.length&&!anySec){x.err='Choose at least one overview section or one activity.';render();return;}
+  x.err=null;x.busy=true;x.prog='Starting...';render();
+  var prog=function(m){x.prog=m;var el=document.getElementById('gmx-prog');if(el)el.textContent=m;};
+  gmxFetchAll(acts,x.ch,prog).then(function(got){prog('Writing the PDF...');return gmxBuild(x,acts,got);})
+    .then(function(res){x.busy=false;x.out=res;render();window.scrollTo(0,0);},function(e){x.busy=false;x.err='The PDF could not be made ('+(e&&e.message||e)+').';render();});
+}
+
+/* ---------- reading the export's data from intervals.icu ---------- */
+function gmGetRaw(path){
+  var key=lsGet(GM_LS.key)||'';if(!key)return Promise.reject(gmErr('nokey'));
+  return fetch(gmBase()+path,{headers:{'Authorization':'Basic '+btoa('API_KEY:'+key)}}).then(function(r){
+    if(r.status===401||r.status===403)throw gmErr('key',r.status);
+    if(r.status===429)throw gmErr('rate',429);
+    if(!r.ok)throw gmErr('http',r.status+' '+path);
+    return r.arrayBuffer();
+  },function(e){throw gmErr('net',e);});
+}
+/* the original file as it comes: gzipped, zipped (the reader of the photos zip), or plain */
+function gmxGunzip(buf){
+  var u=new Uint8Array(buf);
+  if(u[0]===0x50&&u[1]===0x4b&&u[2]===3&&u[3]===4){
+    var ents;try{ents=phUnzip(buf);}catch(e){return Promise.reject(e);}
+    var names=Object.keys(ents),nm=names.filter(function(n){return /\.fit$/i.test(n);})[0]||names[0];
+    if(!nm)return Promise.reject(new Error('an empty zip'));
+    return phInflate(ents[nm]).then(function(x){return {u:x,gz:false,zip:true};});
+  }
+  if(!(u[0]===0x1f&&u[1]===0x8b))return Promise.resolve({u:u,gz:false});
+  if(typeof DecompressionStream==='undefined')return Promise.reject(new Error('this browser cannot unpack the file'));
+  return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer().then(function(b){return {u:new Uint8Array(b),gz:true};});
+}
+function gmxFetchAll(acts,ch,prog){
+  var got={},rep={at:new Date().toISOString(),version:APP_VERSION,activities:acts.length,calls:[],files:[]},stop=null;
+  var curves=ch.hr||ch.pace||ch.cad||ch.other,jobs=[];
+  acts.forEach(function(a){
+    got[a.id]={};
+    if(curves)jobs.push([a,'streams']);
+    if(ch.ints&&a.cat!=='strength')jobs.push([a,'ints']);
+    if(ch.sets&&a.cat==='strength')jobs.push([a,'file']);
+  });
+  function one(job,i){
+    var a=job[0],kind=job[1],g=got[a.id],id=encodeURIComponent(a.id),t0=Date.now();
+    if(stop)return Promise.resolve();
+    prog('Reading '+(i+1)+' of '+jobs.length+' from '+gmSrcName()+'...');
+    var path=kind==='streams'?'/api/v1/activity/'+id+'/streams.json':kind==='ints'?'/api/v1/activity/'+id+'/intervals':'/api/v1/activity/'+id+'/file';
+    if(gmSrc()==='garmin')path=gmgPath(kind,a.id);
+    var call=function(){return gmSrc()==='garmin'?gmgExport(kind,a):kind==='file'?gmGetRaw(path):gmGet(path);};
+    return call().catch(function(e){if(e.gm==='rate')return new Promise(function(r){setTimeout(r,2000);}).then(call);throw e;}).then(function(j){
+      var c={path:path,ok:true,ms:Date.now()-t0};
+      if(kind==='streams'){g.streams=gmxStreams(j);c.types=Object.keys(g.streams).map(function(k){return k+' '+g.streams[k].length;});}
+      else if(kind==='ints'){g.ints=gmxInts(j);c.n=g.ints.length;c.sample=gmSample(g.ints.slice(0,1));}
+      else if(j&&j.cflFit){g.fit=j.cflFit;c.from='exerciseSets';c.why=j.cflFit.why;rep.files.push({id:a.id,from:'exerciseSets',sets:j.cflFit.sets.length,why:j.cflFit.why});rep.calls.push(c);return;}
+      else return gmxGunzip(j).then(function(z){
+        var fit=gmxFit(z.u);g.fit=fit;c.bytes=z.u.length;c.gz=z.gz;c.zip=!!z.zip;
+        rep.files.push({id:a.id,bytes:z.u.length,gz:z.gz,zip:!!z.zip,messages:fit.counts,sets:fit.sets.length,steps:Object.keys(fit.steps).length,titles:fit.titles.length,error:fit.err});
+        rep.calls.push(c);
+      },function(e2){g.fileErr='could not be unpacked';rep.calls.push({path:path,ok:false,error:'unpack '+(e2&&e2.message||e2)});});
+      rep.calls.push(c);
+    },function(e){
+      rep.calls.push({path:path,ok:false,error:(e.gm||'')+(e.detail?' '+e.detail:e.message?' '+e.message:'')});
+      if(e.gm==='key'||e.gm==='nokey'||e.gm==='net'){stop=e.gm==='net'?'Charts, laps and sets not included: '+gmSrcName()+' did not answer (no connection?) when the PDF was made.':
+        e.gm==='nokey'?'Charts, laps and sets not included: there is no '+gmSrcName()+' key on this phone.':'Charts, laps and sets not included: '+gmSrcName()+' refused the key.';return;}
+      g[kind+'Err']=e.gm==='http'&&/^404/.test(e.detail||'')?'not in '+gmSrcName():'could not be read';
+    });
+  }
+  return jobs.reduce(function(p,job,i){return p.then(function(){return one(job,i);});},Promise.resolve()).then(function(){
+    got._stop=stop;
+    GM.report=GM.report||{app:APP_ID,kind:'sync-report',source:gmSrcName(),version:APP_VERSION,calls:[]};
+    GM.report.export=rep;gmStore();
+    return got;
+  });
+}
+function gmxStreams(j){var m={};(Array.isArray(j)?j:j&&Array.isArray(j.streams)?j.streams:[]).forEach(function(s){if(s&&s.type&&Array.isArray(s.data))m[String(s.type)]=s.data;});return m;}
+function gmxInts(j){var l=j&&(Array.isArray(j)?j:j.icu_intervals);return Array.isArray(l)?l.filter(function(x){return x&&typeof x==='object';}):[];}
+
+/* ---------- the original file (Garmin's FIT format): records with the heart rate, the sets, the workout's steps ---------- */
+var GMX_EXCAT=['Bench press','Calf raise','Cardio','Carry','Chop','Core','Crunch','Curl','Deadlift','Flye','Hip raise','Hip stability','Hip swing','Hyperextension',
+  'Lateral raise','Leg curl','Leg raise','Lunge','Olympic lift','Plank','Plyo','Pull-up','Push-up','Row','Shoulder press','Shoulder stability','Shrug','Sit-up','Squat',
+  'Total body','Triceps extension','Warm-up','Run'];
+var GMX_BS={0:1,1:1,2:1,7:1,10:1,13:1,0x83:2,0x84:2,0x8b:2,0x85:4,0x86:4,0x8c:4,0x88:4,0x89:8,0x8e:8,0x8f:8,0x90:8};
+function gmxFitVal(dv,p,bt,le){
+  switch(bt){
+    case 0:case 2:case 10:case 13:var a=dv.getUint8(p);return (bt===10?a===0:a===0xff)?null:a;
+    case 1:var b=dv.getInt8(p);return b===0x7f?null:b;
+    case 0x83:var c=dv.getInt16(p,le);return c===0x7fff?null:c;
+    case 0x84:case 0x8b:var d=dv.getUint16(p,le);return (bt===0x8b?d===0:d===0xffff)?null:d;
+    case 0x85:var e=dv.getInt32(p,le);return e===0x7fffffff?null:e;
+    case 0x86:case 0x8c:var f=dv.getUint32(p,le);return (bt===0x8c?f===0:f===0xffffffff)?null:f;
+    case 0x88:var g=dv.getFloat32(p,le);return isFinite(g)?g:null;
+    case 0x89:var h=dv.getFloat64(p,le);return isFinite(h)?h:null;
+  }
+  return null;
+}
+function gmxFit(u){
+  var out={recs:[],sets:[],steps:{},titles:[],counts:{},err:null};
+  try{
+    if(u.length<14)throw new Error('the file is too short');
+    if(String.fromCharCode(u[8],u[9],u[10],u[11])!=='.FIT')throw new Error('not a FIT file');
+    var dv=new DataView(u.buffer,u.byteOffset,u.byteLength),hs=u[0],size=dv.getUint32(4,true),end=Math.min(u.length,hs+size),p=hs,defs={},last=0;
+    while(p<end){
+      var h=u[p++];
+      if(h&0x40&&!(h&0x80)){
+        var lt=h&0x0f,dev=h&0x20,le=u[p+1]===0;p+=2;
+        var g=dv.getUint16(p,le);p+=2;var nf=u[p++],fl=[];
+        for(var i=0;i<nf;i++){fl.push([u[p],u[p+1],u[p+2]]);p+=3;}
+        var dsz=0;if(dev){var nd=u[p++];for(var j=0;j<nd;j++){dsz+=u[p+1];p+=3;}}
+        defs[lt]={g:g,le:le,f:fl,dev:dsz};continue;
+      }
+      var ts=null,df;
+      if(h&0x80){df=defs[(h>>5)&3];var off=h&0x1f;ts=(last-(last%32))+off;if(off<last%32)ts+=32;last=ts;}
+      else df=defs[h&0x0f];
+      if(!df)throw new Error('a message before its definition');
+      var v={};
+      for(var k=0;k<df.f.length;k++){
+        var fd=df.f[k],num=fd[0],sz=fd[1],bt=fd[2],bs=GMX_BS[bt]||1;
+        if(bt===7){var s='';for(var q=0;q<sz&&u[p+q];q++)s+=String.fromCharCode(u[p+q]);try{s=decodeURIComponent(escape(s));}catch(e2){}v[num]=s;}
+        else if(bs<8||bt===0x89){
+          if(sz===bs)v[num]=gmxFitVal(dv,p,bt,df.le);
+          else if(sz%bs===0){var arr=[];for(var r=0;r<sz;r+=bs)arr.push(gmxFitVal(dv,p+r,bt,df.le));v[num]=arr;}
+        }
+        p+=sz;
+      }
+      p+=df.dev;
+      if(v[253]!=null){last=v[253];ts=v[253];}
+      gmxFitTake(df.g,v,ts,out);
+    }
+  }catch(e){out.err=String(e&&e.message||e);}
+  return out;
+}
+function gmxOne(x){return Array.isArray(x)?x[0]:x;}
+function gmxFitTake(g,v,ts,out){
+  out.counts[g]=(out.counts[g]||0)+1;
+  if(g===20){var hr=v[3];if(ts!=null&&hr>0)out.recs.push([ts,hr]);}
+  else if(g===225)out.sets.push({ts:v[254],start:v[6],dur:v[0]!=null?v[0]/1000:null,reps:v[3],kg:v[4]!=null?v[4]/16:null,type:v[5],cat:gmxOne(v[7]),sub:gmxOne(v[8]),step:v[11],idx:v[10]});
+  else if(g===27&&v[254]!=null)out.steps[v[254]]={name:v[0]||'',cat:v[10],sub:v[11]};
+  else if(g===264)out.titles.push({cat:v[0],sub:v[1],name:v[2]||''});
+}
+/* the active sets, each with its rest after it and the heart rate of the watch's records during it */
+function gmxSets(fit){
+  if(!fit||!fit.sets.length)return [];
+  var recs=fit.recs,rows=[],sets=fit.sets.slice().sort(function(a,b){return (a.start||a.ts||0)-(b.start||b.ts||0);});
+  sets.forEach(function(s,i){
+    if(s.type===0)return;
+    var st=s.start!=null?s.start:(s.ts!=null&&s.dur!=null?s.ts-s.dur:null),en=st!=null&&s.dur!=null?st+s.dur:s.ts,sum=0,n=0,mx=0;
+    if(st!=null&&en!=null)recs.forEach(function(r){if(r[0]>=st&&r[0]<=en){sum+=r[1];n++;if(r[1]>mx)mx=r[1];}});
+    var nx=sets[i+1],rest=nx&&nx.type===0?nx.dur:null;
+    var step=s.step!=null?fit.steps[s.step]:null,title=fit.titles.filter(function(t){return t.cat===s.cat&&t.sub===s.sub&&t.name;})[0];
+    var name=(step&&step.name)||(title&&title.name)||(s.cat!=null&&GMX_EXCAT[s.cat])||(s.cat!=null&&s.cat<65534?'Exercise (category '+s.cat+')':'Exercise');
+    rows.push({name:name,reps:s.reps,kg:s.kg,dur:s.dur,rest:rest,avg:n?sum/n:null,max:n?mx:null});
+  });
+  return rows;
+}
+
+/* ---------- the curves of an activity ---------- */
+var GMX_SKIP=['time','distance','latlng','lat','lng','moving','velocity_smooth','velocity','heartrate','heart_rate','cadence','raw_heartrate','fixed_heartrate','fixed_altitude','hrv','rr'];
+var GMX_LABEL={watts:'Power (W)',altitude:'Elevation (m)',temp:'Temperature (C)',grade_smooth:'Grade (%)',respiration:'Respiration (breaths per min)',
+  core_temperature:'Core temperature (C)',skin_temperature:'Skin temperature (C)',smo2:'Muscle oxygen (%)',thb:'Haemoglobin (g/dL)'};
+function gmxNums(arr){return arr.map(function(v){return v==null||v===''||isNaN(+v)?null:+v;});}
+function gmxMoving(sp){var s=0,n=0;sp.forEach(function(v){if(v!=null&&v>3){s+=v;n++;}});return n?s/n:null;}
+function gmxCurves(a,m){
+  var out=[],n=0;
+  Object.keys(m).forEach(function(k){if(Array.isArray(m[k]))n=Math.max(n,m[k].length);});
+  if(!n)return out;
+  var t=m.time&&m.time.length?gmxNums(m.time):null,i;
+  if(!t){t=[];for(i=0;i<n;i++)t.push(i);}
+  var mins=t.map(function(s){return s==null?null:s/60;});
+  var hr=m.heartrate||m.heart_rate;
+  if(hr&&hr.some(function(v){return v>0;}))out.push({k:'hr',title:'Heart rate (bpm)',x:mins,y:gmxNums(hr).map(function(v){return v>0?v:null;}),color:[0.82,0.24,0.32]});
+  var vs=m.velocity_smooth||m.velocity,sp=null;
+  if(vs)sp=gmxNums(vs).map(function(v){return v!=null&&v>=0?v*3.6:null;});
+  else if(m.distance){var d=gmxNums(m.distance);sp=d.map(function(v,i2){var j=Math.max(0,i2-10);return v==null||d[j]==null||t[i2]==null||t[j]==null||t[i2]===t[j]?null:(v-d[j])/(t[i2]-t[j])*3.6;});}
+  if(sp&&sp.some(function(v){return v>1;})){
+    var f=1,mv=gmxMoving(sp),app=a.cat==='run'?gmSpeedKmh(a):null;
+    if(app&&mv&&gmIsTread(a)){var r=app/mv;if(r>0.6&&r<1.5&&Math.abs(r-1)>0.005)f=r;}
+    out.push({k:'pace',title:'Pace and speed: km/h on the left, min per km on the right'+(gmEst(a)?' (c., estimated from my figures)':f!==1?' (matched to the run\'s distance)':''),
+      x:mins,y:sp.map(function(v){return v==null?null:v*f;}),color:[0.16,0.4,0.74],pace:true,f:f});
+  }
+  if(m.cadence){
+    var c=gmxNums(m.cadence),nz=c.filter(function(v){return v>0;}).sort(function(p,q){return p-q;}),med=nz.length?nz[nz.length>>1]:0;
+    if(med>0){var dbl=a.cat==='run'&&med<120;out.push({k:'cad',title:'Cadence ('+(a.cat==='run'?'steps':'strokes or reps')+' per min)',x:mins,y:c.map(function(v){return v>0?(dbl?v*2:v):null;}),color:[0.48,0.3,0.68]});}
+  }
+  Object.keys(m).forEach(function(k){
+    if(GMX_SKIP.indexOf(k)>-1||!Array.isArray(m[k])||m[k].length<n*0.9)return;
+    var y=gmxNums(m[k]),nn=y.filter(function(v){return v!=null;});if(nn.length<10)return;
+    var lo=Math.min.apply(null,nn),hi=Math.max.apply(null,nn);if(hi-lo<(k==='altitude'?3:0.001))return;
+    out.push({k:'other',title:GMX_LABEL[k]||(k.charAt(0).toUpperCase()+k.slice(1).replace(/_/g,' ')),x:mins,y:y,color:[0.84,0.48,0.12]});
+  });
+  return out;
+}
+
+/* ---------- a small PDF writer: A4 pages, Helvetica, lines and text ---------- */
+var GMX_W1=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+var GMX_W2=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+var GMX_INK=[0.12,0.14,0.16],GMX_MUTED=[0.42,0.45,0.48],GMX_GRID=[0.86,0.88,0.9],GMX_WARN=[0.72,0.33,0.04];
+var GMX_ZB=[[0.86,0.92,0.99],[0.86,0.95,0.87],[0.99,0.96,0.82],[0.99,0.89,0.8],[0.98,0.84,0.84]];
+var GMX_ZC=[[0.5,0.72,0.94],[0.42,0.73,0.48],[0.94,0.78,0.28],[0.94,0.54,0.24],[0.84,0.28,0.28]];
+function gmxAscii(s){
+  s=String(s==null?'':s);
+  try{s=s.normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){}
+  return s.replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u00b5/g,'u').replace(/[^\x20-\x7e]/g,'?');
+}
+function gmxN(v){return (Math.round(v*100)/100).toString();}
+function gmxC(c){return c.map(function(v){return gmxN(v);}).join(' ');}
+function GmPdf(){this.W=595.28;this.H=841.89;this.M=40;this.pages=[];this.y=0;this.top=this.M+22;this.bottom=this.H-this.M-16;}
+GmPdf.prototype.page=function(){this.pg={ops:[]};this.pages.push(this.pg);this.y=this.top;return this.pg;};
+GmPdf.prototype.need=function(h){if(this.y+h>this.bottom)this.page();};
+GmPdf.prototype.width=function(s,size,bold){var w=0,t=bold?GMX_W2:GMX_W1;s=gmxAscii(s);for(var i=0;i<s.length;i++)w+=t[s.charCodeAt(i)-32]||556;return w*size/1000;};
+GmPdf.prototype.fit=function(s,maxw,size,bold){s=gmxAscii(s);if(this.width(s,size,bold)<=maxw)return s;while(s.length>1&&this.width(s+'...',size,bold)>maxw)s=s.slice(0,-1);return s+'...';};
+GmPdf.prototype.text=function(x,y,s,size,bold,color,align){
+  s=gmxAscii(s);if(!s)return;
+  if(align==='right')x-=this.width(s,size,bold);else if(align==='center')x-=this.width(s,size,bold)/2;
+  this.pg.ops.push('BT /'+(bold?'F2':'F1')+' '+gmxN(size)+' Tf '+gmxC(color||GMX_INK)+' rg '+gmxN(x)+' '+gmxN(this.H-y)+' Td ('+s.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')+') Tj ET');
+};
+GmPdf.prototype.line=function(x1,y1,x2,y2,w,color){this.pg.ops.push(gmxN(w)+' w '+gmxC(color)+' RG '+gmxN(x1)+' '+gmxN(this.H-y1)+' m '+gmxN(x2)+' '+gmxN(this.H-y2)+' l S');};
+GmPdf.prototype.rect=function(x,y,w,h,color){if(w<=0||h<=0)return;this.pg.ops.push(gmxC(color)+' rg '+gmxN(x)+' '+gmxN(this.H-y-h)+' '+gmxN(w)+' '+gmxN(h)+' re f');};
+GmPdf.prototype.poly=function(pts,w,color){
+  if(pts.length<2)return;var H=this.H,o=[gmxN(w)+' w 1 j 1 J '+gmxC(color)+' RG '+gmxN(pts[0][0])+' '+gmxN(H-pts[0][1])+' m'];
+  for(var i=1;i<pts.length;i++)o.push(gmxN(pts[i][0])+' '+gmxN(H-pts[i][1])+' l');
+  this.pg.ops.push(o.join('\n')+' S');
+};
+/* a paragraph wrapped to the page width */
+GmPdf.prototype.para=function(s,size,color,bold){
+  var words=gmxAscii(s).split(' '),line='',maxw=this.W-2*this.M,lh=size*1.35,self=this;
+  function flush(){if(!line)return;self.need(lh);self.text(self.M,self.y+size,line,size,bold,color);self.y+=lh;line='';}
+  words.forEach(function(w){var t=line?line+' '+w:w;if(self.width(t,size,bold)>maxw){flush();line=w;}else line=t;});
+  flush();this.y+=3;
+};
+GmPdf.prototype.h2=function(s){this.need(60);this.y+=8;this.text(this.M,this.y+12,s,12.5,true,GMX_INK);this.y+=17;this.line(this.M,this.y,this.W-this.M,this.y,0.8,GMX_GRID);this.y+=8;};
+GmPdf.prototype.h3=function(s){this.need(40);this.y+=4;this.text(this.M,this.y+9,s,9.5,true,GMX_INK);this.y+=14;};
+/* label and value pairs, two to a row */
+GmPdf.prototype.facts=function(list){
+  var cw=(this.W-2*this.M)/2,self=this,lw=82;
+  list.forEach(function(f){if(f)lw=Math.max(lw,self.width(f[0],8,true)+8);});lw=Math.min(lw,cw*0.55);
+  for(var i=0;i<list.length;i+=2){
+    this.need(14);
+    [list[i],list[i+1]].forEach(function(f,j){if(!f)return;var x=self.M+j*cw;self.text(x,self.y+9,self.fit(f[0],lw-6,8,true),8,true,GMX_MUTED);self.text(x+lw,self.y+9,self.fit(f[1],cw-lw-6,8.5),8.5,false,GMX_INK);});
+    this.y+=14;
+  }
+  this.y+=4;
+};
+GmPdf.prototype.table=function(cols,rows){
+  var self=this,x0=this.M,rh=13,tw=cols.reduce(function(s,c){return s+c.w;},0);
+  function head(){self.need(rh*2);var x=x0;cols.forEach(function(c){self.text(c.a==='r'?x+c.w-4:x,self.y+9,c.t,7.5,true,GMX_MUTED,c.a==='r'?'right':'left');x+=c.w;});self.y+=rh;self.line(x0,self.y-2,x0+tw,self.y-2,0.5,GMX_GRID);}
+  head();
+  rows.forEach(function(r){
+    if(self.y+rh>self.bottom){self.page();head();}
+    var x=x0;r.forEach(function(cell,i){var c=cols[i];self.text(c.a==='r'?x+c.w-4:x,self.y+9,self.fit(cell==null?'':String(cell),c.w-6,8),8,false,GMX_INK,c.a==='r'?'right':'left');x+=c.w;});
+    self.y+=rh;
+  });
+  this.y+=6;
+};
+function gmxNiceScale(lo,hi,n){
+  if(!(hi>lo)){hi=lo+1;lo=lo-1;}
+  var raw=(hi-lo)/n,mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),norm=raw/mag,st=(norm<1.5?1:norm<3?2:norm<7?5:10)*mag;
+  var a=Math.floor(lo/st)*st,b=Math.ceil(hi/st)*st;if(b<=a)b=a+st;
+  return [a,b,st];
+}
+function gmxTick(v,st){return st>=1?String(Math.round(v)):v.toFixed(st>=0.1?1:2);}
+/* the points of a curve averaged into at most n buckets by time */
+function gmxBucket(xs,ys,n){
+  var pts=[];for(var i=0;i<ys.length;i++){if(xs[i]!=null)pts.push([xs[i],ys[i]]);}
+  if(pts.length<=n)return pts;
+  var x0=pts[0][0],x1=pts[pts.length-1][0],w=(x1-x0)/n||1,sum=[],cnt=[];
+  for(var b=0;b<n;b++){sum.push(0);cnt.push(0);}
+  pts.forEach(function(p){if(p[1]==null)return;var k=Math.min(n-1,Math.floor((p[0]-x0)/w));sum[k]+=p[1];cnt[k]++;});
+  return sum.map(function(s,k){return [x0+(k+0.5)*w,cnt[k]?s/cnt[k]:null];});
+}
+/* a line chart over minutes; with pace, the right-hand scale gives min per km for the speeds on the left */
+GmPdf.prototype.chart=function(o){
+  var x=this.M,w=this.W-2*this.M,h=o.h||128;this.need(h+6);
+  var top=this.y,L=x+30,R=x+w-(o.pace?36:6),T=top+16,B=top+h-16,self=this;
+  this.text(x,top+9,o.title,8.5,true,GMX_INK);
+  var pts=gmxBucket(o.x,o.y,460),vals=[];pts.forEach(function(p){if(p[1]!=null)vals.push(p[1]);});
+  if(!vals.length){this.text(L,T+18,'No data',8,false,GMX_MUTED);this.y+=h;return;}
+  var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
+  if(o.pace){var q=vals.slice().sort(function(p2,q2){return p2-q2;});lo=Math.max(0,q[Math.floor(q.length*0.02)]-0.5);hi=q[Math.ceil(q.length*0.98)-1]+0.5;}
+  var sc=gmxNiceScale(lo,hi,4),y0=sc[0],y1=sc[1],st=sc[2],xmax=Math.max(1,pts[pts.length-1][0]);
+  function X(v){return L+v/xmax*(R-L);}function Y(v){return B-(Math.max(y0,Math.min(y1,v))-y0)/(y1-y0)*(B-T);}
+  (o.bands||[]).forEach(function(bd){var a=Math.max(bd[0],y0),c=Math.min(bd[1],y1);if(c>a)self.rect(L,Y(c),R-L,Y(a)-Y(c),bd[2]);});
+  for(var v=y0;v<=y1+st/1000;v+=st){
+    this.line(L,Y(v),R,Y(v),0.35,GMX_GRID);this.text(L-4,Y(v)+2.5,gmxTick(v,st),6.8,false,GMX_MUTED,'right');
+    if(o.pace&&v>0)this.text(R+4,Y(v)+2.5,gmxPace(v),6.8,false,GMX_MUTED);
+  }
+  var xs=xmax<=12?2:xmax<=30?5:xmax<=75?10:xmax<=150?15:30;
+  for(var mm=0;mm<=xmax+0.001;mm+=xs){this.line(X(mm),B,X(mm),B+2.5,0.4,GMX_MUTED);this.text(X(mm),B+10,String(mm),6.8,false,GMX_MUTED,'center');}
+  this.text(L-4,B+10,'min',6.8,false,GMX_MUTED,'right');
+  var seg=[];pts.forEach(function(p){if(p[1]==null){self.poly(seg,0.9,o.color);seg=[];return;}seg.push([X(p[0]),Y(p[1])]);});this.poly(seg,0.9,o.color);
+  this.line(L,B,R,B,0.6,GMX_MUTED);
+  this.y+=h;
+};
+/* bars by week or by day, with an optional reference line */
+GmPdf.prototype.bars=function(o){
+  var x=this.M,w=this.W-2*this.M,h=o.h||110;this.need(h+6);
+  var top=this.y,L=x+26,R=x+w,T=top+18,B=top+h-14,n=o.vals.length,bw=(R-L)/Math.max(1,n),self=this;
+  this.text(x,top+9,o.title,8.5,true,GMX_INK);
+  var mx=Math.max.apply(null,o.vals.concat([o.ref||0,1])),sc=gmxNiceScale(0,mx,4),y1=sc[1],st=sc[2];
+  function Y(v){return B-v/y1*(B-T);}
+  for(var v=0;v<=y1+st/1000;v+=st){this.line(L,Y(v),R,Y(v),0.35,GMX_GRID);this.text(L-4,Y(v)+2.5,gmxTick(v,st),6.8,false,GMX_MUTED,'right');}
+  var every=Math.ceil(n/14);
+  o.vals.forEach(function(v2,i){
+    var bx=L+i*bw+bw*0.16,bh=Math.max(0,B-Y(v2));self.rect(bx,B-bh,bw*0.68,bh,o.colors?o.colors[i]:o.color);
+    if(n<=16&&v2>0)self.text(bx+bw*0.34,B-bh-3,o.fmt?o.fmt(v2):gmxTick(v2,1),6.6,false,GMX_INK,'center');
+    if(i%every===0)self.text(bx+bw*0.34,B+9,o.labels[i],6.6,false,GMX_MUTED,'center');
+  });
+  if(o.ref){this.line(L,Y(o.ref),R,Y(o.ref),0.8,GMX_WARN);this.text(R,Y(o.ref)-3,o.refLabel||'',6.6,false,GMX_WARN,'right');}
+  this.line(L,B,R,B,0.6,GMX_MUTED);
+  this.y+=h;
+};
+/* the five heart-rate zones as one bar with the minutes under it */
+GmPdf.prototype.zonebar=function(z,title){
+  var tot=z.reduce(function(s,v){return s+v;},0);if(!(tot>0))return;
+  this.need(48);var x=this.M,w=this.W-2*this.M,self=this;
+  this.text(x,this.y+9,title,8.5,true,GMX_INK);this.y+=14;
+  z.forEach(function(v,i){var ww=w*v/tot;self.rect(x,self.y,ww,11,GMX_ZC[i]);x+=ww;});
+  this.y+=20;var cw=w/5;
+  z.forEach(function(v,i){self.rect(self.M+i*cw,self.y-6,6,6,GMX_ZC[i]);self.text(self.M+i*cw+9,self.y,'Z'+(i+1)+' '+fmtInt(v/60)+' min ('+fmtInt(100*v/tot)+'%)',7.5,false,GMX_INK);});
+  this.y+=12;
+};
+function gmxDeflate(u8){
+  if(typeof CompressionStream==='undefined')return Promise.resolve({d:u8,z:false});
+  try{return new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer().then(function(b){return {d:new Uint8Array(b),z:true};},function(){return {d:u8,z:false};});}
+  catch(e){return Promise.resolve({d:u8,z:false});}
+}
+GmPdf.prototype.build=function(meta){
+  var self=this,n=this.pages.length,enc=function(s){var u=new Uint8Array(s.length);for(var i=0;i<s.length;i++)u[i]=s.charCodeAt(i)&0xff;return u;};
+  this.pages.forEach(function(p,i){
+    self.pg=p;
+    self.text(self.M,self.M+8,meta.head,7.5,false,GMX_MUTED);
+    self.text(self.W-self.M,self.M+8,'Casian Fitness Log '+APP_VERSION,7.5,false,GMX_MUTED,'right');
+    self.line(self.M,self.M+13,self.W-self.M,self.M+13,0.5,GMX_GRID);
+    self.text(self.W/2,self.H-self.M+4,'Page '+(i+1)+' of '+n,7.5,false,GMX_MUTED,'center');
+  });
+  return Promise.all(this.pages.map(function(p){return gmxDeflate(enc(p.ops.join('\n')));})).then(function(cs){
+    var parts=[],off=0,xref=[];
+    function put(u){parts.push(u);off+=u.length;}
+    function obj(num,body){xref[num]=off;put(enc(num+' 0 obj\n'+body+'\nendobj\n'));}
+    put(enc('%PDF-1.4\n'));put(new Uint8Array([0x25,0xe2,0xe3,0xcf,0xd3,0x0a]));
+    var kids=[];for(var i=0;i<n;i++)kids.push((6+2*i)+' 0 R');
+    obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2,'<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+n+' >>');
+    obj(3,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    obj(4,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+    var d=new Date(),ds='D:'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
+    var esc2=function(s){return gmxAscii(s).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');};
+    obj(5,'<< /Title ('+esc2(meta.title)+') /Producer (Casian Fitness Log '+esc2(APP_VERSION)+') /CreationDate ('+ds+') >>');
+    cs.forEach(function(c,i2){
+      var pn=6+2*i2;
+      obj(pn,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+self.W+' '+self.H+'] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+(pn+1)+' 0 R >>');
+      xref[pn+1]=off;put(enc((pn+1)+' 0 obj\n<< /Length '+c.d.length+(c.z?' /Filter /FlateDecode':'')+' >>\nstream\n'));put(c.d);put(enc('\nendstream\nendobj\n'));
+    });
+    var total=6+2*n,x='xref\n0 '+total+'\n0000000000 65535 f \n';
+    for(var k=1;k<total;k++)x+=('0000000000'+xref[k]).slice(-10)+' 00000 n \n';
+    var at=off;put(enc(x+'trailer\n<< /Size '+total+' /Root 1 0 R /Info 5 0 R >>\nstartxref\n'+at+'\n%%EOF\n'));
+    var all=new Uint8Array(off),p=0;parts.forEach(function(u){all.set(u,p);p+=u.length;});
+    return all;
+  });
+};
+
+/* ---------- what goes into the PDF ---------- */
+function gmxDays(from,to){var out=[],d=parseYmd(from),z=parseYmd(to);while(d<=z){out.push(ymd(d));d=addDays(d,1);}return out;}
+function gmxWeeks(from,to){var out=[],m=mondayOf(parseYmd(from)),z=parseYmd(to);while(m<=z){out.push(ymd(m));m=addDays(m,7);}return out;}
+function gmxBuild(x,acts,got){
+  var P=new GmPdf(),from=x.from,to=x.to,days=gmxDays(from,to).length,now=new Date();
+  var head='Training data from Garmin, '+gmxD(from)+' to '+gmxD(to);
+  P.page();
+  P.text(P.M,P.y+16,'Training data from Garmin',18,true,GMX_INK);P.y+=26;
+  P.text(P.M,P.y+9,'From '+gmxDow(from)+' '+gmxD(from)+' to '+gmxDow(to)+' '+gmxD(to)+' ('+days+(days===1?' day':' days')+'). Made '+fmtDate(now)+' at '+pad(now.getHours())+':'+pad(now.getMinutes())+'.',9.5,false,GMX_MUTED);P.y+=18;
+  P.para('From Casian\'s Garmin watch through '+gmSrcName()+'. Treadmill distances and speeds are Garmin\'s after Calibrate & Save, or estimated from his figures where marked c. (the watch shows 5:30 per km at 10 km/h, 5:15 at 11 and 5:00 at 12). '+(gmSrc()==='garmin'?'Heart-rate zones are Garmin\'s.':'Heart-rate zones are intervals.icu\'s, with those above zone 4 counted as zone 5.')+' Load is the effort rating times the minutes, estimated from the heart-rate zones for a session without a rating.',8.5,GMX_MUTED);
+  if(got._stop)P.para(got._stop,8.5,GMX_WARN,true);
+  if(x.sec.nights)gmxNights(P,from,to);
+  if(x.sec.plan)gmxPlan(P,from,to);
+  if(x.sec.load)gmxLoadSec(P,from,to);
+  if(x.sec.running)gmxRunning(P,from,to);
+  if(x.sec.tread)gmxTread(P,from,to);
+  if(x.sec.strength)gmxStrength(P,from,to);
+  var charts=gmxAnyCharts(x.ch),anySec=GMX_SEC.some(function(s){return x.sec[s[0]];});
+  acts.forEach(function(a,i){if(i===0&&!anySec)P.need(200);else if(charts||i===0)P.page();else P.need(90);gmxActivity(P,a,got[a.id]||{},x.ch,!!got._stop);});
+  return P.build({head:head,title:head}).then(function(bytes){
+    var blob=new Blob([bytes],{type:'application/pdf'});
+    return {blob:blob,size:blob.size,pages:P.pages.length,name:'garmin-'+from+'-to-'+to+'.pdf',stop:got._stop||null};
+  });
+}
+function gmxNights(P,from,to){
+  var d=GM.data,ds=gmxDays(from,to),rows=[],hs=[],lab=[],sl=0,ns=0,under=0,hv=[],rh=[];
+  P.h2('Nights and recovery');
+  ds.forEach(function(k){
+    var s=d.sleep[k],v=d.hrv[k],r=d.rhr[k];
+    hs.push(s?s.secs/3600:0);lab.push(fmtDM(parseYmd(k)));
+    if(s){sl+=s.secs;ns++;if(s.secs<8*3600)under++;}
+    if(v&&v.night!=null)hv.push(v.night);if(r!=null)rh.push(r);
+    if(s||(v&&v.night!=null)||r!=null)rows.push([gmxDow(k)+' '+gmxD(k),s?hmText(s.secs):'',s&&s.score!=null?fmtInt(s.score):'',v&&v.night!=null?fmtInt(v.night):'',r!=null?fmtInt(r):'',s&&s.secs<8*3600?'under 8 h':'']);
+  });
+  if(!rows.length){P.para('No sleep, HRV or resting heart rate from '+gmSrcName()+' in this period.',9,GMX_MUTED);return;}
+  var avg=function(l){return l.reduce(function(s,v){return s+v;},0)/l.length;};
+  P.facts([['Average sleep',ns?hmText(sl/ns)+' over '+ns+(ns===1?' night':' nights'):'none'],['Under 8 hours',under+' of '+ns+(ns===1?' night':' nights')],
+    ['Average HRV',hv.length?fmtInt(avg(hv))+' ms':'none'],['Resting heart rate',rh.length?fmtInt(avg(rh))+' bpm on average':'none']]);
+  /* the recovery check of the last day, as in the tab */
+  var t=parseYmd(to),rT=d.rhr[to],rA=gmAvg(d.rhr,ymd(addDays(t,-7)),ymd(addDays(t,-1))),vT=d.hrv[to];
+  var vA=gmAvg(Object.keys(d.hrv).reduce(function(o,k){o[k]=d.hrv[k].night;return o;},{}),ymd(addDays(t,-7)),ymd(addDays(t,-1))),sT=d.sleep[to],fl=[];
+  if(rT!=null&&rA!=null&&rT>=rA+5)fl.push('resting heart rate '+fmtInt(rT-rA)+' beats above the week');
+  if(vT&&vT.night!=null&&vA!=null&&vT.night<0.85*vA)fl.push('HRV below the usual range');
+  if(sT&&sT.secs<6*3600)fl.push('under 6 hours of sleep');
+  if(rT!=null||(vT&&vT.night!=null))P.para('Recovery check, '+gmxDow(to)+' '+gmxD(to)+': '+(fl.length?'take it easier ('+fl.join(', ')+')':'recovered as usual')+'.',9,fl.length?GMX_WARN:GMX_INK,true);
+  P.bars({title:'Sleep, hours, the night to each day (the line: 8 hours)',vals:hs,labels:lab,color:[0.36,0.55,0.86],ref:8,refLabel:'8 h',fmt:function(v){return v.toFixed(1);}});
+  P.table([{t:'Night to',w:110},{t:'Sleep',w:80,a:'r'},{t:'Score',w:60,a:'r'},{t:'HRV (ms)',w:70,a:'r'},{t:'Resting HR',w:80,a:'r'},{t:'',w:115}],rows);
+}
+function gmxPlan(P,from,to){
+  var today=todayY(),mon=ymd(mondayOf(new Date()));
+  P.h2('Sessions and the plan');
+  if(to>=mon&&from<=today){
+    P.h3('This week against the plan of the Train tab');
+    var rows=[];
+    DAYS.forEach(function(k,i){
+      var dd=ymd(addDays(parseYmd(mon),i)),pl=gmPlanned(k),dn=gmDoneOn(dd),title=(S.plan&&S.plan.days&&S.plan.days[k]&&S.plan.days[k].title)||'';
+      if(!pl.length)return;
+      var st=pl.map(function(p){return dn[p]?'done':dd<today?'missed':dd===today?'today':'planned';}),all=st.every(function(s){return s==='done';}),miss=st.indexOf('missed')>-1;
+      rows.push([DAY_SHORT[k]+' '+gmxD(dd),title,all?'Done':miss?(st.indexOf('done')>-1?'Part done':'Missed'):dd===today?'Today':'Planned']);
+    });
+    if(rows.length)P.table([{t:'Day',w:110},{t:'Plan',w:250},{t:'Status',w:80}],rows);else P.para('No runs or sessions in the plan of the Train tab.',9,GMX_MUTED);
+  }
+  P.h3('Sessions by week (Monday to Sunday, within the period)');
+  var rows2=gmxWeeks(from,to).map(function(w){
+    var a=gmActs(w>from?w:from,ymd(addDays(parseYmd(w),6))<to?ymd(addDays(parseYmd(w),6)):to),c={run:0,strength:0,cardio:0,other:0},min=0,km=0,est=false;
+    a.forEach(function(x){c[x.cat]=(c[x.cat]||0)+1;min+=x.dur/60;if(x.cat==='run'){km+=gmxRunKm(x);if(gmEst(x))est=true;}});
+    return [gmxD(w),c.run,c.strength,c.cardio,c.other,fmtInt(min),(est?'c.':'')+km.toFixed(1)];
+  });
+  P.table([{t:'Week of',w:80},{t:'Runs',w:50,a:'r'},{t:'Strength',w:60,a:'r'},{t:'HIIT, cardio',w:75,a:'r'},{t:'Other',w:50,a:'r'},{t:'Minutes',w:70,a:'r'},{t:'Km run',w:70,a:'r'}],rows2);
+}
+function gmxLoadSec(P,from,to){
+  P.h2('Training load');
+  var ws=gmxWeeks(from,to),vals=[],lab=[],rows=[];
+  ws.forEach(function(w){var s=0,n=0,e=0;gmActs(w,ymd(addDays(parseYmd(w),6))).forEach(function(a){var L=gmLoadOf(a);s+=L.v;n++;if(L.est)e++;});vals.push(s);lab.push(fmtDM(parseYmd(w)));rows.push([gmxD(w),n,fmtInt(s),e]);});
+  var t=parseYmd(to),ac=0,chr=0,es=0;
+  gmActs(ymd(addDays(t,-27)),to).forEach(function(a){var L=gmLoadOf(a);chr+=L.v;if(a.date>=ymd(addDays(t,-6))){ac+=L.v;if(L.est)es++;}});
+  chr/=4;var r=chr>0?ac/chr:null;
+  if(r!=null)P.para('The 7 days to '+gmxD(to)+' against the 4-week average: x'+r.toFixed(2)+', '+(r>1.3?'a big jump: keep the next days easy':r<0.8?'lighter than usual':'steady')+'.'+(es?' '+es+(es===1?' session':' sessions')+' of those 7 days without an effort rating, estimated from heart rate.':''),9,r>1.3?GMX_WARN:GMX_INK,true);
+  P.bars({title:'Load by week from Monday (effort rating times minutes)',vals:vals,labels:lab,color:[0.36,0.55,0.86],fmt:function(v){return fmtInt(v);}});
+  P.table([{t:'Week of',w:90},{t:'Sessions',w:70,a:'r'},{t:'Load',w:70,a:'r'},{t:'Estimated from heart rate',w:150,a:'r'}],rows);
+}
+function gmxRunning(P,from,to){
+  P.h2('Running');
+  var ws=gmxWeeks(from,to),vals=[],lab=[],runs=gmActs(from,to).filter(function(a){return a.cat==='run';}),tot=0,lg=null,est=0;
+  ws.forEach(function(w){var s=0;gmActs(w,ymd(addDays(parseYmd(w),6))).forEach(function(a){if(a.cat==='run')s+=gmxRunKm(a);});vals.push(s);lab.push(fmtDM(parseYmd(w)));});
+  runs.forEach(function(a){var k=gmxRunKm(a);tot+=k;if(gmEst(a))est++;if(!lg||k>=lg.k)lg={k:k,a:a};});
+  P.facts([['Runs',runs.length+', '+(est?'c.':'')+tot.toFixed(1)+' km'],['Longest run',lg?(gmEst(lg.a)?'c.':'')+lg.k.toFixed(1)+' km, '+gmxDow(lg.a.date)+' '+gmxD(lg.a.date):'none']]);
+  if(est)P.para(est+(est===1?' treadmill run':' treadmill runs')+' of the period estimated from Casian\'s figures (marked c.).',8.5,GMX_MUTED);
+  P.bars({title:'Km run by week from Monday',vals:vals,labels:lab,color:[0.16,0.4,0.74],fmt:function(v){return v.toFixed(1);}});
+  var zt=[0,0,0,0,0],ez=0,et=0,hz=0,nh=0;
+  gmActs(from,to).forEach(function(a){
+    if(a.cat!=='run'&&a.cat!=='cardio')return;a.zones.forEach(function(z,i){zt[i]+=z;});
+    var k=dayKeyOf(parseYmd(a.date));
+    if(a.cat==='run'&&(k==='tue'||k==='sun')){ez+=a.zones[0]+a.zones[1];et+=a.zones.reduce(function(s,z){return s+z;},0);}
+    if(k==='wed'){hz+=a.zones[3]+a.zones[4];nh++;}
+  });
+  P.zonebar(zt,'Time in heart-rate zones, runs and HIIT of the period');
+  var f=[];if(et>0)f.push(['Easy runs in zones 1 and 2',fmtInt(100*ez/et)+'% (Tuesday and Sunday runs)']);if(nh)f.push(['HIIT in zones 4 and 5',minText(hz)+' over '+nh+(nh===1?' Wednesday session':' Wednesday sessions')]);
+  if(f.length)P.facts(f);
+}
+function gmxTread(P,from,to){
+  P.h2('Treadmill: heart rate at your speed');
+  var tr=gmActs(from,to).filter(function(a){return gmIsTread(a)&&a.hr&&gmSpeedKmh(a);});
+  if(!tr.length){P.para('No treadmill runs with heart rate in this period.',9,GMX_MUTED);return;}
+  var mpb=function(a){return gmSpeedKmh(a)*1000/60/a.hr;},rec=tr.slice(-3),old=tr.filter(function(a){return a.date<=ymd(addDays(parseYmd(to),-21));}).slice(-3);
+  if(rec.length&&old.length){var av=function(l){return l.reduce(function(s,a){return s+mpb(a);},0)/l.length;},ch=(av(rec)/av(old)-1)*100;
+    P.para((ch>=1?'Fitter':ch<=-1?'Less efficient':'About the same')+': '+av(rec).toFixed(2)+' m per heartbeat in the last 3 runs against '+av(old).toFixed(2)+' three weeks before ('+signed(ch,0)+'%).',9,GMX_INK,true);}
+  P.table([{t:'Date',w:95},{t:'Minutes',w:55,a:'r'},{t:'Distance',w:65,a:'r'},{t:'Pace and speed',w:110,a:'r'},{t:'Avg HR',w:55,a:'r'},{t:'m per beat',w:60,a:'r'},{t:'Distance from',w:75}],
+    tr.slice().reverse().map(function(a){var e=gmEst(a),c=e?'c.':'',sp=gmSpeedKmh(a);return [gmxDow(a.date)+' '+gmxD(a.date),fmtInt(a.moving/60),c+(sp*a.moving/3600).toFixed(2)+' km',c+gmxPace(sp)+' /km, '+c+sp.toFixed(1)+' km/h',fmtInt(a.hr),mpb(a).toFixed(2),e?'my figures':'Garmin'];}));
+}
+function gmxStrength(P,from,to){
+  P.h2('Strength sessions');
+  var st=gmActs(from,to).filter(function(a){return a.cat==='strength';});
+  if(!st.length){P.para('No strength sessions from Garmin in this period.',9,GMX_MUTED);return;}
+  P.table([{t:'Date',w:95},{t:'Session',w:150},{t:'Minutes',w:55,a:'r'},{t:'Effort',w:55,a:'r'},{t:'Load',w:50,a:'r'},{t:'Avg HR',w:55,a:'r'},{t:'Max HR',w:55,a:'r'}],
+    st.slice().reverse().map(function(a){var L=gmLoadOf(a);return [gmxDow(a.date)+' '+gmxD(a.date),a.name,fmtInt(a.dur/60),a.rpe!=null?a.rpe+' of 10':'none',L.none?'':(L.est?'c.':'')+fmtInt(L.v),a.hr?fmtInt(a.hr):'',a.maxhr?fmtInt(a.maxhr):''];}));
+  if(st.some(function(a){return a.rpe==null;}))P.para('Sessions without an effort rating: their load is estimated from the heart-rate zones (marked c.).',8.5,GMX_MUTED);
+}
+/* one activity: what the watch recorded, its charts, its laps or its sets */
+function gmxActivity(P,a,g,ch,stopped){
+  P.need(80);
+  P.text(P.M,P.y+13,gmxDow(a.date)+' '+gmxD(a.date)+(a.time?', '+a.time:'')+': '+a.name,13,true,GMX_INK);P.y+=21;
+  var f=[['Time',fmtDur(a.dur)+(a.moving&&Math.abs(a.moving-a.dur)>30?', moving '+fmtDur(a.moving):'')]];
+  var km=gmxRunKm(a),sp=a.cat==='run'?gmSpeedKmh(a):(a.dist&&a.moving?a.dist/a.moving*3.6:null),c=gmEst(a)?'c.':'';
+  if(km>0.05){f.push(['Distance',c+km.toFixed(2)+' km'+(gmEst(a)?', estimated from my figures':gmIsTread(a)?', Garmin\'s':'')]);if(sp)f.push(['Pace and speed',c+gmxPace(sp)+' /km, '+c+sp.toFixed(1)+' km/h']);}
+  if(a.hr)f.push(['Heart rate','average '+fmtInt(a.hr)+(a.maxhr?', max '+fmtInt(a.maxhr):'')+' bpm']);
+  var L=gmLoadOf(a);f.push(['Load',L.none?'none':(L.est?'c.':'')+fmtInt(L.v)+(a.rpe!=null?', effort '+a.rpe+' of 10':', no effort rating')]);
+  if(a.load)f.push([gmIsIcuId(a.id)?'intervals.icu load':'Garmin training load',fmtInt(a.load)]);
+  P.facts(f);
+  var cv=g.streams?gmxCurves(a,g.streams):[],want=[];
+  cv.forEach(function(k){if((k.k==='hr'&&ch.hr)||(k.k==='pace'&&ch.pace)||(k.k==='cad'&&ch.cad)||(k.k==='other'&&ch.other))want.push(k);});
+  want.forEach(function(k){
+    var o={title:k.title,x:k.x,y:k.y,color:k.color,pace:!!k.pace,h:k.k==='other'?104:124};
+    if(k.k==='hr'&&a.hrz&&a.hrz.length){var lo=0;o.bands=a.hrz.map(function(hi,i){var b=[lo,hi,GMX_ZB[Math.min(i,4)]];lo=hi;return b;});o.bands.push([lo,260,GMX_ZB[4]]);o.title+=', zones shaded';}
+    P.chart(o);
+  });
+  if(!stopped&&(ch.hr||ch.pace||ch.cad||ch.other)&&!want.length)P.para(g.streamsErr?'Curves: '+g.streamsErr+'.':'No curves for this activity in '+gmSrcName()+'.',8.5,GMX_MUTED);
+  if(ch.zones)P.zonebar(a.zones,'Time in heart-rate zones');
+  if(ch.ints&&a.cat!=='strength'){
+    if(g.ints&&g.ints.length){
+      var fct=1,cvp=want.filter(function(k){return k.k==='pace';})[0]||cv.filter(function(k){return k.k==='pace';})[0];if(cvp)fct=cvp.f||1;
+      P.h3('Laps and intervals');
+      P.table([{t:'',w:24},{t:'Type',w:80},{t:'Starts',w:45,a:'r'},{t:'Time',w:50,a:'r'},{t:'Distance',w:60,a:'r'},{t:'Pace and speed',w:105,a:'r'},{t:'Avg HR',w:50,a:'r'},{t:'Max HR',w:50,a:'r'},{t:'Cadence',w:50,a:'r'}],
+        g.ints.map(function(v,i){
+          var t0=+v.start_time,secs=+(v.moving_time||v.elapsed_time||0),dist=+(v.distance||0)*fct,spd=+(v.average_speed||0)*3.6*fct||(dist&&secs?dist/secs*3.6:0),cad=+(v.average_cadence||0);
+          if(a.cat==='run'&&cad>0&&cad<120)cad*=2;
+          return [i+1,gmxNice(String(v.label||v.type||'')),isNaN(t0)?'':fmtDur(t0),secs?fmtDur(secs):'',dist?c+(dist/1000).toFixed(2)+' km':'',spd>0.5?c+gmxPace(spd)+' /km, '+c+spd.toFixed(1)+' km/h':'',
+            v.average_heartrate?fmtInt(v.average_heartrate):'',v.max_heartrate?fmtInt(v.max_heartrate):'',cad?fmtInt(cad):''];
+        }));
+    }else if(!stopped)P.para(g.intsErr?'Laps and intervals: '+g.intsErr+'.':'No laps or intervals for this activity in '+gmSrcName()+'.',8.5,GMX_MUTED);
+  }
+  if(ch.sets&&a.cat==='strength'){
+    var rows=gmxSets(g.fit);
+    if(rows.length){
+      P.h3('Sets, as the watch recorded them');
+      P.table([{t:'',w:24},{t:'Exercise',w:150},{t:'Reps',w:40,a:'r'},{t:'Weight',w:55,a:'r'},{t:'Time',w:45,a:'r'},{t:'Rest after',w:60,a:'r'},{t:'Avg HR',w:50,a:'r'},{t:'Max HR',w:50,a:'r'}],
+        rows.map(function(r,i){return [i+1,r.name,r.reps!=null?r.reps:'',r.kg?(Math.round(r.kg*10)/10)+' kg':'',r.dur!=null?fmtDur(r.dur):'',r.rest!=null?fmtDur(r.rest):'',r.avg?fmtInt(r.avg):'',r.max?fmtInt(r.max):''];}));
+      P.para(g.fit&&g.fit.gc?'Sets from Garmin Connect\'s list of the sets (the original file could not be read): names as Garmin Connect shows them, no heart rate per set.':'Exercise names as the watch recorded them: from the workout started on the watch, or Garmin\'s category; changes made later in Garmin Connect do not reach the file.',7.5,GMX_MUTED);
+    }else if(!stopped)P.para(g.fileErr?'Sets: the original file '+g.fileErr+'.':g.fit&&g.fit.err?'Sets: the original file could not be read ('+g.fit.err+').':'No sets in the original file of this session.',8.5,GMX_MUTED);
+  }
+}
+function gmxNice(s){s=String(s||'').replace(/_/g,' ').toLowerCase();return s.charAt(0).toUpperCase()+s.slice(1);}
+
+/* ---------- Garmin's own connection (2.0.0, in the Android app) ----------
+   Casian (23-Nov-26): keep intervals.icu, with a switch in the app to Garmin's own data, since he may delete his
+   intervals.icu account. Garmin Connect's personal API (1.3.1: a key made on the Garmin Connect website, exchanged for a
+   24-hour token) refuses calls from web pages, so the app calls it through its native requests (Capacitor's
+   CapacitorHttp), which no browser rule stops. The switch and the key stay on this phone (localStorage), never in the
+   backup file. A sync reads the last 8 weeks again, as with intervals.icu, into the same data: activities with Garmin's
+   own ids, sleep, HRV and resting heart rate. The treadmill switches and the records' links follow an activity by its
+   date, kind and start time when its id changes, so they survive a switch either way. The PDF export reads the curves
+   (the activity's details), the laps (its splits) and the strength sets (the original file, else Garmin's list of
+   sets). Paths and fields as in Garmin's own client (github.com/garmin/connect-personal-api-python) and Garmin Connect's
+   web pages, read loosely; the sync report shows what Garmin sent. */
+UI.gmValid=UI.gmValid||'365';
+function gmSrc(){return NV.on&&lsGet(GMG_LS.src)==='garmin'?'garmin':'icu';}
+function gmSrcName(){return gmSrc()==='garmin'?'Garmin Connect':'intervals.icu';}
+function gmIsIcuId(id){return /^i\d+$/.test(String(id||''));}
+function gmgBase(){return (lsGet(GMG_LS.base)||GMG_BASE).replace(/\/+$/,'');}
+function gmgKeyTag(k){var h=0;for(var i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))|0;return String(h);}
+function gmgJwtExp(t){try{var p=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');while(p.length%4)p+='=';var o=JSON.parse(atob(p));return o.exp?o.exp*1000:0;}catch(e){return 0;}}
+function gmgUnb64(s){var b=atob(String(s).replace(/[^A-Za-z0-9+/=]/g,'')),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer;}
+function gmgQ(params){return params?'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&'):'';}
+function gmgHttp(url,method,headers,rt){
+  if(!NV.on)return Promise.reject(gmErr('native'));
+  return nvCall('CapacitorHttp','request',{url:url,method:method||'GET',headers:headers||{},responseType:rt||'json',connectTimeout:20000,readTimeout:60000})
+    .then(function(r){return r||{};},function(e){throw gmErr('net',e);});
+}
+/* the 24-hour token, kept until it has less than 10 minutes left */
+function gmgToken(force){
+  var key=lsGet(GMG_LS.key)||'';if(!key)return Promise.reject(gmErr('nokey'));
+  var c=null;try{c=JSON.parse(lsGet(GMG_LS.tok)||'null');}catch(e){}
+  if(!force&&c&&c.t&&c.k===gmgKeyTag(key)&&c.exp-Date.now()>10*60000)return Promise.resolve(c.t);
+  return gmgHttp(gmgBase()+GMG_TOKEN,'POST',{'Accept':'*/*','Authorization':'ApiKey '+key},'text').then(function(r){
+    var st=+r.status||0;
+    if(st===401||st===403)throw gmErr('key',st);
+    if(st===429)throw gmErr('rate',429);
+    if(st<200||st>=300)throw gmErr('http',st+' token');
+    var d=r.data,t=typeof d==='string'?d:(d&&(d.token||d.accessToken||d.access_token))||'';
+    t=String(t||'').trim().replace(/^"|"$/g,'');if(!t)throw gmErr('http','empty token');
+    lsSet(GMG_LS.tok,JSON.stringify({t:t,exp:gmgJwtExp(t)||Date.now()+23*3600000,k:gmgKeyTag(key)}));return t;
+  });
+}
+function gmgGet(path,params,tok,rt){
+  return gmgHttp(gmgBase()+path+gmgQ(params),'GET',{'Accept':rt==='arraybuffer'?'*/*':'application/json','Authorization':'Bearer '+tok},rt).then(function(r){
+    var st=+r.status||0;
+    if(st===401)throw gmErr('auth',401);
+    if(st===403)throw gmErr('http','403 '+path);
+    if(st===429)throw gmErr('rate',429);
+    if(st<200||st>=300)throw gmErr('http',st+' '+path);
+    var d=r.data;if(st===204||d==null)return null;
+    if(rt==='arraybuffer')return typeof d==='string'?gmgUnb64(d):null;
+    if(typeof d==='string'){d=d.trim();if(!d)return null;try{return JSON.parse(d);}catch(e){throw gmErr('http','not JSON '+path);}}
+    return d;
+  });
+}
+function gmgCall(path,params,rt){
+  return gmgToken().then(function(t){return gmgGet(path,params,t,rt);}).catch(function(e){
+    if(e.gm!=='auth')throw e;
+    return gmgToken(true).then(function(t){return gmgGet(path,params,t,rt);}).catch(function(e2){throw e2.gm==='auth'?gmErr('key',401):e2;});
+  });
+}
+function gmgErrText(e){
+  var k=e&&e.gm;
+  if(k==='key')return 'Garmin refused the key: it may have expired or been deleted. Make a new one on the Garmin Connect website (Settings, Personal API Key) and paste it in Settings.';
+  if(k==='net')return 'Garmin Connect did not answer: check that the phone is online and try again. If it keeps failing, save the sync report in Settings and send it.';
+  if(k==='rate')return 'Garmin asked the app to slow down; the next sync will try again.';
+  if(k==='nokey')return 'No Garmin key yet: add it in Settings.';
+  if(k==='native')return 'Garmin\'s own connection works only in the Android app.';
+  return 'Garmin Connect answered with an error ('+((e&&e.detail)||'unknown')+').';
+}
+
+/* reading Garmin's replies: the objects that carry a date and the field wanted, wherever they sit */
+function gmgFind(j,test,out){
+  out=out||[];if(!j||typeof j!=='object')return out;
+  if(Array.isArray(j)){j.forEach(function(x){gmgFind(x,test,out);});return out;}
+  if(test(j))out.push(j);
+  Object.keys(j).forEach(function(k){if(j[k]&&typeof j[k]==='object')gmgFind(j[k],test,out);});
+  return out;
+}
+function gmgDate(o){var d=o.calendarDate||o.summaryDate||o.date;return typeof d==='string'&&/^\d{4}-\d{2}-\d{2}/.test(d)?d.slice(0,10):null;}
+var GMG_SLEEP=['sleepTimeSeconds','sleepTimeInSeconds','totalSleepSeconds','sleepSeconds'];
+function gmgTakeSleep(j,out){
+  gmgFind(j,function(o){return gmgDate(o)&&gmFirst(o,GMG_SLEEP)!=null;}).forEach(function(o){
+    var s=gmFirst(o,GMG_SLEEP);if(!(s>0))return;
+    var sc=o.sleepScores&&o.sleepScores.overall&&o.sleepScores.overall.value;
+    if(sc==null)sc=(o.overallSleepScore&&o.overallSleepScore.value)!=null?o.overallSleepScore.value:gmFirst(o,['sleepScore','overallScore']);
+    out.sleep[gmgDate(o)]={secs:s,score:sc==null||isNaN(+sc)?null:+sc};
+  });
+}
+function gmgTakeHrv(j,out){
+  gmgFind(j,function(o){return gmgDate(o)&&gmFirst(o,['lastNightAvg','lastNightAverage','hrvValue'])!=null;}).forEach(function(o){
+    var b=o.baseline||{};
+    out.hrv[gmgDate(o)]={night:gmFirst(o,['lastNightAvg','lastNightAverage','hrvValue']),weekly:gmFirst(o,['weeklyAvg','weeklyAverage']),status:o.status||o.hrvStatus||null,low:gmFirst(b,['balancedLow']),high:gmFirst(b,['balancedUpper'])};
+  });
+}
+function gmgTakeDaily(j,out){
+  gmgFind(j,function(o){return gmgDate(o)&&gmFirst(o,['restingHeartRate','restingHeartRateValue','restingHR'])!=null;}).forEach(function(o){
+    var v=gmFirst(o,['restingHeartRate','restingHeartRateValue','restingHR']);if(v>25&&v<130)out.rhr[gmgDate(o)]=v;
+  });
+}
+function gmgCat(tk){
+  tk=String(tk||'').toLowerCase();
+  if(/run/.test(tk))return 'run';
+  if(/strength/.test(tk))return 'strength';
+  if(/hiit|cardio|interval|elliptical|stair|row|cycl|bik|fitness_equipment/.test(tk))return 'cardio';
+  return 'other';
+}
+function gmgRpeOf(a){var s=a.summaryDTO||{};return gmRpe(a.directWorkoutRpe!=null?a.directWorkoutRpe:a.workoutRpe!=null?a.workoutRpe:a.perceivedExertion!=null?a.perceivedExertion:s.directWorkoutRpe);}
+function gmgAct(a,keep){
+  if(!a||typeof a!=='object')return null;
+  var id=a.activityId!=null?a.activityId:a.activityID!=null?a.activityID:a.id;if(id==null||id==='')return null;id=String(id);
+  var tk=String((a.activityType&&(a.activityType.typeKey||a.activityType.key))||a.activityTypeKey||'').toLowerCase();
+  var st=String(a.startTimeLocal||a.startTimeGMT||''),date=gmDay(st);if(!date)return null;
+  var mov=+(a.movingDuration||a.duration||a.elapsedDuration||0),el=+(a.duration||a.elapsedDuration||mov);
+  var o={id:id,date:date,time:st.slice(11,16),name:String(a.activityName||tk||'Activity'),type:tk,cat:gmgCat(tk),dur:el,moving:mov,dist:+(a.distance||0),
+    hr:+(a.averageHR||a.averageHeartRate||0)||null,maxhr:+(a.maxHR||a.maxHeartRate||0)||null,speed:+(a.averageSpeed||0)||null,
+    zones:[1,2,3,4,5].map(function(n){return +(a['hrTimeInZone_'+n]||0);}),hrz:null,load:+(a.activityTrainingLoad||0)||null,rpe:gmgRpeOf(a)};
+  var old=keep&&keep[id];
+  if(old){if(o.rpe==null&&old.rpe!=null)o.rpe=old.rpe;if(old.rchk)o.rchk=old.rchk;if(old.hrz)o.hrz=old.hrz;}
+  return o;
+}
+/* Garmin's zones (floors of zones 1 to 5 and the maximum) as the upper bounds the PDF shades: running's, else the default */
+function gmgZones(j){
+  var l=gmgFind(j,function(o){return gmFirst(o,['zone2Floor'])!=null;}),z=l.filter(function(o){return /run/i.test(o.sport||'');})[0]||l.filter(function(o){return /default/i.test(o.sport||'');})[0]||l[0];
+  if(!z)return null;
+  var v=[gmFirst(z,['zone2Floor']),gmFirst(z,['zone3Floor']),gmFirst(z,['zone4Floor']),gmFirst(z,['zone5Floor']),gmFirst(z,['maxHeartRateUsed','maxHeartRate'])];
+  for(var i=0;i<v.length;i++){if(!(v[i]>40&&v[i]<240))return null;if(i&&v[i]<=v[i-1])return null;}
+  return v;
+}
+
+/* when an activity's id changes (a switch of source, or an activity imported again), what was tied to the old id
+   follows it: the treadmill switch and the records' links, matched by date, kind and start time (within 2 minutes) */
+function gmSnap(){var o={};if(GM.data)Object.keys(GM.data.acts).forEach(function(k){var a=GM.data.acts[k];o[k]={date:a.date,time:a.time,cat:a.cat};});return o;}
+function gmMin(t){var p=String(t||'').split(':');return p.length===2&&p[0]!==''?(+p[0])*60+(+p[1]):null;}
+function gmRemap(before){
+  var acts=GM.data.acts,map={},used={},n=0,fresh=Object.keys(acts).filter(function(k){return !before[k];});
+  if(!fresh.length)return 0;
+  Object.keys(before).forEach(function(old){
+    if(acts[old])return;var b=before[old],bm=gmMin(b.time),best=null,bd=3;
+    fresh.forEach(function(k){var a=acts[k];if(used[k]||a.date!==b.date||a.cat!==b.cat)return;var m=gmMin(a.time),d=bm==null||m==null?99:Math.abs(m-bm);if(d<bd){bd=d;best=k;}});
+    if(best){map[old]=best;used[best]=1;n++;}
+  });
+  if(!n)return 0;
+  var te=S.settings&&S.settings.treadEst,ch=false;
+  if(te)Object.keys(map).forEach(function(old){if(te[old]){te[map[old]]=true;delete te[old];ch=true;}});
+  if(ch)save('app/settings',S.settings,0);
+  Object.keys(S.prs||{}).forEach(function(id){
+    var pr=S.prs[id],c=false;(pr.history||[]).forEach(function(x){if(x.gid&&map[x.gid]){x.gid=map[x.gid];c=true;}});
+    if(c)save('prs/'+id,pr,0);
+  });
+  return n;
+}
+
+function gmSync(manual){return gmSrc()==='garmin'?gmgSync(manual):gmIcuSync(manual);}
+function gmgSync(manual){
+  if(GM.busy)return Promise.resolve();
+  if(!NV.on){if(manual)toast('Garmin\'s own connection works only in the Android app',3500);return Promise.resolve();}
+  if(!gmKey()){if(manual)toast('Add your Garmin key in Settings first',3000);return Promise.resolve();}
+  var w=gmWifi();
+  if(w===false||(w===null&&!manual)){if(manual)toast('The Garmin tab syncs only on Wi-Fi',3000);return Promise.resolve();}
+  if(!GM.data){gmLoad();return Promise.resolve();}
+  GM.busy=true;GM.err=null;if(UI.tab==='garmin'||UI.tab==='settings')requestRender();
+  var today=ymd(new Date()),start=ymd(addDays(new Date(),-55));
+  var rep={app:APP_ID,kind:'sync-report',source:'Garmin Connect',version:APP_VERSION,at:new Date().toISOString(),base:gmgBase(),wifi:w,calls:[]};
+  function call(path,params,rt){
+    var label=path+(params?' '+JSON.stringify(params):'');
+    return gmgCall(path,params,rt).then(function(j){rep.calls.push({path:label,ok:true,n:Array.isArray(j)?j.length:null,sample:gmSample(j)});return j;},function(e){rep.calls.push({path:label,ok:false,error:e.gm+(e.detail?' '+e.detail:'')});throw e;});
+  }
+  var fail={};
+  function soft(p,tag){return p.catch(function(e){if(e.gm==='key'||e.gm==='net'||e.gm==='nokey')throw e;fail[tag]=1;return null;});}
+  var acts=[],got={sleep:{},hrv:{},rhr:{}},chunks=gmChunks(start,today,28),before=gmSnap();
+  function page(i){
+    return call('/activitylist-service/activities/search/activities',{start:i,limit:100,startDate:start,endDate:today}).then(function(j){
+      var l=Array.isArray(j)?j:(j&&(j.activityList||j.activities||j.results))||[];acts=acts.concat(l);
+      if(l.length===100&&i<400)return page(i+100);
+    });
+  }
+  return page(0)
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/sleep-service/sleep/dailySleepSummariesByDate',{startDate:c[0],endDate:c[1]}),'sleep').then(function(j){gmgTakeSleep(j,got);});});})
+    .then(function(){
+      var miss=[0,1].map(function(n){return ymd(addDays(new Date(),-n));}).filter(function(d){return !got.sleep[d];});
+      return gmSeq(miss,function(d){return soft(call('/sleep-service/sleep/dailySleep',{date:d}),'night').then(function(j){gmgTakeSleep(j,got);});});
+    })
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/hrv-service/hrv/daily/'+c[0]+'/'+c[1]),'hrv').then(function(j){gmgTakeHrv(j,got);});});})
+    .then(function(){return gmSeq(chunks,function(c){return soft(call('/usersummary-service/v2/dailysummaries',{startDate:c[0],endDate:c[1]}),'rhr').then(function(j){gmgTakeDaily(j,got);});});})
+    .then(function(){
+      /* the 8 weeks read again replace what was there; sleep, HRV and resting heart rate only where every call answered */
+      var keep={};
+      Object.keys(GM.data.acts).forEach(function(k){var a=GM.data.acts[k];if(a.date>=start){keep[k]=a;delete GM.data.acts[k];}});
+      acts.forEach(function(x){var o=gmgAct(x,keep);if(o)GM.data.acts[o.id]=o;});
+      ['sleep','hrv','rhr'].forEach(function(k){
+        if(!fail[k])Object.keys(GM.data[k]).forEach(function(d){if(d>=start)delete GM.data[k][d];});
+        Object.keys(got[k]).forEach(function(d){GM.data[k][d]=got[k][d];});
+      });
+      /* the effort rating of a strength session, when the list does not carry it: from the session's own page, again
+         for the last 3 days, since a rating added in the Garmin Connect app after the session shows there */
+      var c3=ymd(addDays(new Date(),-2));
+      var need=Object.keys(GM.data.acts).map(function(k){return GM.data.acts[k];}).filter(function(a){return a.cat==='strength'&&a.rpe==null&&!gmIsIcuId(a.id)&&(a.date>=c3||!a.rchk);}).slice(0,8);
+      return gmSeq(need,function(a){return soft(call('/activity-service/activity/'+encodeURIComponent(a.id)),'act').then(function(j){a.rchk=Date.now();if(j){var r=gmgRpeOf(j);if(r!=null)a.rpe=r;}});});
+    })
+    .then(function(){
+      /* the bounds of the heart-rate zones, for the shading of the PDF's heart-rate charts */
+      return soft(call('/biometric-service/heartRateZones'),'zones').then(function(j){var z=j?gmgZones(j):null;if(z)Object.keys(GM.data.acts).forEach(function(k){var a=GM.data.acts[k];if(!gmIsIcuId(a.id))a.hrz=z;});});
+    })
+    .then(function(){
+      gmRemap(before);
+      var cut=ymd(addDays(new Date(),-120));
+      ['acts','sleep','hrv','rhr'].forEach(function(k){var o=GM.data[k];Object.keys(o).forEach(function(x){var d=k==='acts'?o[x].date:x;if(d<cut)delete o[x];});});
+      GM.data.synced=Date.now();GM.data.lastDay=today;
+      rep.counts=gmCounts();if(GM.report&&GM.report.export)rep.export=GM.report.export;GM.report=rep;GM.busy=false;
+      return gmStore().then(function(){if(manual)toast('Synced from Garmin Connect',2000);recAuto();nvAfterSync();});
+    },function(e){
+      GM.busy=false;GM.err=gmErrText(e);rep.error=e.gm+(e.detail?' '+e.detail:'');if(GM.report&&GM.report.export)rep.export=GM.report.export;GM.report=rep;gmStore();
+      if(manual)toast(GM.err,6000);
+    }).then(function(){if(UI.tab==='garmin'||UI.tab==='settings'||UI.tab==='prs')requestRender();});
+}
+function gmgTest(){
+  if(gmWifi()===false){toast('Connect to Wi-Fi first: the app syncs only on Wi-Fi',3500);return;}
+  GM.test='Testing...';render();
+  var t=new Date(),q={startDate:ymd(addDays(t,-6)),endDate:ymd(t)},out={sleep:{},hrv:{},rhr:{}};
+  gmgToken(true).then(function(){return gmgCall('/activitylist-service/activities/search/activities',{start:0,limit:100,startDate:q.startDate,endDate:q.endDate});})
+    .then(function(a){
+      var n=(Array.isArray(a)?a:(a&&(a.activityList||a.activities))||[]).length;
+      return gmgCall('/sleep-service/sleep/dailySleepSummariesByDate',q).then(function(j){gmgTakeSleep(j,out);},function(){}).then(function(){return n;});
+    })
+    .then(function(n){GM.test='Connected: Garmin Connect answered. Last 7 days: '+n+(n===1?' activity':' activities')+', sleep on '+Object.keys(out.sleep).length+' of 7 nights.';GM.err=null;},
+      function(e){GM.test=null;GM.err=gmgErrText(e);}).then(function(){render();});
+}
+
+/* ---------- the PDF export's reads from Garmin: curves, laps, sets ---------- */
+function gmgPath(kind,id){id=encodeURIComponent(id);return kind==='streams'?'/activity-service/activity/'+id+'/details':kind==='ints'?'/activity-service/activity/'+id+'/splits':'/download-service/files/activity/'+id;}
+function gmgExport(kind,a){
+  var id=encodeURIComponent(a.id);
+  if(kind==='streams')return gmgCall('/activity-service/activity/'+id+'/details',{maxChartSize:4000,maxPolylineSize:0}).then(gmgStreams);
+  if(kind==='ints')return gmgCall('/activity-service/activity/'+id+'/splits').then(gmgLaps);
+  /* the strength sets: the original file first, else Garmin's own list of the sets */
+  return gmgCall('/download-service/files/activity/'+id,null,'arraybuffer').then(function(b){if(!b||!b.byteLength)throw gmErr('http','empty file');return b;}).catch(function(e){
+    if(e.gm==='key'||e.gm==='net'||e.gm==='nokey')throw e;
+    return gmgCall('/activity-service/activity/'+id+'/exerciseSets').then(function(j){var f=gmgSetsFit(j);if(!f)throw e;f.why=e.gm+(e.detail?' '+e.detail:'');return {cflFit:f};},function(){throw e;});
+  });
+}
+/* the activity's details: one column per measure, as the curves of intervals.icu's streams */
+var GMG_MET={sumDuration:'time',directHeartRate:'heartrate',directSpeed:'velocity_smooth',directRunCadence:'cadence',directBikeCadence:'cadence',
+  directElevation:'altitude',sumDistance:'distance',directPower:'watts',directAirTemperature:'temp',directRespirationRate:'respiration'};
+function gmgStreams(j){
+  var ds=j&&(j.metricDescriptors||j.metricsDescriptors),rows=j&&(j.activityDetailMetrics||j.detailMetrics);
+  if(!Array.isArray(ds)||!Array.isArray(rows))return [];
+  var idx={};ds.forEach(function(d){if(d&&d.key!=null&&d.metricsIndex!=null)idx[d.key]=+d.metricsIndex;});
+  var col=function(k){var i=idx[k];if(i==null)return null;return rows.map(function(r){var m=r&&r.metrics,v=m?m[i]:null;return v==null||isNaN(+v)?null:+v;});};
+  var out=[],have={},t=col('sumDuration')||col('sumElapsedDuration');
+  if(!t){var ts=col('directTimestamp');if(ts){var t0=null;ts.forEach(function(v){if(t0==null&&v!=null)t0=v;});t=ts.map(function(v){return v==null||t0==null?null:(v-t0)/1000;});}}
+  if(t){out.push({type:'time',data:t});have.time=1;}
+  Object.keys(GMG_MET).forEach(function(k){var nm=GMG_MET[k];if(have[nm])return;var c=col(k);if(c&&c.some(function(v){return v!=null;})){out.push({type:nm,data:c});have[nm]=1;}});
+  return out;
+}
+/* the laps (splits), as intervals.icu's intervals: start, time, distance, speed, heart rate, cadence */
+function gmgLaps(j){
+  var l=j&&(Array.isArray(j)?j:(j.lapDTOs||j.laps||j.splits));if(!Array.isArray(l))return [];
+  var t=0;
+  return l.filter(function(x){return x&&typeof x==='object';}).map(function(x,i){
+    var dur=+(x.duration||x.elapsedDuration||0),o={start_time:t,elapsed_time:dur,moving_time:+(x.movingDuration||dur)||dur,distance:+(x.distance||0),
+      average_speed:+(x.averageSpeed||0)||null,average_heartrate:+(x.averageHR||0)||null,max_heartrate:+(x.maxHR||0)||null,
+      average_cadence:+(x.averageRunCadence||x.averageBikeCadence||0)||null,type:x.intensityType||'Lap '+(i+1)};
+    t+=dur;return o;
+  });
+}
+/* Garmin's list of the sets (when the original file cannot be read): exercise, reps, weight (grams), time */
+function gmgSetsFit(j){
+  var l=j&&(Array.isArray(j)?j:j.exerciseSets);if(!Array.isArray(l)||!l.length)return null;
+  var fit={recs:[],sets:[],steps:{},titles:[],counts:{exerciseSets:l.length},err:null,gc:true};
+  l.forEach(function(s,i){
+    if(!s||typeof s!=='object')return;
+    var ex=(Array.isArray(s.exercises)&&s.exercises[0])||{},nm=String(ex.name||ex.category||'');
+    var st=s.startTime?Date.parse(String(s.startTime).replace(' ','T')+(/(Z|[+-]\d\d:?\d\d)$/.test(String(s.startTime))?'':'Z')):NaN;
+    var w=s.weight!=null&&+s.weight>0?+s.weight:null;
+    fit.steps['g'+i]={name:nm?gmxNice(nm):''};
+    fit.sets.push({ts:null,start:isFinite(st)?st/1000:null,dur:s.duration!=null?+s.duration:null,reps:s.repetitionCount!=null?+s.repetitionCount:null,
+      kg:w==null?null:w>500?w/1000:w,type:/rest/i.test(String(s.setType||''))?0:1,cat:null,sub:null,step:'g'+i,idx:i});
+  });
+  return fit.sets.length?fit:null;
+}
+
+/* ---------- Settings: the source, and Garmin's key ---------- */
+function gmSrcHtml(){
+  if(!NV.on)return '';
+  var s=gmSrc();
+  return '<div class="seg" role="group" aria-label="Watch data from"><button data-act="gm-src" data-v="icu" aria-pressed="'+(s==='icu')+'">intervals.icu</button><button data-act="gm-src" data-v="garmin" aria-pressed="'+(s==='garmin')+'">Garmin Connect</button></div>'+
+    '<p class="hint">'+(s==='icu'?'Watch data through intervals.icu. Garmin Connect reads it straight from Garmin with a personal API key, without intervals.icu.':'Watch data straight from Garmin Connect, without intervals.icu.')+
+    ' A switch keeps the treadmill switches and the records; the last 8 weeks sync again from the new source.</p>';
+}
+function gmSettingsHtml(){
+  if(gmSrc()==='garmin')return gmgSettingsHtml();
+  return gmIcuSettingsHtml().replace('<h3>Garmin</h3>','<h3>Garmin</h3>'+gmSrcHtml());
+}
+function gmgSettingsHtml(){
+  if(!GM.data)gmLoad();
+  var key=gmKey(),w=gmWifi(),until=lsGet(GMG_LS.until),h='<section class="card"><h3>Garmin</h3>'+gmSrcHtml();
+  if(!key){
+    h+='<p class="hint">On the Garmin Connect website, Settings, Personal API Key: make a key, choose how long it lasts and paste it here. With it the app reads your runs, strength sessions with their effort rating, sleep, HRV and resting heart rate, and for the PDF the curves, laps and sets. The key stays on this phone; it is not in the backup file.</p>'+
+      '<div class="row"><a class="btn small" href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank" rel="noopener">Open the key page</a></div>'+
+      '<label class="fld" for="gm-key"><span>Garmin personal API key</span><input class="txt" type="password" id="gm-key" autocomplete="off" spellcheck="false"></label>'+
+      '<label class="fld" for="gm-valid"><span>Valid for</span><select class="txt" id="gm-valid" data-k="gmvalid">'+[['30','30 days'],['90','90 days'],['180','180 days'],['365','1 year']].map(function(x){return '<option value="'+x[0]+'"'+(UI.gmValid===x[0]?' selected':'')+'>'+x[1]+'</option>';}).join('')+'</select></label>'+
+      '<div class="row"><button class="btn primary" data-act="gm-key-save">Save key</button></div>';
+    return h+'</section>';
+  }
+  var left=until?Math.round((parseYmd(until)-parseYmd(todayY()))/86400000):null;
+  h+='<div class="kv"><span>Key</span><b>'+(until?(left<0?'Expired '+esc(fmtDate(parseYmd(until))):'Valid until '+esc(fmtDate(parseYmd(until)))+' ('+left+(left===1?' day':' days')+')'):'Saved on this phone')+'</b></div>';
+  if(left!=null&&left<=14)h+='<p class="err">'+(left<0?'The key has expired':'The key runs out soon')+': make a new one on the Garmin Connect website and paste it here (Remove key first).</p>';
+  h+='<div class="kv"><span>Connection</span><b>'+(w===true?'Wi-Fi':w===false?'Not Wi-Fi: syncing waits':'Unknown here: only Sync now')+'</b></div>';
+  if(GM.data&&GM.data.synced)h+='<div class="kv"><span>Last sync</span><b>'+esc(fmtDate(new Date(GM.data.synced))+', '+gmAgo(GM.data.synced))+'</b></div>';
+  if(GM.report&&GM.report.counts){var c=GM.report.counts;h+='<div class="kv"><span>From '+esc(GM.report.source||'Garmin')+'</span><b>'+c.activities+' activities ('+c.rated+' rated), '+c.sleep+' nights, '+c.hrv+' HRV, '+c.rhr+' resting HR</b></div>';}
+  if(GM.err)h+='<p class="err">'+esc(GM.err)+'</p>';
+  if(GM.test)h+='<p class="hint">'+esc(GM.test)+'</p>';
+  h+='<div class="row"><button class="btn" data-act="gm-sync"'+(GM.busy||w===false?' disabled':'')+'>Sync now</button><button class="btn" data-act="gm-test"'+(GM.busy||w===false?' disabled':'')+'>Test connection</button></div>'+
+    (UI.gmForget?'<div class="confirm"><span>Remove the Garmin key from this phone? The synced data stays; syncing stops until a key is added again.</span><div class="row"><button class="btn danger" data-act="gm-forget-yes">Remove</button><button class="btn ghost" data-act="gm-forget-no">Cancel</button></div></div>':
+      '<div class="row between"><button class="btn small" data-act="gm-report">Save sync report</button><button class="btn small ghost danger" data-act="gm-forget">Remove key</button></div>')+
+    '<p class="hint">The sync report holds Garmin\'s answers to the last sync and to the last PDF export, cut short, without the key: send it to the developer when something in the Garmin tab looks wrong. If the key was ever seen by someone else, delete it on the Garmin Connect website and make a new one.</p>';
+  return h+'</section>';
+}
+ACT['gm-src']=function(b){
+  var v=b.getAttribute('data-v')==='garmin'?'garmin':'icu';if(!NV.on||v===gmSrc()||GM.busy)return;
+  lsSet(GMG_LS.src,v==='garmin'?'garmin':null);GM.err=null;GM.test=null;UI.gmForget=false;
+  toast(v==='garmin'?'Watch data now from Garmin Connect':'Watch data now from intervals.icu',2500);render();nvRunnerCfg();
+  if(gmKey()&&gmWifi()===true)gmSync(false);
+};
+var gmIcuKeySave=ACT['gm-key-save'],gmIcuTest=ACT['gm-test'],gmIcuForget=ACT['gm-forget-yes'];
+ACT['gm-key-save']=function(){
+  if(gmSrc()!=='garmin'){gmIcuKeySave();nvRunnerCfg();return;}
+  var el=document.getElementById('gm-key'),k=el?el.value.replace(/\s+/g,''):'';
+  if(k.length<10||/[^\x21-\x7e]/.test(k)){toast('Paste the key from the Garmin Connect website (Settings, Personal API Key)',3500);return;}
+  lsSet(GMG_LS.key,k);lsSet(GMG_LS.tok,null);lsSet(GMG_LS.until,ymd(addDays(new Date(),+UI.gmValid||365)));
+  GM.err=null;GM.test=null;toast('Garmin key saved on this phone',2500);render();nvRunnerCfg();
+  if(gmWifi()===true)gmSync(false);
+};
+ACT['gm-test']=function(){if(gmSrc()==='garmin')gmgTest();else gmIcuTest();};
+ACT['gm-forget-yes']=function(){
+  if(gmSrc()!=='garmin'){gmIcuForget();nvRunnerCfg();return;}
+  UI.gmForget=false;lsSet(GMG_LS.key,null);lsSet(GMG_LS.tok,null);lsSet(GMG_LS.until,null);GM.test=null;GM.err=null;toast('Garmin key removed from this phone');render();nvRunnerCfg();
+};
+INPUT.gmvalid=function(t){UI.gmValid=t.value;};
+
+/* ---------- Notifications and background checks (2.0.0, in the Android app) ----------
+   Casian (23-Nov-26): the weekly body photos reminder (Sunday at 10:00; until now a repeating task in Google Calendar),
+   a weigh-in reminder, and three checks of the watch's data: a short night before a morning run, a new longest run, and
+   a strength session without an effort rating. The reminders are local notifications at exact times (Capacitor's Local
+   Notifications add-on), planned 14 days ahead (8 weeks for the photos) and planned again whenever the app opens or
+   something changes; one is dropped once its job is done (that week's photos taken, that day's weight logged). The
+   checks run in Capacitor's Background Runner: a small script (runners/checks.js) that Android starts about every 30
+   minutes, even with the app closed. It reads the latest data on Wi-Fi only and sends each notice once. The app hands it
+   what it needs: the source and its key (kept in the app's private storage on this phone, never in the backup file),
+   the run days of the plan, the longest run in Records, the choices made here and the phone's time offset. The choices
+   are kept in app/settings (notif), so they are in the backup. */
+var NV_DEF={photos:true,pday:'sun',ptime:'10:00',weigh:true,wtime:'07:30',wdays:DAYS.slice(),night:true,record:true,rpe:true};
+function nvPrefs(){
+  var s=(S.settings&&S.settings.notif)||{},o={};
+  Object.keys(NV_DEF).forEach(function(k){o[k]=s[k]!=null?s[k]:NV_DEF[k];});
+  if(DAYS.indexOf(o.pday)<0)o.pday='sun';
+  if(!/^\d{2}:\d{2}$/.test(o.ptime))o.ptime=NV_DEF.ptime;
+  if(!/^\d{2}:\d{2}$/.test(o.wtime))o.wtime=NV_DEF.wtime;
+  if(!Array.isArray(o.wdays))o.wdays=DAYS.slice();
+  return o;
+}
+function nvSet(k,v){
+  if(!S.settings)return;
+  var n=S.settings.notif=S.settings.notif||{};n[k]=v;save('app/settings',S.settings,0);nvPlanSoon();nvRunnerCfg();
+}
+function nvDayNo(d){return Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(2020,0,1))/864e5);}
+function nvAt(d,hm){var p=String(hm||'').split(':');return new Date(d.getFullYear(),d.getMonth(),d.getDate(),+p[0]||0,+p[1]||0,0,0);}
+function nvWeekDone(wk){return !!(PH.list&&PH_POSES.every(function(p){return phOf(wk,p.id).length>0;}));}
+function nvWeighed(d){return wtList().some(function(x){return x.d===d;});}
+function nvHm(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
+function nvWhen(iso){var d=new Date(iso);return isFinite(d)?fmtDate(d)+' at '+nvHm(d):'';}
+/* the reminders wanted from now on; ids by kind and day, so the same reminder keeps its id */
+function nvWant(){
+  var n=nvPrefs(),out=[],now=new Date();
+  if(!S.settings)return out;
+  if(n.photos){
+    var di=DAYS.indexOf(n.pday),m0=mondayOf(now);
+    for(var w=0;w<8;w++){
+      var d=addDays(m0,w*7+di),at=nvAt(d,n.ptime);
+      if(at<=now||nvWeekDone(ymd(mondayOf(d))))continue;
+      out.push({id:2000000+nvDayNo(d),at:at,title:'Body photos',body:'This week\'s progress photos: '+PH_POSES.length+' poses, same spot, light and time of day as before.',extra:{tab:'body',view:'photos'}});
+    }
+  }
+  if(n.weigh&&n.wdays.length){
+    for(var i=0;i<14;i++){
+      var d2=addDays(now,i),at2=nvAt(d2,n.wtime);
+      if(n.wdays.indexOf(dayKeyOf(d2))<0||at2<=now||nvWeighed(ymd(d2)))continue;
+      out.push({id:1000000+nvDayNo(d2),at:at2,title:'Weigh-in',body:'Morning weigh-in: after the toilet, before eating or drinking, on the same scale.',extra:{tab:'body',view:'weight'}});
+    }
+  }
+  return out.sort(function(a,b){return a.at-b.at;});
+}
+function nvNote(x){return {id:x.id,title:x.title,body:x.body,schedule:{at:x.at,allowWhileIdle:true},channelId:'reminders',smallIcon:NV_ICON,iconColor:NV_COLOR,autoCancel:true,extra:x.extra};}
+function nvRec(){try{return JSON.parse(lsGet('cfl-nv-rec')||'{}')||{};}catch(e){return {};}}
+function nvPlan(){
+  clearTimeout(NV.planT);
+  if(!NV.on||!nvHas('LocalNotifications')||!S.settings)return Promise.resolve();
+  if(PH.list===null&&!PH.loading)phLoad();
+  var want=nvWant(),rec=nvRec(),ids={},done=[],now=new Date(),n=nvPrefs();
+  want.forEach(function(x){ids[x.id]=x;});
+  /* a reminder whose job is done goes, even from the notification shade */
+  var tw=2000000+nvDayNo(addDays(mondayOf(now),DAYS.indexOf(n.pday)));
+  if(nvWeekDone(ymd(mondayOf(now)))&&!NV.done[tw])done.push(tw);
+  var td=1000000+nvDayNo(now);if(nvWeighed(ymd(now))&&!NV.done[td])done.push(td);
+  return nvCall('LocalNotifications','getPending').then(function(r){
+    var pend={},cancel=done.slice(),sched=[];
+    ((r&&r.notifications)||[]).forEach(function(x){pend[+x.id]=1;});
+    Object.keys(pend).forEach(function(k){k=+k;if(k>=1000000&&k<3000000&&!ids[k]&&cancel.indexOf(k)<0)cancel.push(k);});
+    want.forEach(function(x){var sig=x.at.getTime()+'|'+x.body;if(!pend[x.id]||rec[x.id]!==sig){sched.push(x);rec[x.id]=sig;}});
+    Object.keys(rec).forEach(function(k){if(!ids[k])delete rec[k];});
+    lsSet('cfl-nv-rec',JSON.stringify(rec));
+    var p=cancel.length?nvCall('LocalNotifications','cancel',{notifications:cancel.map(function(k){return {id:k};})}):Promise.resolve();
+    return p.then(function(){done.forEach(function(k){NV.done[k]=1;});if(sched.length)return nvCall('LocalNotifications','schedule',{notifications:sched.map(nvNote)});});
+  }).then(function(){if(NV.err){NV.err=null;if(UI.tab==='settings')requestRender();}},function(e){NV.err='The reminders could not be set ('+nvMsg(e)+').';if(UI.tab==='settings')requestRender();});
+}
+function nvPlanSoon(){if(!NV.on)return;clearTimeout(NV.planT);NV.planT=setTimeout(nvPlan,1200);}
+function nvChannels(){
+  if(!nvHas('LocalNotifications'))return Promise.resolve();
+  var mk=function(o){return nvCall('LocalNotifications','createChannel',o).catch(function(){});};
+  return mk({id:'reminders',name:'Reminders',description:'Body photos and weigh-in',importance:4,visibility:1,vibration:true}).then(function(){
+    return mk({id:'checks',name:'Training checks',description:'Short night before a run, new longest run, strength session without a rating',importance:4,visibility:1,vibration:true});
+  });
+}
+function nvPerm(){
+  if(!nvHas('LocalNotifications'))return Promise.resolve();
+  return nvCall('LocalNotifications','checkPermissions').then(function(r){NV.perm=(r&&r.display)||null;},function(){}).then(function(){
+    return nvCall('LocalNotifications','checkExactNotificationSetting').then(function(r){NV.exact=(r&&r.exact_alarm)||null;},function(){NV.exact=null;});
+  }).then(function(){
+    /* Android 13 and later ask once; Android 10 allows notifications from the start */
+    if(/^prompt/.test(NV.perm||'')&&lsGet('cfl-nv-asked')!=='1'){lsSet('cfl-nv-asked','1');return nvCall('LocalNotifications','requestPermissions').then(function(r){NV.perm=(r&&r.display)||NV.perm;},function(){});}
+  }).then(function(){if(UI.tab==='settings')requestRender();});
+}
+
+/* ---------- the background checks' settings, handed to the runner ---------- */
+function nvRunDays(){var o=[];DAYS.forEach(function(k,i){if(gmPlanned(k).indexOf('run')>-1)o.push((i+1)%7);});return o;}
+function nvBest(){var id=recFind('run'),pr=id?S.prs[id]:null,b=pr?prBest(pr):null;return b?r2(prVal(pr,b)):0;}
+function nvRunnerCfg(force){
+  if(!NV.on||!nvHas('BackgroundRunner'))return;
+  clearTimeout(NV.cfgT);
+  NV.cfgT=setTimeout(function(){
+    if(!S.settings||!ready('prs'))return;
+    var n=nvPrefs(),src=gmSrc(),key=gmKey();
+    var cfg={v:1,on:!!(key&&(n.night||n.record||n.rpe)),src:src,key:key,base:src==='garmin'?gmgBase():gmBase(),tz:-new Date().getTimezoneOffset(),
+      runDays:nvRunDays(),night:!!n.night,record:!!n.record,rpe:!!n.rpe,best:nvBest(),from:REC_AUTO_FROM,minKm:REC_AUTO_KM,app:APP_VERSION};
+    var sig=JSON.stringify(cfg);if(!force&&sig===NV.cfgSig)return;NV.cfgSig=sig;
+    nvCall('BackgroundRunner','dispatchEvent',{label:NV_RUNNER,event:'config',details:cfg}).catch(function(){});
+  },force?50:600);
+}
+function nvAfterSync(){nvRunnerCfg();}
+/* the runner's own note of its last check (it may not answer while the app is open; then the line stays as it was) */
+function nvStatus(){
+  if(!NV.on||!nvHas('BackgroundRunner'))return;
+  nvCall('BackgroundRunner','dispatchEvent',{label:NV_RUNNER,event:'status',details:{}}).then(function(r){
+    var l=r&&(r.log||(r.value&&r.value.log)||null);if(typeof l==='string'){try{l=JSON.parse(l);}catch(e){l=null;}}
+    if(l&&l.at){NV.status=l;if(UI.tab==='settings')requestRender();}
+  },function(){});
+}
+
+/* ---------- a tap on a notification opens its place in the app ---------- */
+function nvGo(tab,view){
+  if(tab==='body'){UI.tab=UI.prevTab='body';UI.bodyView=view==='weight'?'weight':'photos';if(UI.bodyView==='photos')UI.phMode='week';}
+  else if(tab==='prs'||tab==='garmin'||tab==='train')UI.tab=UI.prevTab=tab;
+  else return;
+  try{localStorage.setItem('cfl-tab',UI.tab);}catch(e){}
+  UI.gmx=null;render();window.scrollTo(0,0);
+}
+function nvTap(d){var n=d&&d.notification,x=n&&n.extra;if(x&&x.tab)nvGo(x.tab,x.view);}
+function nvTapRunner(d){
+  var id=+(d&&(d.notificationId!=null?d.notificationId:d.id));if(!id)return;
+  if(id>=3200000&&id<3300000){nvGo('prs');setTimeout(function(){gmSync(false);},600);}
+  else if(id>=3100000&&id<3400000)nvGo('garmin');
+}
+
+/* ---------- Settings: the Notifications card ---------- */
+function nvSub(f,n){return f==='photos'?'Every '+DAY_LONG[n.pday]+' at '+n.ptime+'; none once that week\'s '+PH_POSES.length+' poses are taken':'At '+n.wtime+' on the days picked; none once that day\'s weight is logged';}
+function nvCheck(f,on,label,sub){return '<label class="check gmx-check" for="nv-'+f+'"><input type="checkbox" id="nv-'+f+'" data-k="nv" data-f="'+f+'"'+(on?' checked':'')+'><span><b>'+esc(label)+'</b><small>'+esc(sub)+'</small></span></label>';}
+function nvSettingsHtml(){
+  if(!NV.on)return '';
+  var h='<section class="card"><h3>Notifications</h3>';
+  if(!S.settings)return h+'<p class="hint">Load your backup, or start empty, first.</p></section>';
+  if(!nvHas('LocalNotifications'))return h+'<p class="hint">This build of the app has no notifications add-on.</p></section>';
+  var n=nvPrefs(),bg=nvHas('BackgroundRunner');
+  if(NV.perm&&NV.perm!=='granted')h+='<div class="notice"><p class="hint">Notifications are off for this app, so none of these can show.</p><div class="row"><button class="btn small primary" data-act="nv-allow">Allow notifications</button></div></div>';
+  if(NV.exact==='denied')h+='<p class="hint">Android may bring the reminders a few minutes late until exact alarms are allowed for the app.</p><div class="row"><button class="btn small" data-act="nv-exact">Allow exact times</button></div>';
+  h+='<div class="gmx-list">'+nvCheck('photos',n.photos,'Body photos',nvSub('photos',n));
+  if(n.photos)h+='<div class="grid2"><label class="fld" for="nv-pday"><span>Day</span><select class="txt" id="nv-pday" data-k="nv" data-f="pday">'+DAYS.map(function(k){return '<option value="'+k+'"'+(k===n.pday?' selected':'')+'>'+DAY_LONG[k]+'</option>';}).join('')+'</select></label>'+
+    '<label class="fld" for="nv-ptime"><span>Time</span><input class="txt" type="time" id="nv-ptime" data-k="nv" data-f="ptime" value="'+esc(n.ptime)+'"></label></div>';
+  h+=nvCheck('weigh',n.weigh,'Weigh-in',nvSub('weigh',n));
+  if(n.weigh)h+='<label class="fld" for="nv-wtime"><span>Time</span><input class="txt" type="time" id="nv-wtime" data-k="nv" data-f="wtime" value="'+esc(n.wtime)+'"></label>'+
+    '<div class="ph-chips nv-days" role="group" aria-label="Weigh-in days">'+DAYS.map(function(k){return '<button class="ph-chip" data-act="nv-wday" data-day="'+k+'" aria-pressed="'+(n.wdays.indexOf(k)>-1)+'">'+DAY_SHORT[k]+'</button>';}).join('')+'</div>';
+  h+='</div><h4>Checks of the watch\'s data</h4>';
+  if(!bg)h+='<p class="hint">Not in this build of the app (it was built without the background add-on).</p>';
+  else{
+    h+='<p class="hint">About every 30 minutes, on Wi-Fi only and with the app closed, the phone looks at your latest data in '+esc(gmSrcName())+'. Each notice comes once.'+(gmKey()?'':' They start once the '+esc(gmSrcName())+' key is in the Garmin card below.')+'</p>';
+    h+='<div class="gmx-list">'+nvCheck('night',n.night,'Short night before a run','By 11:00 on the days with a run in your plan, when last night was under 8 hours')+
+      nvCheck('record',n.record,'New longest run','A run longer than the record in Records')+
+      nvCheck('rpe',n.rpe,'Strength session without an effort rating','Soon after the session, while the rating can still be added')+'</div>';
+    var st=NV.status;
+    h+='<div class="kv"><span>Last check</span><b>'+(st&&st.at?esc(nvWhen(st.at)):'None seen yet')+'</b></div>'+(st&&st.at&&st.res?'<p class="hint">'+esc(st.res.charAt(0).toUpperCase()+st.res.slice(1))+'.</p>':'');
+  }
+  var nx=nvWant().slice(0,2);
+  if(nx.length)h+='<div class="kv"><span>Next</span><b>'+nx.map(function(x){return esc(x.title+', '+DAY_SHORT[dayKeyOf(x.at)]+' '+fmtDM(x.at)+' at '+nvHm(x.at));}).join('<br>')+'</b></div>';
+  if(NV.err)h+='<p class="err">'+esc(NV.err)+'</p>';
+  h+='<div class="row"><button class="btn small" data-act="nv-test">Send a test</button>'+(bg?'<button class="btn small" data-act="nv-check">Check now</button>':'')+'</div>';
+  if(bg)h+='<p class="hint">If the checks never come, let the app work in the background: Android settings, Apps, Fitness Log, Battery, no restrictions.</p>';
+  return h+'</section>';
+}
+INPUT.nv=function(t){
+  var f=t.getAttribute('data-f');
+  if(f==='photos'||f==='weigh'||f==='night'||f==='record'||f==='rpe'){var v=!!t.checked;if(nvPrefs()[f]!==v){nvSet(f,v);render();}return;}
+  if(f==='pday'){if(DAYS.indexOf(t.value)>-1&&nvPrefs().pday!==t.value){nvSet('pday',t.value);render();}return;}
+  if(f==='ptime'||f==='wtime'){
+    if(/^\d{2}:\d{2}$/.test(t.value)&&nvPrefs()[f]!==t.value)nvSet(f,t.value);
+    /* the line under the switch follows the time, without a new render while the time is being picked */
+    var k=f==='ptime'?'photos':'weigh',el=document.querySelector('label[for="nv-'+k+'"] small');if(el)el.textContent=nvSub(k,nvPrefs());
+  }
+};
+ACT['nv-wday']=function(b){
+  var k=b.getAttribute('data-day'),l=nvPrefs().wdays.slice(),i=l.indexOf(k);if(DAYS.indexOf(k)<0)return;
+  if(i>-1)l.splice(i,1);else l.push(k);
+  nvSet('wdays',DAYS.filter(function(x){return l.indexOf(x)>-1;}));render();
+};
+ACT['nv-allow']=function(){
+  nvCall('LocalNotifications','requestPermissions').then(function(r){NV.perm=(r&&r.display)||NV.perm;nvPlan();render();},function(e){toast('Android did not ask ('+nvMsg(e)+'): turn notifications on in Android settings, Apps, Fitness Log.',5000);});
+};
+ACT['nv-exact']=function(){nvCall('LocalNotifications','changeExactNotificationSetting').then(function(r){NV.exact=(r&&r.exact_alarm)||NV.exact;render();},function(){});};
+ACT['nv-test']=function(){
+  nvCall('LocalNotifications','schedule',{notifications:[{id:999001,title:'Fitness Log',body:'Notifications work: the reminders and checks look like this.',schedule:{at:new Date(Date.now()+3000),allowWhileIdle:true},channelId:'reminders',smallIcon:NV_ICON,iconColor:NV_COLOR,autoCancel:true}]})
+    .then(function(){toast('A test notification comes in a few seconds',2500);},function(e){toast('The test could not be sent ('+nvMsg(e)+')',4000);});
+};
+ACT['nv-check']=function(){
+  nvRunnerCfg(true);
+  setTimeout(function(){nvCall('BackgroundRunner','dispatchEvent',{label:NV_RUNNER,event:'checkNow',details:{}}).then(nvStatus,function(){});},700);
+  setTimeout(nvStatus,15000);
+  toast('Checking now, on Wi-Fi only: anything new comes as a notification',3500);
+};
+
 /* ---------- start ---------- */
-window.CFL={parseLabel:parseLabel,gm:{sync:function(m){return gmSync(!!m);},age:function(ms){if(GM.data)GM.data.synced-=ms;},state:function(){return {busy:GM.busy,err:GM.err,counts:GM.data?gmCounts():null,synced:GM.data&&GM.data.synced,test:GM.test};}},rcPer100:function(id){return rcPer100(S.recipes[id],id);},mkSearch:function(q,g,n){return mkSearch(q,g,n).map(function(f){return f.n;});},mkReady:function(){return !!MK.data;},cookKinds:COOK_KINDS,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,PLAN_V4:PLAN_V4,version:APP_VERSION,
+/* at once, before the first screen: the network type and the taps on notifications (a tap that opened the app is held
+   for the app until it listens) */
+function nvInit(){
+  if(!NV.on||NV.started)return;NV.started=true;
+  nvNetStart();
+  nvOn('LocalNotifications','localNotificationActionPerformed',nvTap);
+  nvOn('BackgroundRunner','backgroundRunnerNotificationReceived',nvTapRunner);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden&&S.storeState!=='loading'){nvPerm();nvPlanSoon();nvRunnerCfg();setTimeout(nvStatus,1500);}});
+}
+/* once the log is loaded (and again after a backup is loaded) */
+function nvReady(){
+  if(!NV.on)return;
+  nvChannels().then(nvPerm).then(function(){return nvPlan();});
+  nvRunnerCfg(true);
+  setTimeout(nvStatus,3000);
+}
+
+/* ---------- start ---------- */
+window.CFL={nv:{state:function(){return {on:NV.on,net:NV.net,perm:NV.perm,exact:NV.exact,src:gmSrc(),err:NV.err,status:NV.status,want:nvWant().map(function(x){return {id:x.id,at:x.at.toISOString(),title:x.title};})};},plan:function(){return nvPlan();},cfg:function(){nvRunnerCfg(true);},bin:function(n,name){var u=new Uint8Array(n);for(var i=0;i<n;i++)u[i]=(i*7+3)&255;return nvSaveFile(new Blob([u]),name||'test.bin');}},parseLabel:parseLabel,gm:{sync:function(m){return gmSync(!!m);},age:function(ms){if(GM.data)GM.data.synced-=ms;},state:function(){return {busy:GM.busy,err:GM.err,counts:GM.data?gmCounts():null,synced:GM.data&&GM.data.synced,test:GM.test};}},rcPer100:function(id){return rcPer100(S.recipes[id],id);},mkSearch:function(q,g,n){return mkSearch(q,g,n).map(function(f){return f.n;});},mkReady:function(){return !!MK.data;},cookKinds:COOK_KINDS,PLAN_V2:PLAN_V2,PLAN_V3:PLAN_V3,PLAN_V4:PLAN_V4,version:APP_VERSION,
   photos:function(){return (PH.list||[]).slice().sort(phOrder).map(function(r){return {id:r.id,week:r.week,pose:r.pose,w:r.w,h:r.h,size:r.size,thumb:r.thumb?r.thumb.size:0,weekName:phWeekName(r.week)};});}};
-render();
+nvInit();render();
 openIdb().then(function(h){
   KV=h?idbKV(h):(lsWorks()?lsKV():memKV());
   return KV.all();
 }).then(function(all){
-  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();var back=pendRestore(),phBack=back?(phPendClear(),null):phPendRestore();render();requestPersist();setTimeout(gmLoad,1200);
+  S.storeState=KV.kind==='mem'?'memory':'ok';loadDocs(all);migrate();var back=pendRestore(),phBack=back?(phPendClear(),null):phPendRestore();render();requestPersist();setTimeout(gmLoad,1200);setTimeout(nvReady,1500);
   if(phBack)toast('The phone closed the app while the camera was open, so the photo did not arrive. Tap '+(PH_CAT[phBack.pose]||PH_UNORG).name+' to take it again.',7000);
   if(back)toast('The phone closed the app while the camera was open. Your ingredient is back: tap Scan label to take the photo again.',7000);
 }).catch(function(){
